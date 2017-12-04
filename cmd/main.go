@@ -63,6 +63,12 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			Value:  "localhost",
 			EnvVar: "REDIS_HOST",
 		},
+		cli.IntFlag{
+			Name:   "redis-port",
+			Usage:  "redis host port",
+			Value:  6379,
+			EnvVar: "REDIS_PORT",
+		},
 		cli.StringFlag{
 			Name:   "redis-password",
 			Usage:  "redis password",
@@ -103,7 +109,7 @@ func runServer(c *cli.Context) {
 	router := gin.Default()
 
 	//triggerController := controller.NewController(backend.NewMemoryStore())
-	triggerController := controller.NewController(backend.NewRedisStore(c.GlobalString("redis"), c.GlobalString("redis-password")))
+	triggerController := controller.NewController(backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password")))
 
 	router.Handle("GET", "/", func(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/triggers")
