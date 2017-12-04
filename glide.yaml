@@ -1,0 +1,17 @@
+package: github.com/codefresh-io/cf-triggers
+homepage: https://github.com/codefresh-io/cf-triggers
+license: Apache
+owners:
+- name: Alexei Ledenev
+  email: alexei@codefresh.io
+ignore:
+- sort
+import:
+- package: github.com/sirupsen/logrus
+  version: ^1.0.3
+- package: github.com/garyburd/redigo
+  version: ^1.3.0
+  subpackages:
+  - redis
+- package: github.com/gin-gonic/gin
+  version: ^1.2.0
