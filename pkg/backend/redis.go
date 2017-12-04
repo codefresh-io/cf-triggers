@@ -51,6 +51,7 @@ func NewRedisStore(server string, port int, password string) model.TriggerServic
 // List get list of defined triggers
 func (r *RedisStore) List() ([]model.Trigger, error) {
 	con := r.pool.Get()
+	log.Debug("Getting all triggers ...")
 	keys, err := redis.Values(con.Do("KEYS", getKey("*")))
 	if err != nil {
 		log.Error(err)
@@ -75,6 +76,7 @@ func (r *RedisStore) List() ([]model.Trigger, error) {
 // Get trigger by key
 func (r *RedisStore) Get(id string) (model.Trigger, error) {
 	con := r.pool.Get()
+	log.Debugf("Getting trigger %s ...", id)
 	pipelines, err := redis.Values(con.Do("SMEMBERS", getKey(id)))
 	if err != nil {
 		log.Error(err)
@@ -99,6 +101,7 @@ func (r *RedisStore) Get(id string) (model.Trigger, error) {
 // Add new trigger
 func (r *RedisStore) Add(trigger model.Trigger) error {
 	con := r.pool.Get()
+	log.Debugf("Adding/Updating trigger %s ...", trigger.Event)
 	for _, v := range trigger.Pipelines {
 		pipeline, err := json.Marshal(v)
 		if err != nil {
@@ -118,6 +121,7 @@ func (r *RedisStore) Add(trigger model.Trigger) error {
 // Delete trigger by id
 func (r *RedisStore) Delete(id string) error {
 	con := r.pool.Get()
+	log.Debugf("Deleting trigger %s ...", id)
 	if _, err := con.Do("DEL", getKey(id)); err != nil {
 		log.Error(err)
 		return err
