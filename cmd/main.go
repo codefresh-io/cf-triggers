@@ -55,6 +55,19 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			Description: "run trigger manager server",
 			Action:      runServer,
 		},
+		{
+			Name:  "trigger",
+			Usage: "manage triggers",
+			Subcommands: []cli.Command{
+				{
+					Name:        "get",
+					Usage:       "get triggers",
+					ArgsUsage:   "trigger id or empty (ALL)",
+					Description: "get specific trigger or all trigger",
+					Action:      getTriggers,
+				},
+			},
+		},
 	}
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -104,7 +117,7 @@ func before(c *cli.Context) error {
 	return nil
 }
 
-func runServer(c *cli.Context) {
+func runServer(c *cli.Context) error {
 	fmt.Println(version.ASCIILogo)
 	router := gin.Default()
 
@@ -120,5 +133,38 @@ func runServer(c *cli.Context) {
 	router.Handle("PUT", "/triggers/:id", triggerController.Update)
 	router.Handle("DELETE", "/triggers/:id", triggerController.Delete)
 
-	router.Run()
+	return router.Run()
+}
+
+func getTriggers(c *cli.Context) error {
+	// triggerService := backend.NewMemoryStore()
+	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"))
+	if len(c.Args()) == 0 {
+		triggers, err := triggerService.List()
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		if len(triggers) == 0 {
+			fmt.Println("No triggers defined!")
+		}
+		for _, t := range triggers {
+			fmt.Printf("%+v\n", t)
+		}
+	} else {
+		for _, id := range c.Args() {
+			trigger, err := triggerService.Get(id)
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+			if trigger.IsEmpty() {
+				fmt.Printf("Trigger '%s' not found!\n", id)
+			} else {
+				fmt.Printf("%+v\n", trigger)
+			}
+		}
+	}
+
+	return nil
 }
