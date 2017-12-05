@@ -154,9 +154,13 @@ func runServer(c *cli.Context) error {
 	fmt.Println(version.ASCIILogo)
 	router := gin.Default()
 
-	//triggerController := controller.NewController(backend.NewMemoryStore())
-	triggerController := controller.NewController(backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password")))
+	// get codefresh endpoint
+	codefreshService := codefresh.NewCodefreshEndpoint(c.String("cf"), c.String("t"))
 
+	//triggerController := controller.NewController(backend.NewMemoryStore(codefresh.PipelineService))
+	triggerController := controller.NewController(backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService))
+
+	// trigger management API
 	router.Handle("GET", "/", func(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/triggers")
 	})
@@ -165,13 +169,15 @@ func runServer(c *cli.Context) error {
 	router.Handle("POST", "/triggers", triggerController.Add)
 	router.Handle("PUT", "/triggers/:id", triggerController.Update)
 	router.Handle("DELETE", "/triggers/:id", triggerController.Delete)
+	// invoke trigger with event payload
+	router.Handle("POST", "/trigger/:id", triggerController.Run)
 
 	return router.Run()
 }
 
 func getTriggers(c *cli.Context) error {
-	// triggerService := backend.NewMemoryStore()
-	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"))
+	// triggerService := backend.NewMemoryStore(codefresh.PipelineService)
+	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
 	if len(c.Args()) == 0 {
 		triggers, err := triggerService.List(c.String("filter"))
 		if err != nil {

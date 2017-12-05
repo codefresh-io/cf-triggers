@@ -2,10 +2,12 @@ package backend
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/codefresh-io/cf-triggers/pkg/codefresh"
 	"github.com/codefresh-io/cf-triggers/pkg/model"
 	"github.com/garyburd/redigo/redis"
 	log "github.com/sirupsen/logrus"
@@ -13,7 +15,8 @@ import (
 
 // RedisStore in memory trigger map store
 type RedisStore struct {
-	pool *redis.Pool
+	pool        *redis.Pool
+	pipelineSvc codefresh.PipelineService
 }
 
 func newPool(server string, port int, password string) *redis.Pool {
@@ -44,8 +47,8 @@ func getKey(id string) string {
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
-func NewRedisStore(server string, port int, password string) model.TriggerService {
-	return &RedisStore{newPool(server, port, password)}
+func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService) model.TriggerService {
+	return &RedisStore{newPool(server, port, password), pipelineSvc}
 }
 
 // List get list of defined triggers
@@ -136,4 +139,34 @@ func (r *RedisStore) Delete(id string) error {
 // Update trigger
 func (r *RedisStore) Update(t model.Trigger) error {
 	return r.Add(t)
+}
+
+// Run trigger pipelines
+func (r *RedisStore) Run(id string, vars map[string]string) error {
+	trigger, err := r.Get(id)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	for _, p := range trigger.Pipelines {
+		err = r.pipelineSvc.RunPipeline(p.Name, p.RepoOwner, p.RepoName, vars)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+	}
+	return nil
+}
+
+// CheckSecret check trigger secret
+func (r *RedisStore) CheckSecret(id string, secret string) error {
+	trigger, err := r.Get(id)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	if trigger.Secret != secret {
+		return errors.New("invalid secret")
+	}
+	return nil
 }

@@ -1,18 +1,24 @@
 package backend
 
 import (
+	"errors"
+
+	"github.com/codefresh-io/cf-triggers/pkg/codefresh"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/codefresh-io/cf-triggers/pkg/model"
 )
 
 // MemoryStore in memory trigger map store
 type MemoryStore struct {
-	triggers map[string]model.Trigger
+	triggers    map[string]model.Trigger
+	pipelineSvc codefresh.PipelineService
 }
 
 // NewMemoryStore create new in memory trigger map store (for testing)
-func NewMemoryStore() model.TriggerService {
+func NewMemoryStore(pipelineSvc codefresh.PipelineService) model.TriggerService {
 	s := make(map[string]model.Trigger)
-	return &MemoryStore{s}
+	return &MemoryStore{s, pipelineSvc}
 }
 
 // List list all triggers
@@ -47,5 +53,30 @@ func (m *MemoryStore) Delete(id string) error {
 // Update trigger
 func (m *MemoryStore) Update(t model.Trigger) error {
 	m.triggers[t.Event] = t
+	return nil
+}
+
+// Run trigger pipelines
+func (m *MemoryStore) Run(id string, vars map[string]string) error {
+	if trigger, ok := m.triggers[id]; ok {
+		for _, p := range trigger.Pipelines {
+			err := m.pipelineSvc.RunPipeline(p.Name, p.RepoOwner, p.RepoName, vars)
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+		}
+		return nil
+	}
+	return nil
+}
+
+// CheckSecret check trigger secret
+func (m *MemoryStore) CheckSecret(id string, secret string) error {
+	if trigger, ok := m.triggers[id]; ok {
+		if trigger.Secret != secret {
+			return errors.New("invalid secret")
+		}
+	}
 	return nil
 }

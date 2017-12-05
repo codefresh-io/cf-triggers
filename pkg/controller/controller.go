@@ -8,6 +8,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Event binding from JSON
+type Event struct {
+	Secret    string            `form:"secret" json:"secret" binding:"required"`
+	Variables map[string]string `form:"variables" json:"variables" binding:"required"`
+}
+
 // Controller trigger controller
 type Controller struct {
 	svc model.TriggerService
@@ -79,6 +85,29 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	id := ctx.Params.ByName("id")
 	if err := c.svc.Delete(id); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Failed to delete trigger!"})
+		return
+	}
+	ctx.Status(http.StatusOK)
+}
+
+// Run pipelines for trigger
+func (c *Controller) Run(ctx *gin.Context) {
+	// get trigger id
+	id := ctx.Params.ByName("id")
+	// get event payload
+	var event Event
+	if err := ctx.BindJSON(&event); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "error": err.Error()})
+		return
+	}
+	// check secret
+	if err := c.svc.CheckSecret(id, event.Secret); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Invalid secret!"})
+		return
+	}
+	// run pipelines
+	if err := c.svc.Run(id, event.Variables); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Failed to run trigger pipelines!"})
 		return
 	}
 	ctx.Status(http.StatusOK)

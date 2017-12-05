@@ -15,6 +15,8 @@ type (
 	Trigger struct {
 		// unique event URI, using ':' instead of '/'
 		Event string `json:"event"`
+		// trigger secret
+		Secret string `json:"secret"`
 		// pipelines
 		Pipelines []Pipeline `json:"pipelines"`
 	}
@@ -26,6 +28,8 @@ type (
 		Add(Trigger) error
 		Delete(id string) error
 		Update(Trigger) error
+		Run(id string, vars map[string]string) error
+		CheckSecret(id string, secret string) error
 	}
 )
 
