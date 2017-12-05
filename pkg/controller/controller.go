@@ -20,9 +20,10 @@ func NewController(svc model.TriggerService) *Controller {
 
 // List triggers
 func (c *Controller) List(ctx *gin.Context) {
+	filter := ctx.Query("filter")
 	var triggers []model.Trigger
 	var err error
-	if triggers, err = c.svc.List(); err != nil {
+	if triggers, err = c.svc.List(filter); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Failed to get list of triggers!"})
 		return
 	}

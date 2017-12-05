@@ -49,10 +49,14 @@ func NewRedisStore(server string, port int, password string) model.TriggerServic
 }
 
 // List get list of defined triggers
-func (r *RedisStore) List() ([]model.Trigger, error) {
+func (r *RedisStore) List(filter string) ([]model.Trigger, error) {
 	con := r.pool.Get()
 	log.Debug("Getting all triggers ...")
-	keys, err := redis.Values(con.Do("KEYS", getKey("*")))
+	// set * for empty filter
+	if filter == "" {
+		filter = "*"
+	}
+	keys, err := redis.Values(con.Do("KEYS", getKey(filter)))
 	if err != nil {
 		log.Error(err)
 		return nil, err

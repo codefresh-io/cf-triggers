@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	// SemVer set at build time
-	SemVer = "dev"
+	// SemVer set at build time: -ldflags "-X version.SemVer=1.0.0"
+	SemVer string
 	// BuildTime set at build time
 	BuildTime string
 	// GitCommit set at build time
@@ -36,13 +36,12 @@ var (
 	}
 
 	// HumanVersion is a human readable app version
-	HumanVersion = fmt.Sprintf("%+v", Version)
+	HumanVersion = fmt.Sprintf("%s\n\tgit-commit: %s\n\tbuild-date: %s\n\tplatform: %s %s %s", Version.SemVer, Version.GitCommit, Version.BuildTime, Version.Os, Version.Arch, Version.GoVersion)
 
 	// ASCIILogo CLI logo
 	ASCIILogo = `
-    ╔═╗┌─┐┌┬┐┌─┐┌─┐┬─┐┌─┐┌─┐┬ ┬  ╔╦╗┬─┐┬┌─┐┌─┐┌─┐┬─┐┌─┐
-    ║  │ │ ││├┤ ├┤ ├┬┘├┤ └─┐├─┤   ║ ├┬┘││ ┬│ ┬├┤ ├┬┘└─┐
-    ╚═╝└─┘─┴┘└─┘└  ┴└─└─┘└─┘┴ ┴   ╩ ┴└─┴└─┘└─┘└─┘┴└─└─┘
-    
-	`
+    ╦ ╦┌─┐┬─┐┌┬┐┌─┐┌─┐  ╔═╗┌─┐┌┬┐┌─┐┌─┐┬─┐┌─┐┌─┐┬ ┬  ╔╦╗┬─┐┬┌─┐┌─┐┌─┐┬─┐┌─┐
+    ╠═╣├┤ ├┬┘│││├┤ └─┐  ║  │ │ ││├┤ ├┤ ├┬┘├┤ └─┐├─┤   ║ ├┬┘││ ┬│ ┬├┤ ├┬┘└─┐
+    ╩ ╩└─┘┴└─┴ ┴└─┘└─┘  ╚═╝└─┘─┴┘└─┘└  ┴└─└─┘└─┘┴ ┴   ╩ ┴└─┴└─┘└─┘└─┘┴└─└─┘
+    `
 )

@@ -21,10 +21,10 @@ type (
 
 	// TriggerService interface
 	TriggerService interface {
-		List() ([]Trigger, error)
-		Get(string) (Trigger, error)
+		List(filter string) ([]Trigger, error)
+		Get(id string) (Trigger, error)
 		Add(Trigger) error
-		Delete(string) error
+		Delete(id string) error
 		Update(Trigger) error
 	}
 )

@@ -16,7 +16,7 @@ func NewMemoryStore() model.TriggerService {
 }
 
 // List list all triggers
-func (m *MemoryStore) List() ([]model.Trigger, error) {
+func (m *MemoryStore) List(filter string) ([]model.Trigger, error) {
 	var triggers []model.Trigger
 	for _, v := range m.triggers {
 		triggers = append(triggers, v)

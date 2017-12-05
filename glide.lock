@@ -1,6 +1,8 @@
-hash: 177a57a78dc46468f79f369cdaf437b9b245fb3059abae082b34c1b13df428ee
-updated: 2017-12-04T12:35:08.43687+02:00
+hash: 8f8766ccf4fb01136752b75d023b6648dee7c239df8c72762c64535bec5cf7ba
+updated: 2017-12-05T13:46:51.251572+02:00
 imports:
+- name: github.com/dghubble/sling
+  version: eb56e89ac5088bebb12eef3cb4b293300f43608b
 - name: github.com/garyburd/redigo
   version: 47dc60e71eed504e3ef8e77ee3c6fe720f3be57f
   subpackages:
@@ -17,6 +19,10 @@ imports:
   version: 4bd1920723d7b7c925de087aa32e2187708897f7
   subpackages:
   - proto
+- name: github.com/google/go-querystring
+  version: 53e6ce116135b80d037921a7fdd5138cf32d7a8a
+  subpackages:
+  - query
 - name: github.com/mattn/go-isatty
   version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/sirupsen/logrus
