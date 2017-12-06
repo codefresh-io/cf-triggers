@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/codefresh-io/cf-triggers/pkg/codefresh"
-	"github.com/codefresh-io/cf-triggers/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/codefresh"
+	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
 )

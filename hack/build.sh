@@ -5,7 +5,7 @@
 [ -z "$BUILD_TIME" ] && BUILD_TIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
 [ -z "$VCS_COMMIT_ID" ] && VCS_COMMIT_ID=$(git rev-parse --short HEAD 2>/dev/null)
 
-pkg="github.com/codefresh-io/cf-triggers/pkg"
+pkg="github.com/codefresh-io/hermes/pkg"
 
 echo "VERSION: $VERSION"
 echo "BUILD_TIME: $BUILD_TIME"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/codefresh-io/cf-triggers/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
 )
 

@@ -10,10 +10,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
-	"github.com/codefresh-io/cf-triggers/pkg/backend"
-	"github.com/codefresh-io/cf-triggers/pkg/codefresh"
-	"github.com/codefresh-io/cf-triggers/pkg/controller"
-	"github.com/codefresh-io/cf-triggers/pkg/version"
+	"github.com/codefresh-io/hermes/pkg/backend"
+	"github.com/codefresh-io/hermes/pkg/codefresh"
+	"github.com/codefresh-io/hermes/pkg/controller"
+	"github.com/codefresh-io/hermes/pkg/version"
 )
 
 func main() {

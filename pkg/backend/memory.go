@@ -3,10 +3,10 @@ package backend
 import (
 	"errors"
 
-	"github.com/codefresh-io/cf-triggers/pkg/codefresh"
+	"github.com/codefresh-io/hermes/pkg/codefresh"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/codefresh-io/cf-triggers/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/model"
 )
 
 // MemoryStore in memory trigger map store

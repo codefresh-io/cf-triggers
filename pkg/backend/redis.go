@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codefresh-io/cf-triggers/pkg/codefresh"
-	"github.com/codefresh-io/cf-triggers/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/codefresh"
+	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/garyburd/redigo/redis"
 	log "github.com/sirupsen/logrus"
 )

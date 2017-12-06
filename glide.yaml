@@ -1,5 +1,5 @@
-package: github.com/codefresh-io/cf-triggers
-homepage: https://github.com/codefresh-io/cf-triggers
+package: github.com/codefresh-io/hermes
+homepage: https://github.com/codefresh-io/hermes
 license: Apache
 owners:
 - name: Alexei Ledenev
