@@ -1,10 +1,22 @@
 Project:
-    ☐ Rename project to `hermes`
+    ☐ Rename project to `hermes`; short name for package and repo
     ☐ Write first draft for README.md
 
 Tests:
     ✔ Test `RedisStore.Add` @done (12/6/2017, 12:53:44 PM)
-    ☐ Test `RedisStore.Delete`
+    ✔ Test `RedisStore.Delete` @done (12/6/2017, 1:14:09 PM)
     ☐ Test `RedisStore.Run`
     ✔ Test `RedisStore.CheckSecret` @done (12/6/2017, 1:00:21 PM)
     ☐ Add first integration test 
+
+CI/CD:
+    ☐ Create multi-stage Dockerfile (build + test + tiny final image)
+    ☐ Create codefresh pipeline
+    ☐ Create Helm chart
+
+Event Sources:
+    ☐ DockerHub
+    ☐ GitHub Tag
+    ☐ GitHub Release
+    ☐ Docker Registry Notification
+    ☐ Cron
