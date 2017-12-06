@@ -22,7 +22,7 @@ func main() {
 	app.Authors = []cli.Author{{Name: "Alexei Ledenev", Email: "alexei@codefresh.io"}}
 	app.Version = version.HumanVersion
 	app.EnableBashCompletion = true
-	app.Usage = "configurate triggers and run trigger manager server"
+	app.Usage = "configure triggers and run trigger manager server"
 	app.UsageText = fmt.Sprintf(`Configure triggers for Codefresh pipeline execution or start trigger manager server. Process "normalized" events and run Codefresh pipelines with variables extracted from events payload.
 %s
 hermes respects following environment variables:
