@@ -1,0 +1,10 @@
+Project:
+    ☐ Rename project to `hermes`
+    ☐ Write first draft for README.md
+
+Tests:
+    ✔ Test `RedisStore.Add` @done (12/6/2017, 12:53:44 PM)
+    ☐ Test `RedisStore.Delete`
+    ☐ Test `RedisStore.Run`
+    ✔ Test `RedisStore.CheckSecret` @done (12/6/2017, 1:00:21 PM)
+    ☐ Add first integration test 

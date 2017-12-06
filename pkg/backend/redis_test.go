@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -57,7 +58,9 @@ func Test_getTriggerKey(t *testing.T) {
 		want string
 	}{
 		{"without prefix", "github.com:project:test", "trigger:github.com:project:test"},
-		{"without prefix", "github.com:project:test", "trigger:github.com:project:test"},
+		{"with prefix", "trigger:github.com:project:test", "trigger:github.com:project:test"},
+		{"empty", "", "trigger:*"},
+		{"star", "*", "trigger:*"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -145,17 +148,35 @@ func TestRedisStore_Get(t *testing.T) {
 		redisPool   RedisPoolService
 		pipelineSvc codefresh.PipelineService
 	}
-	type args struct {
-		id string
-	}
 	tests := []struct {
 		name    string
 		fields  fields
-		args    args
+		id      string
 		want    model.Trigger
 		wantErr bool
 	}{
-	// TODO: Add test cases.
+		{
+			"get trigger by id",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			"test:1",
+			model.Trigger{
+				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
+				},
+			},
+			false,
+		},
+		{
+			"get trigger GET error",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			"test:1",
+			model.Trigger{
+				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
+				},
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -163,7 +184,13 @@ func TestRedisStore_Get(t *testing.T) {
 				redisPool:   tt.fields.redisPool,
 				pipelineSvc: tt.fields.pipelineSvc,
 			}
-			got, err := r.Get(tt.args.id)
+			if tt.wantErr {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.want.Event).ExpectError(fmt.Errorf("GET error"))
+			} else {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.want.Event).Expect(tt.want.Secret)
+				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.want.Event)).Expect(interfaceSlicePipelines(tt.want.Pipelines))
+			}
+			got, err := r.Get(tt.id)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -180,16 +207,34 @@ func TestRedisStore_Add(t *testing.T) {
 		redisPool   RedisPoolService
 		pipelineSvc codefresh.PipelineService
 	}
-	type args struct {
-		trigger model.Trigger
-	}
 	tests := []struct {
 		name    string
 		fields  fields
-		args    args
+		trigger model.Trigger
 		wantErr bool
 	}{
-	// TODO: Add test cases.
+		{
+			"add trigger",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			model.Trigger{
+				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
+				},
+			},
+			false,
+		},
+		{
+			"add trigger SET error",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			model.Trigger{
+				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
+				},
+			},
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -197,7 +242,16 @@ func TestRedisStore_Add(t *testing.T) {
 				redisPool:   tt.fields.redisPool,
 				pipelineSvc: tt.fields.pipelineSvc,
 			}
-			if err := r.Add(tt.args.trigger); (err != nil) != tt.wantErr {
+			if tt.wantErr {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("SET", tt.trigger.Event, tt.trigger.Secret).ExpectError(fmt.Errorf("SET error"))
+			} else {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("SET", tt.trigger.Event, tt.trigger.Secret).Expect("OK!")
+				for _, p := range tt.trigger.Pipelines {
+					jp, _ := json.Marshal(p)
+					r.redisPool.GetConn().(*redigomock.Conn).Command("SADD", getTriggerKey(tt.trigger.Event), jp)
+				}
+			}
+			if err := r.Add(tt.trigger); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.Add() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -213,12 +267,33 @@ func TestRedisStore_Delete(t *testing.T) {
 		id string
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name       string
+		fields     fields
+		args       args
+		wantStrErr bool
+		wantSetErr bool
 	}{
-	// TODO: Add test cases.
+		{
+			"delete trigger",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			args{id: "test"},
+			false,
+			false,
+		},
+		{
+			"delete trigger DEL STRING error",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			args{id: "test"},
+			true,
+			false,
+		},
+		{
+			"delete trigger DEL SET error",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			args{id: "test"},
+			false,
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -226,67 +301,18 @@ func TestRedisStore_Delete(t *testing.T) {
 				redisPool:   tt.fields.redisPool,
 				pipelineSvc: tt.fields.pipelineSvc,
 			}
-			if err := r.Delete(tt.args.id); (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.Delete() error = %v, wantErr %v", err, tt.wantErr)
+			if tt.wantStrErr {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", tt.args.id).ExpectError(fmt.Errorf("DEL STRING error"))
+			} else {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", tt.args.id).Expect("OK!")
 			}
-		})
-	}
-}
-
-func TestRedisStore_Update(t *testing.T) {
-	type fields struct {
-		redisPool   RedisPoolService
-		pipelineSvc codefresh.PipelineService
-	}
-	type args struct {
-		t model.Trigger
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-	// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool:   tt.fields.redisPool,
-				pipelineSvc: tt.fields.pipelineSvc,
+			if tt.wantSetErr {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getTriggerKey(tt.args.id)).ExpectError(fmt.Errorf("DEL SET error"))
+			} else {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getTriggerKey(tt.args.id)).Expect("OK!")
 			}
-			if err := r.Update(tt.args.t); (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.Update() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestRedisStore_Run(t *testing.T) {
-	type fields struct {
-		redisPool   RedisPoolService
-		pipelineSvc codefresh.PipelineService
-	}
-	type args struct {
-		id   string
-		vars map[string]string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-	// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool:   tt.fields.redisPool,
-				pipelineSvc: tt.fields.pipelineSvc,
-			}
-			if err := r.Run(tt.args.id, tt.args.vars); (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.Run() error = %v, wantErr %v", err, tt.wantErr)
+			if err := r.Delete(tt.args.id); (err != nil) != (tt.wantStrErr || tt.wantSetErr) {
+				t.Errorf("RedisStore.Delete() error = %v", err)
 			}
 		})
 	}
@@ -302,12 +328,26 @@ func TestRedisStore_CheckSecret(t *testing.T) {
 		secret string
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name           string
+		fields         fields
+		args           args
+		expectedSecret string
+		wantErr        bool
 	}{
-	// TODO: Add test cases.
+		{
+			"check secret",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			args{id: "test", secret: "secretAAA"},
+			"secretAAA",
+			false,
+		},
+		{
+			"check secret",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			args{id: "test", secret: "secretAAA"},
+			"secretBBB",
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -315,6 +355,7 @@ func TestRedisStore_CheckSecret(t *testing.T) {
 				redisPool:   tt.fields.redisPool,
 				pipelineSvc: tt.fields.pipelineSvc,
 			}
+			r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.args.id).Expect(tt.expectedSecret)
 			if err := r.CheckSecret(tt.args.id, tt.args.secret); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.CheckSecret() error = %v, wantErr %v", err, tt.wantErr)
 			}
