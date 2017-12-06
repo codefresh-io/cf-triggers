@@ -1,5 +1,7 @@
 package model
 
+import "reflect"
+
 type (
 	// Pipeline Codefresh Pipeline URI
 	Pipeline struct {
@@ -33,7 +35,10 @@ type (
 	}
 )
 
+// EmptyTrigger is empty trigger to reuse
+var EmptyTrigger = Trigger{}
+
 // IsEmpty check if trigger is empty
 func (m Trigger) IsEmpty() bool {
-	return m.Event == ""
+	return reflect.DeepEqual(m, EmptyTrigger)
 }

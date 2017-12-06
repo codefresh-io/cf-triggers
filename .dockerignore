@@ -1,4 +1,6 @@
 .git
 .gitignore
 .bin
-cmd/debug
+*/debug
+*/debug.test
+*/*/debug.test

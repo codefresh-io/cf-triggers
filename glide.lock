@@ -1,5 +1,5 @@
 hash: 8f8766ccf4fb01136752b75d023b6648dee7c239df8c72762c64535bec5cf7ba
-updated: 2017-12-05T13:46:51.251572+02:00
+updated: 2017-12-06T10:08:00.554743+02:00
 imports:
 - name: github.com/dghubble/sling
   version: eb56e89ac5088bebb12eef3cb4b293300f43608b
@@ -26,7 +26,7 @@ imports:
 - name: github.com/mattn/go-isatty
   version: fc9e8d8ef48496124e79ae0df75490096eccf6fe
 - name: github.com/sirupsen/logrus
-  version: f006c2ac4710855cf0f916dd6b77acf6b048dc6e
+  version: d682213848ed68c0a260ca37d6dd5ace8423f5ba
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
@@ -45,4 +45,6 @@ imports:
   version: 5f57d2222ad794d0dffb07e664ea05e2ee07d60c
 - name: gopkg.in/yaml.v2
   version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
-testImports: []
+testImports:
+- name: github.com/rafaeljusto/redigomock
+  version: 77fb2448ff2f9d298f1b91d341dd4a6a280aff7e

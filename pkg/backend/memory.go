@@ -23,7 +23,7 @@ func NewMemoryStore(pipelineSvc codefresh.PipelineService) model.TriggerService 
 
 // List list all triggers
 func (m *MemoryStore) List(filter string) ([]model.Trigger, error) {
-	var triggers []model.Trigger
+	triggers := []model.Trigger{}
 	for _, v := range m.triggers {
 		triggers = append(triggers, v)
 	}
@@ -35,7 +35,7 @@ func (m *MemoryStore) Get(id string) (model.Trigger, error) {
 	if trigger, ok := m.triggers[id]; ok {
 		return trigger, nil
 	}
-	return model.Trigger{}, nil
+	return model.EmptyTrigger, nil
 }
 
 // Add new trigger

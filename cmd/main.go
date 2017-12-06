@@ -150,6 +150,7 @@ func before(c *cli.Context) error {
 	return nil
 }
 
+// start trigger manager server
 func runServer(c *cli.Context) error {
 	fmt.Println(version.ASCIILogo)
 	router := gin.Default()
@@ -175,6 +176,7 @@ func runServer(c *cli.Context) error {
 	return router.Run()
 }
 
+// get triggers by name(s), filter or ALL
 func getTriggers(c *cli.Context) error {
 	// triggerService := backend.NewMemoryStore(codefresh.PipelineService)
 	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
@@ -208,9 +210,12 @@ func getTriggers(c *cli.Context) error {
 	return nil
 }
 
+// run all pipelines connected to specified trigger
 func testTrigger(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.String("cf"), c.String("t"))
+	// get trigger service
+	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
 	// convert command line 'var' variables (key=value) to map
 	vars := make(map[string]string)
 	for _, v := range c.StringSlice("var") {
@@ -221,6 +226,6 @@ func testTrigger(c *cli.Context) error {
 		vars[kv[0]] = kv[1]
 	}
 
-	codefreshService.RunPipeline("testme", "codefresh-io", "beta", vars)
-	return nil
+	// get trigger from argument
+	return triggerService.Run(c.Args().First(), vars)
 }
