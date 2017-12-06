@@ -1,5 +1,5 @@
-hash: 8f8766ccf4fb01136752b75d023b6648dee7c239df8c72762c64535bec5cf7ba
-updated: 2017-12-06T10:08:00.554743+02:00
+hash: 766f2c0d4dfab024e9052a4a1d94aab25b92a542c88d02ec504dcbd759d737ce
+updated: 2017-12-06T16:20:42.403298+02:00
 imports:
 - name: github.com/dghubble/sling
   version: eb56e89ac5088bebb12eef3cb4b293300f43608b
