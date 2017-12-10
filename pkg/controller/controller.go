@@ -90,8 +90,8 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-// Run pipelines for trigger
-func (c *Controller) Run(ctx *gin.Context) {
+// TriggerEvent pipelines for trigger
+func (c *Controller) TriggerEvent(ctx *gin.Context) {
 	// get trigger id
 	id := ctx.Params.ByName("id")
 	// get event payload

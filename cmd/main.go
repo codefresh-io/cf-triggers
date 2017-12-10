@@ -171,7 +171,7 @@ func runServer(c *cli.Context) error {
 	router.Handle("PUT", "/triggers/:id", triggerController.Update)
 	router.Handle("DELETE", "/triggers/:id", triggerController.Delete)
 	// invoke trigger with event payload
-	router.Handle("POST", "/trigger/:id", triggerController.Run)
+	router.Handle("POST", "/trigger/:id", triggerController.TriggerEvent)
 
 	return router.Run()
 }
