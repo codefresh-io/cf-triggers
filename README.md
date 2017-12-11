@@ -14,9 +14,7 @@ It's responsibility of *Event Source* to get interesting events (or generate; `c
     "variables": {
         "key1": "value",
         "key2": "value2",
-        .
-        .
-        .
+        "...": "...",
         "keyN": "valueN"
     },
     "original" : "base64enc(original.payload)"
