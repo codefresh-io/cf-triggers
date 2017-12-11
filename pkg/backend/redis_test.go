@@ -324,8 +324,9 @@ func TestRedisStore_CheckSecret(t *testing.T) {
 		pipelineSvc codefresh.PipelineService
 	}
 	type args struct {
-		id     string
-		secret string
+		id      string
+		secret  string
+		message string
 	}
 	tests := []struct {
 		name           string
@@ -337,16 +338,23 @@ func TestRedisStore_CheckSecret(t *testing.T) {
 		{
 			"check secret",
 			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
-			args{id: "test", secret: "secretAAA"},
+			args{id: "test", secret: "secretAAA", message: "hello world"},
 			"secretAAA",
 			false,
 		},
 		{
-			"check secret",
+			"check secret error",
 			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
-			args{id: "test", secret: "secretAAA"},
+			args{id: "test", secret: "secretAAA", message: "hello world"},
 			"secretBBB",
 			true,
+		},
+		{
+			"check secret signature sha1",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			args{id: "test", secret: "c61fe17e43c57ac8b18a1cb7b2e9ff666f506fa5", message: "hello world"},
+			"secretKey",
+			false,
 		},
 	}
 	for _, tt := range tests {
@@ -356,7 +364,7 @@ func TestRedisStore_CheckSecret(t *testing.T) {
 				pipelineSvc: tt.fields.pipelineSvc,
 			}
 			r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.args.id).Expect(tt.expectedSecret)
-			if err := r.CheckSecret(tt.args.id, tt.args.secret); (err != nil) != tt.wantErr {
+			if err := r.CheckSecret(tt.args.id, tt.args.message, tt.args.secret); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.CheckSecret() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

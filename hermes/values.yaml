@@ -11,6 +11,27 @@ service:
   type: ClusterIP
   externalPort: 80
   internalPort: 8080
+
+# configure cfapi access
+cfapi:
+## cfapi.token - get it from Codefresh application
+## 
+# token:
+
+## cfapi.service - service name (default: {{.Release.Name}}-cfapi)
+## cfapi.protocol - http/https (default to http)
+## cfapi.port - access port (default to 3000)
+##
+#  service:
+
+## cfapi.protocol - http/https (default to http)
+##
+  protocol: http
+
+## cfapi.port - access port (default to 3000)
+##
+  port: 3000
+
 ingress:
   enabled: false
   # Used to create an Ingress record.

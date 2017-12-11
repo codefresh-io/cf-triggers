@@ -195,7 +195,7 @@ func (r *RedisStore) Run(id string, vars map[string]string) error {
 }
 
 // CheckSecret check trigger secret
-func (r *RedisStore) CheckSecret(id string, secret string) error {
+func (r *RedisStore) CheckSecret(id string, message string, secret string) error {
 	con := r.redisPool.GetConn()
 	log.Debugf("Getting trigger %s ...", id)
 	// get secret from String
@@ -205,7 +205,11 @@ func (r *RedisStore) CheckSecret(id string, secret string) error {
 		return err
 	}
 	if triggerSecret != secret {
-		return errors.New("invalid secret")
+		// try to check signature
+		if checkSignature(message, secret, triggerSecret) {
+			return nil
+		}
+		return errors.New("invalid secret or HMAC signature")
 	}
 	return nil
 }

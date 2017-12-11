@@ -21,6 +21,25 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.internalPort }}
+          env:
+          - name: REDIS_HOST
+            value: "{{ .Release.Name }}-redis"
+          - name: REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{ .Release.Name }}-redis"
+                key: redis-password
+          - name: CFAPI_URL
+            {{- if .Values.cfapi.service }}
+            value: "{{.Values.cfapi.protocol}}://{{.Values.cfapi.service}}:{{.Values.cfapi.port}}"
+            {{- else }}
+            value: "{{.Values.cfapi.protocol}}://{{.Release.Name}}-cfapi:{{.Values.cfapi.port}}"
+            {{- end }}
+          - name: CFAPI_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "hermes.name" . }}
+                key: cfapi-token
           livenessProbe:
             httpGet:
               path: /

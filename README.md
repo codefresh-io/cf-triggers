@@ -10,7 +10,7 @@ It's responsibility of *Event Provider* to get interesting events (or generate; 
 
 ```json
 {
-    "secret": "very secret secret!",
+    "secret": "secret (or payload signature)",
     "variables": {
         "key1": "value",
         "key2": "value2",
@@ -21,7 +21,7 @@ It's responsibility of *Event Provider* to get interesting events (or generate; 
 }
 ```
 
-- `secret` - validation secret, can be used for trigger protection (as WebHook secret, for example)
+- `secret` - validation secret or `hmac` signature (`sha1`, `sha256`, `sha512`); webhook payloaf `hmac` signature for example
 - `variables` - list of *selected* event properties, extracted from event payload
 - `original` - original event payload (JSON or FORM), `base64` encoded
 
@@ -115,8 +115,16 @@ GLOBAL OPTIONS:
    --json                  produce log in JSON format: Logstash and Splunk friendly
    --help, -h              show help
    --version, -v           print the version
-   
 
+```
+
+## Deploy with Helm
+
+*Hermes* uses Codefresh API to execute pipelines and requires to pass non-expiring API token for working installation.
+When you install *Hermes* as a separate release (from *Codefresh*), you must also pass a `CFAPI_URL`.
+
+```sh
+helm install hermes --set cfapi.token="GET-CFAPI-TOKEN"
 ```
 
 ## Building Hermes
@@ -125,3 +133,4 @@ GLOBAL OPTIONS:
 
 1. Clone this repository into `$GOPATH/src/github.com/codefresh-io/hermes`
 1. Run `hack/build.sh` helper script or `go build cmd/main.go`
+1. Run `hack/test.sh` helper script to test

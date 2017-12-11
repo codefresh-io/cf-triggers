@@ -31,7 +31,7 @@ type (
 		Delete(id string) error
 		Update(Trigger) error
 		Run(id string, vars map[string]string) error
-		CheckSecret(id string, secret string) error
+		CheckSecret(id string, message string, secret string) error
 	}
 )
 

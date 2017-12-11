@@ -72,7 +72,7 @@ func (m *MemoryStore) Run(id string, vars map[string]string) error {
 }
 
 // CheckSecret check trigger secret
-func (m *MemoryStore) CheckSecret(id string, secret string) error {
+func (m *MemoryStore) CheckSecret(id string, message string, secret string) error {
 	if trigger, ok := m.triggers[id]; ok {
 		if trigger.Secret != secret {
 			return errors.New("invalid secret")

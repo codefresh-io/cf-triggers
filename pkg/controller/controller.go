@@ -11,7 +11,8 @@ import (
 // Event binding from JSON
 type Event struct {
 	Secret    string            `form:"secret" json:"secret" binding:"required"`
-	Variables map[string]string `form:"variables" json:"variables" binding:"required"`
+	Original  string            `form:"original" json:"original"`
+	Variables map[string]string `form:"variables" json:"variable"`
 }
 
 // Controller trigger controller
@@ -101,12 +102,18 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 		return
 	}
 	// check secret
-	if err := c.svc.CheckSecret(id, event.Secret); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Invalid secret!"})
+	if err := c.svc.CheckSecret(id, event.Original, event.Secret); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": err.Error()})
 		return
 	}
+	// add original payload to variables
+	vars := make(map[string]string)
+	for k, v := range event.Variables {
+		vars[k] = v
+	}
+	vars["EVENT_PAYLOAD"] = event.Original
 	// run pipelines
-	if err := c.svc.Run(id, event.Variables); err != nil {
+	if err := c.svc.Run(id, vars); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Failed to run trigger pipelines!"})
 		return
 	}
