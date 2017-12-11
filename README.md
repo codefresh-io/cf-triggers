@@ -4,7 +4,7 @@ Codefresh Trigger Manager (aka `hermes`) is responsible for processing *normaliz
 
 ## Normalized Event
 
-It's responsibility of *Event Source* to get interesting events (or generate; `cron` for example) from external system either with WebHook or using some pooling technique, extract *unique event URI* and *normalize* these events and send then to `hermes`.
+It's responsibility of *Event Provider* to get interesting events (or generate; `cron` for example) from external system either with WebHook or using some pooling technique, extract *unique event URI* and *normalize* these events and send then to `hermes`.
 
 ### Normalization format
 
@@ -35,7 +35,7 @@ Based on above **claim**, we can construct unique URI for any event coming from 
 
 | External System         | Event Description                                             | Event URI                              |
 | ----------------------- | ------------------------------------------------------------- | -------------------------------------- |
-| DockerHub               | push `cfapi` docker image with new tag                        | `index.docker.io:codefresh:cfapi`      |
+| DockerHub               | push `cfapi` docker image with new tag                        | `index.docker.io:codefresh:cfapi:push` |
 | GitHub                  | publish new GitHub release for `pumba`                        | `github.io:gaiaadm:pumba:release`      |
 | TravisCI                | completed TravisCI build for `alexei-led/alpine-plus`         | `travis-ci.org:alexei-led:alpine-plus` |
 | Cron                    | once a Day, at 1:30pm: `30 13 * * *`                          | `cron:30 13 * * *`                     |
