@@ -1,0 +1,35 @@
+version: '1.0'
+
+steps:
+
+  multistage-build:
+    type: build
+    description: create Hermes trigger manager image with multi-stage build
+    dockerfile: Dockerfile
+    working-directory: ${{main_clone}}
+    image-name: codefreshio/hermes
+    build_arguments:
+      - VCS_COMMIT_ID=${{CF_REVISION}}
+      - VCS_BRANCH_NAME=${{CF_BRANCH}}
+      - VCS_SLUG=${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}
+      - CI_BUILD_ID=${{CF_BUILD_ID}}
+      - CI_BUILD_URL=${{CF_BUILD_URL}}
+      - CODECOV_TOKEN=${{CODECOV_TOKEN}}
+
+  dockerhub-push:
+    type: push
+    candidate: ${{multistage-build}}
+    tag: stable
+    when:
+      branch:
+        only:
+          - master
+
+  dockerhub-push-others:
+    type: push
+    candidate: ${{multistage-build}}
+    tag: ${{CF_BRANCH}}
+    when:
+      branch:
+        ignore:
+          - master

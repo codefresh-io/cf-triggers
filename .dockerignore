@@ -1,6 +1,7 @@
-.git
-.gitignore
+.idea
+.cover
+.vscode
 .bin
-*/debug
-*/debug.test
-*/*/debug.test
+
+# dep files
+Gopkg.*

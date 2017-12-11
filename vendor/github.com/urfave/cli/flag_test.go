@@ -2,8 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -25,6 +28,92 @@ func TestBoolFlagHelpOutput(t *testing.T) {
 
 		if output != test.expected {
 			t.Errorf("%q does not match %q", output, test.expected)
+		}
+	}
+}
+
+func TestFlagsFromEnv(t *testing.T) {
+	var flagTests = []struct {
+		input     string
+		output    interface{}
+		flag      Flag
+		errRegexp string
+	}{
+		{"", false, BoolFlag{Name: "debug", EnvVar: "DEBUG"}, ""},
+		{"1", true, BoolFlag{Name: "debug", EnvVar: "DEBUG"}, ""},
+		{"false", false, BoolFlag{Name: "debug", EnvVar: "DEBUG"}, ""},
+		{"foobar", true, BoolFlag{Name: "debug", EnvVar: "DEBUG"}, fmt.Sprintf(`could not parse foobar as bool value for flag debug: .*`)},
+
+		{"", false, BoolTFlag{Name: "debug", EnvVar: "DEBUG"}, ""},
+		{"1", true, BoolTFlag{Name: "debug", EnvVar: "DEBUG"}, ""},
+		{"false", false, BoolTFlag{Name: "debug", EnvVar: "DEBUG"}, ""},
+		{"foobar", true, BoolTFlag{Name: "debug", EnvVar: "DEBUG"}, fmt.Sprintf(`could not parse foobar as bool value for flag debug: .*`)},
+
+		{"1s", 1 * time.Second, DurationFlag{Name: "time", EnvVar: "TIME"}, ""},
+		{"foobar", false, DurationFlag{Name: "time", EnvVar: "TIME"}, fmt.Sprintf(`could not parse foobar as duration for flag time: .*`)},
+
+		{"1.2", 1.2, Float64Flag{Name: "seconds", EnvVar: "SECONDS"}, ""},
+		{"1", 1.0, Float64Flag{Name: "seconds", EnvVar: "SECONDS"}, ""},
+		{"foobar", 0, Float64Flag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse foobar as float64 value for flag seconds: .*`)},
+
+		{"1", int64(1), Int64Flag{Name: "seconds", EnvVar: "SECONDS"}, ""},
+		{"1.2", 0, Int64Flag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse 1.2 as int value for flag seconds: .*`)},
+		{"foobar", 0, Int64Flag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse foobar as int value for flag seconds: .*`)},
+
+		{"1", 1, IntFlag{Name: "seconds", EnvVar: "SECONDS"}, ""},
+		{"1.2", 0, IntFlag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse 1.2 as int value for flag seconds: .*`)},
+		{"foobar", 0, IntFlag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse foobar as int value for flag seconds: .*`)},
+
+		{"1,2", IntSlice{1, 2}, IntSliceFlag{Name: "seconds", EnvVar: "SECONDS"}, ""},
+		{"1.2,2", IntSlice{}, IntSliceFlag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse 1.2,2 as int slice value for flag seconds: .*`)},
+		{"foobar", IntSlice{}, IntSliceFlag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse foobar as int slice value for flag seconds: .*`)},
+
+		{"1,2", Int64Slice{1, 2}, Int64SliceFlag{Name: "seconds", EnvVar: "SECONDS"}, ""},
+		{"1.2,2", Int64Slice{}, Int64SliceFlag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse 1.2,2 as int64 slice value for flag seconds: .*`)},
+		{"foobar", Int64Slice{}, Int64SliceFlag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse foobar as int64 slice value for flag seconds: .*`)},
+
+		{"foo", "foo", StringFlag{Name: "name", EnvVar: "NAME"}, ""},
+
+		{"foo,bar", StringSlice{"foo", "bar"}, StringSliceFlag{Name: "names", EnvVar: "NAMES"}, ""},
+
+		{"1", uint(1), UintFlag{Name: "seconds", EnvVar: "SECONDS"}, ""},
+		{"1.2", 0, UintFlag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse 1.2 as uint value for flag seconds: .*`)},
+		{"foobar", 0, UintFlag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse foobar as uint value for flag seconds: .*`)},
+
+		{"1", uint64(1), Uint64Flag{Name: "seconds", EnvVar: "SECONDS"}, ""},
+		{"1.2", 0, Uint64Flag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse 1.2 as uint64 value for flag seconds: .*`)},
+		{"foobar", 0, Uint64Flag{Name: "seconds", EnvVar: "SECONDS"}, fmt.Sprintf(`could not parse foobar as uint64 value for flag seconds: .*`)},
+
+		{"foo,bar", &Parser{"foo", "bar"}, GenericFlag{Name: "names", Value: &Parser{}, EnvVar: "NAMES"}, ""},
+	}
+
+	for _, test := range flagTests {
+		os.Clearenv()
+		os.Setenv(reflect.ValueOf(test.flag).FieldByName("EnvVar").String(), test.input)
+		a := App{
+			Flags: []Flag{test.flag},
+			Action: func(ctx *Context) error {
+				if !reflect.DeepEqual(ctx.value(test.flag.GetName()), test.output) {
+					t.Errorf("expected %+v to be parsed as %+v, instead was %+v", test.input, test.output, ctx.value(test.flag.GetName()))
+				}
+				return nil
+			},
+		}
+
+		err := a.Run([]string{"run"})
+
+		if test.errRegexp != "" {
+			if err == nil {
+				t.Errorf("expected error to match %s, got none", test.errRegexp)
+			} else {
+				if matched, _ := regexp.MatchString(test.errRegexp, err.Error()); !matched {
+					t.Errorf("expected error to match %s, got error %s", test.errRegexp, err)
+				}
+			}
+		} else {
+			if err != nil && test.errRegexp == "" {
+				t.Errorf("expected no error got %s", err)
+			}
 		}
 	}
 }
@@ -67,6 +156,83 @@ func TestStringFlagWithEnvVarHelpOutput(t *testing.T) {
 		}
 		if !strings.HasSuffix(output, expectedSuffix) {
 			t.Errorf("%s does not end with"+expectedSuffix, output)
+		}
+	}
+}
+
+var prefixStringFlagTests = []struct {
+	name     string
+	usage    string
+	value    string
+	prefixer FlagNamePrefixFunc
+	expected string
+}{
+	{"foo", "", "", func(a, b string) string {
+		return fmt.Sprintf("name: %s, ph: %s", a, b)
+	}, "name: foo, ph: value\t"},
+	{"f", "", "", func(a, b string) string {
+		return fmt.Sprintf("name: %s, ph: %s", a, b)
+	}, "name: f, ph: value\t"},
+	{"f", "The total `foo` desired", "all", func(a, b string) string {
+		return fmt.Sprintf("name: %s, ph: %s", a, b)
+	}, "name: f, ph: foo\tThe total foo desired (default: \"all\")"},
+	{"test", "", "Something", func(a, b string) string {
+		return fmt.Sprintf("name: %s, ph: %s", a, b)
+	}, "name: test, ph: value\t(default: \"Something\")"},
+	{"config,c", "Load configuration from `FILE`", "", func(a, b string) string {
+		return fmt.Sprintf("name: %s, ph: %s", a, b)
+	}, "name: config,c, ph: FILE\tLoad configuration from FILE"},
+	{"config,c", "Load configuration from `CONFIG`", "config.json", func(a, b string) string {
+		return fmt.Sprintf("name: %s, ph: %s", a, b)
+	}, "name: config,c, ph: CONFIG\tLoad configuration from CONFIG (default: \"config.json\")"},
+}
+
+func TestFlagNamePrefixer(t *testing.T) {
+	defer func() {
+		FlagNamePrefixer = prefixedNames
+	}()
+
+	for _, test := range prefixStringFlagTests {
+		FlagNamePrefixer = test.prefixer
+		flag := StringFlag{Name: test.name, Usage: test.usage, Value: test.value}
+		output := flag.String()
+		if output != test.expected {
+			t.Errorf("%q does not match %q", output, test.expected)
+		}
+	}
+}
+
+var envHintFlagTests = []struct {
+	name     string
+	env      string
+	hinter   FlagEnvHintFunc
+	expected string
+}{
+	{"foo", "", func(a, b string) string {
+		return fmt.Sprintf("env: %s, str: %s", a, b)
+	}, "env: , str: --foo value\t"},
+	{"f", "", func(a, b string) string {
+		return fmt.Sprintf("env: %s, str: %s", a, b)
+	}, "env: , str: -f value\t"},
+	{"foo", "ENV_VAR", func(a, b string) string {
+		return fmt.Sprintf("env: %s, str: %s", a, b)
+	}, "env: ENV_VAR, str: --foo value\t"},
+	{"f", "ENV_VAR", func(a, b string) string {
+		return fmt.Sprintf("env: %s, str: %s", a, b)
+	}, "env: ENV_VAR, str: -f value\t"},
+}
+
+func TestFlagEnvHinter(t *testing.T) {
+	defer func() {
+		FlagEnvHinter = withEnvHint
+	}()
+
+	for _, test := range envHintFlagTests {
+		FlagEnvHinter = test.hinter
+		flag := StringFlag{Name: test.name, EnvVar: test.env}
+		output := flag.String()
+		if output != test.expected {
+			t.Errorf("%q does not match %q", output, test.expected)
 		}
 	}
 }
@@ -882,6 +1048,31 @@ func TestParseMultiBool(t *testing.T) {
 	a.Run([]string{"run", "--serve"})
 }
 
+func TestParseBoolShortOptionHandle(t *testing.T) {
+	a := App{
+		Commands: []Command{
+			{
+				Name: "foobar",
+				UseShortOptionHandling: true,
+				Action: func(ctx *Context) error {
+					if ctx.Bool("serve") != true {
+						t.Errorf("main name not set")
+					}
+					if ctx.Bool("option") != true {
+						t.Errorf("short name not set")
+					}
+					return nil
+				},
+				Flags: []Flag{
+					BoolFlag{Name: "serve, s"},
+					BoolFlag{Name: "option, o"},
+				},
+			},
+		},
+	}
+	a.Run([]string{"run", "foobar", "-so"})
+}
+
 func TestParseDestinationBool(t *testing.T) {
 	var dest bool
 	a := App{
@@ -939,6 +1130,38 @@ func TestParseMultiBoolFromEnvCascade(t *testing.T) {
 		},
 	}
 	a.Run([]string{"run"})
+}
+
+func TestParseBoolTFromEnv(t *testing.T) {
+	var boolTFlagTests = []struct {
+		input  string
+		output bool
+	}{
+		{"", false},
+		{"1", true},
+		{"false", false},
+		{"true", true},
+	}
+
+	for _, test := range boolTFlagTests {
+		os.Clearenv()
+		os.Setenv("DEBUG", test.input)
+		a := App{
+			Flags: []Flag{
+				BoolTFlag{Name: "debug, d", EnvVar: "DEBUG"},
+			},
+			Action: func(ctx *Context) error {
+				if ctx.Bool("debug") != test.output {
+					t.Errorf("expected %+v to be parsed as %+v, instead was %+v", test.input, test.output, ctx.Bool("debug"))
+				}
+				if ctx.Bool("d") != test.output {
+					t.Errorf("expected %+v to be parsed as %+v, instead was %+v", test.input, test.output, ctx.Bool("d"))
+				}
+				return nil
+			},
+		}
+		a.Run([]string{"run"})
+	}
 }
 
 func TestParseMultiBoolT(t *testing.T) {
@@ -1036,6 +1259,10 @@ func (p *Parser) String() string {
 	return fmt.Sprintf("%s,%s", p[0], p[1])
 }
 
+func (p *Parser) Get() interface{} {
+	return p
+}
+
 func TestParseGeneric(t *testing.T) {
 	a := App{
 		Flags: []Flag{
@@ -1089,4 +1316,39 @@ func TestParseGenericFromEnvCascade(t *testing.T) {
 		},
 	}
 	a.Run([]string{"run"})
+}
+
+func TestFlagFromFile(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("APP_FOO", "123")
+
+	temp, err := ioutil.TempFile("", "urfave_cli_test")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	io.WriteString(temp, "abc")
+	temp.Close()
+	defer func() {
+		os.Remove(temp.Name())
+	}()
+
+	var filePathTests = []struct {
+		path     string
+		name     string
+		expected string
+	}{
+		{"file-does-not-exist", "APP_BAR", ""},
+		{"file-does-not-exist", "APP_FOO", "123"},
+		{"file-does-not-exist", "APP_FOO,APP_BAR", "123"},
+		{temp.Name(), "APP_FOO", "123"},
+		{temp.Name(), "APP_BAR", "abc"},
+	}
+
+	for _, filePathTest := range filePathTests {
+		got, _ := flagFromFileEnv(filePathTest.path, filePathTest.name)
+		if want := filePathTest.expected; got != want {
+			t.Errorf("Did not expect %v - Want %v", got, want)
+		}
+	}
 }
