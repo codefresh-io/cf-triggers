@@ -1,6 +1,6 @@
 # Hermes - Codefresh Trigger Manager
 
-Codefresh Trigger Manager (aka `hermes`) is responsible for processing *normalized events* coming from different *Event Sources* and triggering Codefresh pipeline execution using variables extracted from *events* payload.
+Codefresh Trigger Manager (aka `hermes`) is responsible for processing *normalized events* coming from different *Event Providers* and triggering Codefresh pipeline execution using variables extracted from *events* payload.
 
 ## Normalized Event
 
@@ -14,7 +14,9 @@ It's responsibility of *Event Source* to get interesting events (or generate; `c
     "variables": {
         "key1": "value",
         "key2": "value2",
-        ...
+        .
+        .
+        .
         "keyN": "valueN"
     },
     "original" : "base64enc(original.payload)"
@@ -44,7 +46,7 @@ Based on above **claim**, we can construct unique URI for any event coming from 
 ## Event Flow Diagram
 
 ```ascii
-          DockerHub Event Source        hermes trigger manager       pipeline manager (cfapi)
+          DockerHub Event Provider        Hermes trigger manager       pipeline manager (cfapi)
 
                     +                            +                             +
 original event      |                            |                             |
