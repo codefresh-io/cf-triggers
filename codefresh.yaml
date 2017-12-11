@@ -7,7 +7,7 @@ steps:
     description: create Hermes trigger manager image with multi-stage build
     dockerfile: Dockerfile
     working-directory: ${{main_clone}}
-    image-name: codefreshio/hermes
+    image-name: codefresh/hermes
     build_arguments:
       - VCS_COMMIT_ID=${{CF_REVISION}}
       - VCS_BRANCH_NAME=${{CF_BRANCH}}
