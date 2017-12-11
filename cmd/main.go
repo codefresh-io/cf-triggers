@@ -51,7 +51,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 				cli.IntFlag{
 					Name:  "port",
 					Usage: "TCP port for the trigger manager server",
-					Value: 9000,
+					Value: 8080,
 				},
 			},
 			Usage:       "start trigger manager server",
@@ -173,7 +173,7 @@ func runServer(c *cli.Context) error {
 	// invoke trigger with event payload
 	router.Handle("POST", "/trigger/:id", triggerController.TriggerEvent)
 
-	return router.Run()
+	return router.Run(fmt.Sprintf(":%d", c.Int("port")))
 }
 
 // get triggers by name(s), filter or ALL
