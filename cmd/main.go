@@ -227,5 +227,13 @@ func testTrigger(c *cli.Context) error {
 	}
 
 	// get trigger from argument
-	return triggerService.Run(c.Args().First(), vars)
+	runs, err := triggerService.Run(c.Args().First(), vars)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Running %d pipelines ...\n", len(runs))
+	for _, r := range runs {
+		fmt.Println("\t", r)
+	}
+	return nil
 }
