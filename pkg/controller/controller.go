@@ -113,9 +113,10 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 	}
 	vars["EVENT_PAYLOAD"] = event.Original
 	// run pipelines
-	if err := c.svc.Run(id, vars); err != nil {
+	runs, err := c.svc.Run(id, vars)
+	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Failed to run trigger pipelines!"})
 		return
 	}
-	ctx.Status(http.StatusOK)
+	ctx.JSON(http.StatusOK, runs)
 }
