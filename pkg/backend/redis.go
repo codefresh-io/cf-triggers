@@ -178,20 +178,22 @@ func (r *RedisStore) Update(t model.Trigger) error {
 }
 
 // Run trigger pipelines
-func (r *RedisStore) Run(id string, vars map[string]string) error {
+func (r *RedisStore) Run(id string, vars map[string]string) ([]string, error) {
+	var runs []string
 	trigger, err := r.Get(id)
 	if err != nil {
 		log.Error(err)
-		return err
+		return nil, err
 	}
 	for _, p := range trigger.Pipelines {
-		err = r.pipelineSvc.RunPipeline(p.Name, p.RepoOwner, p.RepoName, vars)
+		runID, err := r.pipelineSvc.RunPipeline(p.Name, p.RepoOwner, p.RepoName, vars)
 		if err != nil {
 			log.Error(err)
-			return err
+			return nil, err
 		}
+		runs = append(runs, runID)
 	}
-	return nil
+	return runs, nil
 }
 
 // CheckSecret check trigger secret

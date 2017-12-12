@@ -30,7 +30,7 @@ type (
 		Add(Trigger) error
 		Delete(id string) error
 		Update(Trigger) error
-		Run(id string, vars map[string]string) error
+		Run(id string, vars map[string]string) ([]string, error)
 		CheckSecret(id string, message string, secret string) error
 	}
 )

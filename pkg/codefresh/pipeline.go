@@ -2,7 +2,9 @@ package codefresh
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/dghubble/sling"
 	log "github.com/sirupsen/logrus"
@@ -11,7 +13,7 @@ import (
 type (
 	// PipelineService Codefresh Service
 	PipelineService interface {
-		RunPipeline(name string, repoOwner string, repoName string, vars map[string]string) error
+		RunPipeline(name string, repoOwner string, repoName string, vars map[string]string) (string, error)
 	}
 
 	// APIEndpoint Codefresh API endpoint
@@ -20,12 +22,27 @@ type (
 	}
 )
 
+// create a new map of variables
+// each key is converted to UPPER case and prefixed with 'EVENT_'
+func preprocessVariables(vars map[string]string) map[string]string {
+	newVars := make(map[string]string)
+	for k, v := range vars {
+		k = strings.ToUpper(k)
+		if !strings.HasPrefix(k, "EVENT_") {
+			k = "EVENT_" + k
+		}
+		newVars[k] = v
+	}
+	return newVars
+}
+
 // NewCodefreshEndpoint create new Codefresh API endpoint from url and API token
 func NewCodefreshEndpoint(url, token string) PipelineService {
 	endpoint := sling.New().Base(url).Set("x-access-token", token)
 	return &APIEndpoint{endpoint}
 }
 
+// find Codefresh pipeline by name and repo details (owner and name)
 func (api *APIEndpoint) getPipelineByNameAndRepo(name, repoOwner, repoName string) (string, error) {
 	// GET pipelines for repository
 	type CFPipeline struct {
@@ -49,35 +66,52 @@ func (api *APIEndpoint) getPipelineByNameAndRepo(name, repoOwner, repoName strin
 	return "", fmt.Errorf("Failed to find '%s' pipeline", name)
 }
 
-func (api *APIEndpoint) runPipeline(id string, vars map[string]string) error {
+// run Codefresh pipeline
+func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, error) {
 	log.Debugf("Going to run pipeline id: %s", id)
 	type BuildRequest struct {
 		Branch    string            `json:"branch,omitempty"`
 		Variables map[string]string `json:"variables,omitempty"`
 	}
 
+	// start new run
 	body := &BuildRequest{
 		Branch:    "master",
-		Variables: vars,
+		Variables: preprocessVariables(vars),
 	}
-	resp, err := api.endpoint.New().Post(fmt.Sprint("api/builds/", id)).BodyJSON(body).ReceiveSuccess(nil)
+	req, err := api.endpoint.New().Post(fmt.Sprint("api/builds/", id)).BodyJSON(body).Request()
 	if err != nil {
 		log.Error(err)
-		return err
+		return "", err
 	}
+
+	// get run id
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+	defer resp.Body.Close()
+	respData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+	runID := string(respData)
+
 	if resp.StatusCode == http.StatusOK {
-		log.Debugf("Pipeline '%s' is running...", id)
+		log.Debugf("Pipeline '%s' is running with run id: '%s'", id, runID)
 	}
-	return nil
+	return runID, nil
 }
 
 // RunPipeline run Codefresh pipeline
-func (api *APIEndpoint) RunPipeline(name, repoOwner, repoName string, vars map[string]string) error {
+func (api *APIEndpoint) RunPipeline(name, repoOwner, repoName string, vars map[string]string) (string, error) {
 	// get pipeline id from repo and name
 	id, err := api.getPipelineByNameAndRepo(name, repoOwner, repoName)
 	if err != nil {
 		log.Error(err)
-		return err
+		return "", err
 	}
 	// invoke pipeline by id
 	return api.runPipeline(id, vars)

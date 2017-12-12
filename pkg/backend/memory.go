@@ -57,18 +57,19 @@ func (m *MemoryStore) Update(t model.Trigger) error {
 }
 
 // Run trigger pipelines
-func (m *MemoryStore) Run(id string, vars map[string]string) error {
+func (m *MemoryStore) Run(id string, vars map[string]string) ([]string, error) {
+	var runs []string
 	if trigger, ok := m.triggers[id]; ok {
 		for _, p := range trigger.Pipelines {
-			err := m.pipelineSvc.RunPipeline(p.Name, p.RepoOwner, p.RepoName, vars)
+			runID, err := m.pipelineSvc.RunPipeline(p.Name, p.RepoOwner, p.RepoName, vars)
 			if err != nil {
 				log.Error(err)
-				return err
+				return nil, err
 			}
+			runs = append(runs, runID)
 		}
-		return nil
 	}
-	return nil
+	return runs, nil
 }
 
 // CheckSecret check trigger secret

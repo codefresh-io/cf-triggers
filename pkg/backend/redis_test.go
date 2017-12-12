@@ -10,6 +10,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
+	"github.com/stretchr/testify/mock"
 )
 
 type RedisPoolMock struct {
@@ -23,10 +24,13 @@ func (r *RedisPoolMock) GetConn() redis.Conn {
 	return r.conn
 }
 
-type CFMock struct{}
+type CFMock struct {
+	mock.Mock
+}
 
-func (c *CFMock) RunPipeline(name string, repoOwner string, repoName string, vars map[string]string) error {
-	return nil
+func (c *CFMock) RunPipeline(name string, repoOwner string, repoName string, vars map[string]string) (string, error) {
+	args := c.Called(name, repoOwner, repoName, vars)
+	return args.String(0), args.Error(1)
 }
 
 // helper function to convert []string to []interface{}
@@ -151,14 +155,12 @@ func TestRedisStore_Get(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		id      string
 		want    model.Trigger
 		wantErr bool
 	}{
 		{
 			"get trigger by id",
 			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
-			"test:1",
 			model.Trigger{
 				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
 					{Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
@@ -169,7 +171,6 @@ func TestRedisStore_Get(t *testing.T) {
 		{
 			"get trigger GET error",
 			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
-			"test:1",
 			model.Trigger{
 				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
 					{Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
@@ -190,7 +191,7 @@ func TestRedisStore_Get(t *testing.T) {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.want.Event).Expect(tt.want.Secret)
 				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.want.Event)).Expect(interfaceSlicePipelines(tt.want.Pipelines))
 			}
-			got, err := r.Get(tt.id)
+			got, err := r.Get(tt.want.Event)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -367,6 +368,67 @@ func TestRedisStore_CheckSecret(t *testing.T) {
 			if err := r.CheckSecret(tt.args.id, tt.args.message, tt.args.secret); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.CheckSecret() error = %v, wantErr %v", err, tt.wantErr)
 			}
+		})
+	}
+}
+
+func TestRedisStore_Run(t *testing.T) {
+	type fields struct {
+		redisPool   RedisPoolService
+		pipelineSvc codefresh.PipelineService
+	}
+	type args struct {
+		id   string
+		vars map[string]string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		trigger model.Trigger
+		want    []string
+		wantErr bool
+	}{
+		{
+			"run pipeline",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: new(CFMock)},
+			args{id: "test:event", vars: map[string]string{"V1": "AAA", "V2": "BBB"}},
+			model.Trigger{
+				Event: "test:event", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "pipeline1", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipeline2", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipeline3", RepoOwner: "ownerA", RepoName: "repoB"},
+				},
+			},
+			[]string{"pipeline1_runID", "pipeline2_runID", "pipeline3_runID"},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool:   tt.fields.redisPool,
+				pipelineSvc: tt.fields.pipelineSvc,
+			}
+			// mock call
+			mock := r.pipelineSvc.(*CFMock)
+			for i, p := range tt.trigger.Pipelines {
+				mock.On("RunPipeline", p.Name, p.RepoOwner, p.RepoName, tt.args.vars).Return(tt.want[i], nil)
+			}
+			// mock redis commands
+			r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.trigger.Event).Expect(tt.trigger.Secret)
+			r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.trigger.Event)).Expect(interfaceSlicePipelines(tt.trigger.Pipelines))
+			// perform call
+			got, err := r.Run(tt.args.id, tt.args.vars)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.Run() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.Run() = %v, want %v", got, tt.want)
+			}
+			// assert expectation
+			mock.AssertExpectations(t)
 		})
 	}
 }

@@ -1,5 +1,9 @@
 # Hermes - Codefresh Trigger Manager
 
+[![Codefresh build status](https://g.codefresh.io/api/badges/build?repoOwner=codefresh-io&repoName=hermes&branch=master&pipelineName=hermes&accountName=codefresh-inc&type=cf-1)](https://g.codefresh.io/repositories/codefresh-io/hermes/builds?filter=trigger:build;branch:master;service:5a2f9f604a678d0001da7621~hermes) [![Go Report Card](https://goreportcard.com/badge/github.com/codefresh-io/hermes)](https://goreportcard.com/report/github.com/codefresh-io/hermes) [![codecov](https://codecov.io/gh/codefresh-io/hermes/branch/master/graph/badge.svg)](https://codecov.io/gh/codefresh-io/hermes)
+
+[![](https://images.microbadger.com/badges/image/codefresh/hermes.svg)](http://microbadger.com/images/codefresh/hermes) [![](https://images.microbadger.com/badges/commit/codefresh/hermes.svg)](https://microbadger.com/images/codefresh/hermes) [![Docker badge](https://img.shields.io/docker/pulls/codefresh/hermes.svg)](https://hub.docker.com/r/codefresh/hermes/)
+
 Codefresh Trigger Manager (aka `hermes`) is responsible for processing *normalized events* coming from different *Event Providers* and triggering Codefresh pipeline execution using variables extracted from *events* payload.
 
 ## Normalized Event
@@ -21,7 +25,7 @@ It's responsibility of *Event Provider* to get interesting events (or generate; 
 }
 ```
 
-- `secret` - validation secret or `hmac` signature (`sha1`, `sha256`, `sha512`); webhook payloaf `hmac` signature for example
+- `secret` - validation secret or `hmac` signature (`sha1`, `sha256`, `sha512`); webhook payload `hmac` signature for example
 - `variables` - list of *selected* event properties, extracted from event payload
 - `original` - original event payload (JSON or FORM), `base64` encoded
 
@@ -74,7 +78,7 @@ original event      |                            |                             |
 
 Hermes trigger manager is a single binary file `hermes`. This file includes both configuration CLI and trigger manager server.
 
-```
+```sh
 NAME:
    hermes - configure triggers and run trigger manager server
 
@@ -84,23 +88,23 @@ USAGE:
     ╦ ╦┌─┐┬─┐┌┬┐┌─┐┌─┐  ╔═╗┌─┐┌┬┐┌─┐┌─┐┬─┐┌─┐┌─┐┬ ┬  ╔╦╗┬─┐┬┌─┐┌─┐┌─┐┬─┐┌─┐
     ╠═╣├┤ ├┬┘│││├┤ └─┐  ║  │ │ ││├┤ ├┤ ├┬┘├┤ └─┐├─┤   ║ ├┬┘││ ┬│ ┬├┤ ├┬┘└─┐
     ╩ ╩└─┘┴└─┴ ┴└─┘└─┘  ╚═╝└─┘─┴┘└─┘└  ┴└─└─┘└─┘┴ ┴   ╩ ┴└─┴└─┘└─┘└─┘┴└─└─┘
-    
+
 hermes respects following environment variables:
    - REDIS_HOST         - set the url to the Redis server (default localhost)
    - REDIS_PORT         - set Redis port (default to 6379)
    - REDIS_PASSWORD     - set Redis password
-   
+
 Copyright © Codefresh.io
-   
+
 VERSION:
    0.2.0
   git-commit: 42279b2
   build-date: 2017-12-06_11:26_GMT
   platform: darwin amd64 go1.9.2
-   
+
 AUTHOR(S):
-   Alexei Ledenev <alexei@codefresh.io> 
-   
+   Alexei Ledenev <alexei@codefresh.io>
+
 COMMANDS:
      server   start trigger manager server
      trigger  configure Codefresh triggers
