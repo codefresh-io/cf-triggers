@@ -15,6 +15,10 @@ steps:
       - CI_BUILD_ID=${{CF_BUILD_ID}}
       - CI_BUILD_URL=${{CF_BUILD_URL}}
       - CODECOV_TOKEN=${{CODECOV_TOKEN}}
+    when:
+      branch:
+        ignore:
+          - gh-pages
 
   dockerhub_push:
     type: push
@@ -33,3 +37,4 @@ steps:
       branch:
         ignore:
           - master
+          - gh-pages
