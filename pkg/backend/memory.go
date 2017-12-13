@@ -81,3 +81,8 @@ func (m *MemoryStore) CheckSecret(id string, message string, secret string) erro
 	}
 	return nil
 }
+
+// Ping service
+func (m *MemoryStore) Ping() (string, error) {
+	return "PONG", nil
+}

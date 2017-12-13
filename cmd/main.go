@@ -175,7 +175,7 @@ func runServer(c *cli.Context) error {
 	// invoke trigger with event payload
 	router.Handle("POST", "/trigger/:id", triggerController.TriggerEvent)
 	// status handlers
-	router.GET("/health", getHealth)
+	router.GET("/health", triggerController.GetHealth)
 	router.GET("/version", getVersion)
 
 	return router.Run(fmt.Sprintf(":%d", c.Int("port")))
@@ -243,10 +243,6 @@ func testTrigger(c *cli.Context) error {
 	return nil
 }
 
-func getHealth(c *gin.Context) {
-	c.Status(http.StatusOK)
-}
-
 func getVersion(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"version": version.HumanVersion})
+	c.String(http.StatusOK, version.HumanVersion)
 }

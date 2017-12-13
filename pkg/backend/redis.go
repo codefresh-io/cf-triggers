@@ -215,3 +215,10 @@ func (r *RedisStore) CheckSecret(id string, message string, secret string) error
 	}
 	return nil
 }
+
+// Ping Redis service
+func (r *RedisStore) Ping() (string, error) {
+	con := r.redisPool.GetConn()
+	// get pong
+	return redis.String(con.Do("PING"))
+}

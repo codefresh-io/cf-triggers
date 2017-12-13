@@ -120,3 +120,13 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, runs)
 }
+
+// GetHealth status
+func (c *Controller) GetHealth(ctx *gin.Context) {
+	_, err := c.svc.Ping()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to talk with Redis"})
+	} else {
+		ctx.String(http.StatusOK, "Healthy")
+	}
+}

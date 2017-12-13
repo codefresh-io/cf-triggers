@@ -32,6 +32,7 @@ type (
 		Update(Trigger) error
 		Run(id string, vars map[string]string) ([]string, error)
 		CheckSecret(id string, message string, secret string) error
+		Ping() (string, error)
 	}
 )
 

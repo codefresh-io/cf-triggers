@@ -24,7 +24,7 @@ spec:
           env:
           {{- if .Values.debug }}
           - name: DEBUG_HERMES
-            value: true
+            value: "true"
           {{- else}}
           - name: GIN_MODE
             value: release
