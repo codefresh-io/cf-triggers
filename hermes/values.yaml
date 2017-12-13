@@ -12,6 +12,9 @@ service:
   externalPort: 80
   internalPort: 8080
 
+# enable/disable to see verbose output
+debug: true
+
 # configure cfapi access
 cfapi:
 ## cfapi.token - get it from Codefresh application

@@ -121,8 +121,9 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			EnvVar: "REDIS_PASSWORD",
 		},
 		cli.BoolFlag{
-			Name:  "debug",
-			Usage: "enable debug mode with verbose logging",
+			Name:   "debug",
+			Usage:  "enable debug mode with verbose logging",
+			EnvVar: "DEBUG_HERMES",
 		},
 		cli.BoolFlag{
 			Name:  "dry-run",
@@ -152,6 +153,7 @@ func before(c *cli.Context) error {
 
 // start trigger manager server
 func runServer(c *cli.Context) error {
+	fmt.Println()
 	fmt.Println(version.ASCIILogo)
 	router := gin.Default()
 
@@ -172,6 +174,9 @@ func runServer(c *cli.Context) error {
 	router.Handle("DELETE", "/triggers/:id", triggerController.Delete)
 	// invoke trigger with event payload
 	router.Handle("POST", "/trigger/:id", triggerController.TriggerEvent)
+	// status handlers
+	router.GET("/health", getHealth)
+	router.GET("/version", getVersion)
 
 	return router.Run(fmt.Sprintf(":%d", c.Int("port")))
 }
@@ -236,4 +241,12 @@ func testTrigger(c *cli.Context) error {
 		fmt.Println("\t", r)
 	}
 	return nil
+}
+
+func getHealth(c *gin.Context) {
+	c.Status(http.StatusOK)
+}
+
+func getVersion(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"version": version.HumanVersion})
 }
