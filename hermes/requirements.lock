@@ -4,6 +4,6 @@ dependencies:
   version: 1.1.2
 - name: nomios
   repository: http://charts.codefresh.io/apps/
-  version: 0.1.1
-digest: sha256:9c470044da9da39c3b85e19de870e6fbfed997a149252dcfba31932b15368f39
-generated: 2017-12-13T13:09:47.451208+02:00
+  version: 0.1.2
+digest: sha256:fb3ae60b5e33cfce8137f33d097fb130fba8ea6d493e67b6360c148e3715647b
+generated: 2017-12-13T16:43:24.653282+02:00
