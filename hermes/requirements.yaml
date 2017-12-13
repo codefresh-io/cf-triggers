@@ -6,7 +6,7 @@ dependencies:
     - infra
 - name: nomios
   version: 0.1.1
-  repository: https://codefresh-io.github.io/hermes/
+  repository: http://charts.codefresh.io/apps/
   tags:
     - event-provider
     - dockerhub

@@ -1,5 +1,13 @@
+# dev
 .cover
 .vscode
 .bin
+
+# debug
 **/debug
 **/debug.test
+
+# helm dev files
+hermes/charts
+*.tgz
+index.yaml

@@ -1,3 +1,4 @@
+# dev tools
 .idea
 .cover
 .vscode
@@ -5,3 +6,6 @@
 
 # dep files
 Gopkg.*
+
+# helm charts
+hermes/

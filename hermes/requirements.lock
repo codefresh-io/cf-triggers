@@ -1,0 +1,9 @@
+dependencies:
+- name: redis
+  repository: https://kubernetes-charts.storage.googleapis.com/
+  version: 1.1.2
+- name: nomios
+  repository: http://charts.codefresh.io/apps/
+  version: 0.1.1
+digest: sha256:9c470044da9da39c3b85e19de870e6fbfed997a149252dcfba31932b15368f39
+generated: 2017-12-13T13:09:47.451208+02:00
