@@ -1,6 +1,7 @@
 package codefresh
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -21,6 +22,9 @@ type (
 		endpoint *sling.Sling
 	}
 )
+
+// ErrPipelineNotFound error when pipeline not found
+var ErrPipelineNotFound = errors.New("codefresh: pipeline not found")
 
 // create a new map of variables
 // each key is converted to UPPER case and prefixed with 'EVENT_'
@@ -52,7 +56,7 @@ func (api *APIEndpoint) getPipelineByNameAndRepo(name, repoOwner, repoName strin
 	pipelines := new([]CFPipeline)
 	if _, err := api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines); err != nil {
 		log.Error(err)
-		return "", err
+		return "", ErrPipelineNotFound
 	}
 
 	// scan for pipeline ID
@@ -62,8 +66,9 @@ func (api *APIEndpoint) getPipelineByNameAndRepo(name, repoOwner, repoName strin
 			return p.ID, nil
 		}
 	}
+	log.Errorf("Failed to find '%s' pipeline", name)
 
-	return "", fmt.Errorf("Failed to find '%s' pipeline", name)
+	return "", ErrPipelineNotFound
 }
 
 // run Codefresh pipeline
@@ -109,9 +114,12 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 func (api *APIEndpoint) RunPipeline(name, repoOwner, repoName string, vars map[string]string) (string, error) {
 	// get pipeline id from repo and name
 	id, err := api.getPipelineByNameAndRepo(name, repoOwner, repoName)
-	if err != nil {
+	if err != nil && err != ErrPipelineNotFound {
 		log.Error(err)
 		return "", err
+	} else if err == ErrPipelineNotFound {
+		log.Debugf("Skipping pipeline '%s' for repository '%s/%s'", name, repoOwner, repoName)
+		return "", nil
 	}
 	// invoke pipeline by id
 	return api.runPipeline(id, vars)

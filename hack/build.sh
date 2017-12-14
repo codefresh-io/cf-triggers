@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 [ -z "$DIST" ] && DIST=.bin
 
 [ -z "$VERSION" ] && VERSION=$(cat VERSION)

@@ -70,6 +70,6 @@ LABEL org.label-schema.vcs-ref=$VCS_COMMIT_ID \
       org.label-schema.description="Hermes is a Codefresh trigger manager" \
       org.label-schema.vendor="Codefresh Inc." \
       org.label-schema.url="https://github.com/codefresh-io/hermes" \
-      org.label-schema.version="0.2.3" \
+      org.label-schema.version="0.2.4" \
       org.label-schema.docker.cmd="docker run -d --rm -p 80:8080 codefreshio/hermes server" \
       org.label-schema.docker.cmd.help="docker run -it --rm codefreshio/hermes --help"

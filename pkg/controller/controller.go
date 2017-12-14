@@ -12,7 +12,7 @@ import (
 type Event struct {
 	Secret    string            `form:"secret" json:"secret" binding:"required"`
 	Original  string            `form:"original" json:"original"`
-	Variables map[string]string `form:"variables" json:"variable"`
+	Variables map[string]string `form:"variables" json:"variables"`
 }
 
 // Controller trigger controller
@@ -31,7 +31,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	var triggers []model.Trigger
 	var err error
 	if triggers, err = c.svc.List(filter); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to list triggers"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to list triggers", "error": err.Error()})
 		return
 	}
 	if len(triggers) <= 0 {
@@ -47,11 +47,11 @@ func (c *Controller) Get(ctx *gin.Context) {
 	var trigger model.Trigger
 	var err error
 	if trigger, err = c.svc.Get(id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to get trigger"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to get trigger", "error": err.Error()})
 		return
 	}
 	if trigger.IsEmpty() {
-		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": fmt.Sprintf("no trigger %s found", id)})
+		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": fmt.Sprintf("trigger %s not found", id)})
 		return
 	}
 	ctx.JSON(http.StatusOK, trigger)
@@ -65,7 +65,7 @@ func (c *Controller) Add(ctx *gin.Context) {
 	if trigger.Event != "" && len(trigger.Pipelines) != 0 {
 		// add trigger
 		if err := c.svc.Add(trigger); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to add trigger"})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to add trigger", "error": err.Error()})
 			return
 		}
 		// report OK
@@ -85,7 +85,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 func (c *Controller) Delete(ctx *gin.Context) {
 	id := ctx.Params.ByName("id")
 	if err := c.svc.Delete(id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to delete trigger"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to delete trigger", "error": err.Error()})
 		return
 	}
 	ctx.Status(http.StatusOK)
@@ -98,12 +98,12 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 	// get event payload
 	var event Event
 	if err := ctx.BindJSON(&event); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "message": "error in JSON body", "error": err.Error()})
 		return
 	}
 	// check secret
 	if err := c.svc.CheckSecret(id, event.Original, event.Secret); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed secret validation", "error": err.Error()})
 		return
 	}
 	// add original payload to variables
@@ -115,7 +115,7 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 	// run pipelines
 	runs, err := c.svc.Run(id, vars)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to run trigger pipelines"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to run trigger pipelines", "error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, runs)
@@ -125,7 +125,7 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 func (c *Controller) GetHealth(ctx *gin.Context) {
 	_, err := c.svc.Ping()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to talk to Redis"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to talk to Redis", "error": err.Error()})
 	} else {
 		ctx.String(http.StatusOK, "Healthy")
 	}

@@ -103,7 +103,7 @@ func (r *RedisStore) Get(id string) (model.Trigger, error) {
 	log.Debugf("Getting trigger %s ...", id)
 	// get secret from String
 	secret, err := redis.String(con.Do("GET", id))
-	if err != nil {
+	if err != nil && err != redis.ErrNil {
 		log.Error(err)
 		return model.EmptyTrigger, err
 	}
@@ -195,7 +195,9 @@ func (r *RedisStore) Run(id string, vars map[string]string) ([]string, error) {
 			log.Error(err)
 			return nil, err
 		}
-		runs = append(runs, runID)
+		if runID != "" {
+			runs = append(runs, runID)
+		}
 	}
 	return runs, nil
 }
@@ -208,7 +210,7 @@ func (r *RedisStore) CheckSecret(id string, message string, secret string) error
 	log.Debugf("Getting trigger %s ...", id)
 	// get secret from String
 	triggerSecret, err := redis.String(con.Do("GET", id))
-	if err != nil {
+	if err != nil && err != redis.ErrNil {
 		log.Error(err)
 		return err
 	}

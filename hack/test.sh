@@ -8,6 +8,8 @@
 #
 #     --html  Additionally create HTML report and open it in browser
 #
+set -e
+
 [ -z "$COVER" ] && COVER=.cover
 profile="$COVER/cover.out"
 mode=atomic
