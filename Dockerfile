@@ -57,6 +57,7 @@ RUN hack/build.sh
 #
 FROM alpine:3.6
 
+RUN apk add --no-cache ca-certificates
 ENV GIN_MODE=release
 
 COPY --from=builder /go/src/github.com/codefresh-io/hermes/.bin/hermes /usr/local/bin/hermes
