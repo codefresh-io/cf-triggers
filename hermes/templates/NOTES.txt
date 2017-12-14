@@ -13,7 +13,18 @@
   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ template "hermes.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
   echo http://$SERVICE_IP:{{ .Values.service.externalPort }}
 {{- else if contains "ClusterIP" .Values.service.type }}
+  Configure trigger
+  =================
+
+  # get hermes pod name
   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app={{ template "hermes.name" . }},release={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  echo "Visit http://127.0.0.1:8080 to use your application"
-  kubectl port-forward $POD_NAME 8080:{{ .Values.service.internalPort }}
+
+  # get shell into hermes pod
+  kubectl -it $POD_NAME sh 
+
+  # add new trigger to DockerHub push event for 'codefresh/fortune' Docker image
+  > hermes trigger add index.docker.io:codefresh:fortune:push '[{"name":"run_pipeline","repo-owner":"codefresh","repo-name":"trigger-examples"}]'
+
+  # see created trigger
+  > hermes trigger get index.docker.io:codefresh:fortune:push
 {{- end }}

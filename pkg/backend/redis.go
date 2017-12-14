@@ -98,6 +98,8 @@ func (r *RedisStore) List(filter string) ([]model.Trigger, error) {
 // Get trigger by key
 func (r *RedisStore) Get(id string) (model.Trigger, error) {
 	con := r.redisPool.GetConn()
+	// remove "trigger:" prefix
+	id = strings.TrimPrefix(id, "trigger:")
 	log.Debugf("Getting trigger %s ...", id)
 	// get secret from String
 	secret, err := redis.String(con.Do("GET", id))
@@ -113,7 +115,7 @@ func (r *RedisStore) Get(id string) (model.Trigger, error) {
 	}
 	var trigger model.Trigger
 	if len(pipelines) > 0 {
-		trigger.Event = strings.TrimPrefix(id, "trigger:")
+		trigger.Event = id
 		trigger.Secret = secret
 	}
 	for _, p := range pipelines {
@@ -158,6 +160,8 @@ func (r *RedisStore) Add(trigger model.Trigger) error {
 // Delete trigger by id
 func (r *RedisStore) Delete(id string) error {
 	con := r.redisPool.GetConn()
+	// remove "trigger:" prefix
+	id = strings.TrimPrefix(id, "trigger:")
 	log.Debugf("Deleting trigger %s ...", id)
 	// delete Redis String (secret)
 	if _, err := con.Do("DEL", id); err != nil {
@@ -199,6 +203,8 @@ func (r *RedisStore) Run(id string, vars map[string]string) ([]string, error) {
 // CheckSecret check trigger secret
 func (r *RedisStore) CheckSecret(id string, message string, secret string) error {
 	con := r.redisPool.GetConn()
+	// remove "trigger:" prefix
+	id = strings.TrimPrefix(id, "trigger:")
 	log.Debugf("Getting trigger %s ...", id)
 	// get secret from String
 	triggerSecret, err := redis.String(con.Do("GET", id))

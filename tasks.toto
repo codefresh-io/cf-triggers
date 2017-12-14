@@ -1,21 +1,23 @@
 Project:
     ✔ Rename project to `hermes`; short name for package and repo @done (12/6/2017, 1:27:18 PM)
-    ☐ Write first draft for README.md
+    ✔ Write first draft for README.md @done (12/13/2017, 5:18:23 PM)
+    ✔ Update NOTES.txt with instruction how to setup trigger @done (12/14/2017, 12:45:31 PM)
+    ☐ Implement trigger.add command - validate pipeline existence, generate secret 
 
 Tests:
     ✔ Test `RedisStore.Add` @done (12/6/2017, 12:53:44 PM)
     ✔ Test `RedisStore.Delete` @done (12/6/2017, 1:14:09 PM)
-    ☐ Test `RedisStore.Run`
+    ✔ Test `RedisStore.Run` @done (12/13/2017, 5:18:07 PM)
     ✔ Test `RedisStore.CheckSecret` @done (12/6/2017, 1:00:21 PM)
     ☐ Add first integration test 
 
 CI/CD:
-    ☐ Create multi-stage Dockerfile (build + test + tiny final image)
-    ☐ Create codefresh pipeline
-    ☐ Create Helm chart
+    ✔ Create multi-stage Dockerfile (build + test + tiny final image) @done (12/13/2017, 5:18:15 PM)
+    ✔ Create codefresh pipeline @done (12/13/2017, 5:18:16 PM)
+    ✔ Create Helm chart @done (12/13/2017, 5:18:13 PM)
 
 Event Sources:
-    ☐ DockerHub
+    ✔ DockerHub @done (12/13/2017, 5:18:19 PM)
     ☐ GitHub Tag
     ☐ GitHub Release
     ☐ Docker Registry Notification

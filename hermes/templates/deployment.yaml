@@ -51,10 +51,14 @@ spec:
             httpGet:
               path: /health
               port: {{ .Values.service.internalPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 60
           readinessProbe:
             httpGet:
               path: /version
               port: {{ .Values.service.internalPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 60
           resources:
 {{ toYaml .Values.resources | indent 12 }}
     {{- if .Values.nodeSelector }}

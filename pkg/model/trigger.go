@@ -15,7 +15,7 @@ type (
 
 	// Trigger describes a trigger type
 	Trigger struct {
-		// unique event URI, using ':' instead of '/'
+		// unique event URI, use ':' instead of '/'
 		Event string `json:"event"`
 		// trigger secret
 		Secret string `json:"secret"`
