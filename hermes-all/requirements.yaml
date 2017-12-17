@@ -1,0 +1,15 @@
+dependencies:
+  # trigger manager
+  - name: hermes
+    version: 0.1.3
+    repository: http://charts.codefresh.io/apps/
+    tags:
+      - trigger-manager
+      - codefresh
+  # dockerhub event provider
+  - name: nomios
+    version: 0.1.2
+    repository: http://charts.codefresh.io/apps/
+    tags:
+      - event-provider
+      - dockerhub
