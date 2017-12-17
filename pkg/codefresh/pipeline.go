@@ -15,6 +15,7 @@ type (
 	// PipelineService Codefresh Service
 	PipelineService interface {
 		RunPipeline(name string, repoOwner string, repoName string, vars map[string]string) (string, error)
+		Ping() error
 	}
 
 	// APIEndpoint Codefresh API endpoint
@@ -44,6 +45,15 @@ func preprocessVariables(vars map[string]string) map[string]string {
 func NewCodefreshEndpoint(url, token string) PipelineService {
 	endpoint := sling.New().Base(url).Set("x-access-token", token)
 	return &APIEndpoint{endpoint}
+}
+
+// find Codefresh pipeline by name and repo details (owner and name)
+func (api *APIEndpoint) ping() error {
+	if _, err := api.endpoint.New().Get("api/ping").ReceiveSuccess(nil); err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
 }
 
 // find Codefresh pipeline by name and repo details (owner and name)
@@ -123,4 +133,9 @@ func (api *APIEndpoint) RunPipeline(name, repoOwner, repoName string, vars map[s
 	}
 	// invoke pipeline by id
 	return api.runPipeline(id, vars)
+}
+
+// Ping Codefresh API
+func (api *APIEndpoint) Ping() error {
+	return api.ping()
 }

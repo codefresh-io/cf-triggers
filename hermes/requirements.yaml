@@ -4,9 +4,10 @@ dependencies:
   repository: https://kubernetes-charts.storage.googleapis.com/
   tags:
     - infra
-- name: nomios
-  version: 0.1.2
-  repository: http://charts.codefresh.io/apps/
-  tags:
-    - event-provider
-    - dockerhub
+# - name: nomios
+#   version: 0.1.2
+#   #repository: http://charts.codefresh.io/apps/
+#   repository: file://../../nomios/nomios
+#   tags:
+#     - event-provider
+#     - dockerhub

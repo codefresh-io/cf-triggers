@@ -224,9 +224,20 @@ func (r *RedisStore) CheckSecret(id string, message string, secret string) error
 	return nil
 }
 
-// Ping Redis service
+// Ping Redis and Codefresh services
 func (r *RedisStore) Ping() (string, error) {
 	con := r.redisPool.GetConn()
-	// get pong
-	return redis.String(con.Do("PING"))
+	// get pong from Redis
+	pong, err := redis.String(con.Do("PING"))
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+	// get version from Codefresh API
+	err = r.pipelineSvc.Ping()
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+	return pong, nil
 }

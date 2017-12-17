@@ -78,7 +78,7 @@ original event      |                            |                             |
 
 Hermes trigger manager is a single binary file `hermes`. This file includes both configuration CLI and trigger manager server.
 
-```sh
+```text
 NAME:
    hermes - configure triggers and run trigger manager server
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/version"
 	"github.com/gin-gonic/gin"
 )
 
@@ -129,4 +130,14 @@ func (c *Controller) GetHealth(ctx *gin.Context) {
 	} else {
 		ctx.String(http.StatusOK, "Healthy")
 	}
+}
+
+// Ping return PONG with OK
+func (c *Controller) Ping(ctx *gin.Context) {
+	ctx.String(http.StatusOK, "PONG")
+}
+
+// GetVersion get app version
+func (c *Controller) GetVersion(ctx *gin.Context) {
+	ctx.String(http.StatusOK, version.HumanVersion)
 }

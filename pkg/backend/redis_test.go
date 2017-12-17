@@ -33,6 +33,11 @@ func (c *CFMock) RunPipeline(name string, repoOwner string, repoName string, var
 	return args.String(0), args.Error(1)
 }
 
+func (c *CFMock) Ping() error {
+	args := c.Called()
+	return args.Error(0)
+}
+
 // helper function to convert []string to []interface{}
 // see https://github.com/golang/go/wiki/InterfaceSlice
 func interfaceSlice(slice []string, bytes bool) []interface{} {
@@ -356,6 +361,20 @@ func TestRedisStore_CheckSecret(t *testing.T) {
 			args{id: "test", secret: "c61fe17e43c57ac8b18a1cb7b2e9ff666f506fa5", message: "hello world"},
 			"secretKey",
 			false,
+		},
+		{
+			"check empty secret",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			args{id: "test", secret: "", message: "hello world"},
+			"",
+			false,
+		},
+		{
+			"check no secret passed",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			args{id: "test", secret: "", message: "hello world"},
+			"secretKey",
+			true,
 		},
 	}
 	for _, tt := range tests {
