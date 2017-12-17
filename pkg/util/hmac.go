@@ -1,4 +1,4 @@
-package backend
+package util
 
 import (
 	"crypto/hmac"
@@ -9,9 +9,9 @@ import (
 	"hash"
 )
 
-// check hmac signature with: sha1, sha256, sha512
+// CheckHmacSignature check hmac signature with: sha1, sha256, sha512
 // signature is a hex encoded string
-func checkSignature(message, signature, secret string) bool {
+func CheckHmacSignature(message, signature, secret string) bool {
 	hashes := [](func() hash.Hash){sha1.New, sha256.New, sha512.New}
 	for _, h := range hashes {
 		hash := hmac.New(h, []byte(secret))

@@ -9,6 +9,7 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
 	log "github.com/sirupsen/logrus"
 )
@@ -134,6 +135,11 @@ func (r *RedisStore) Get(id string) (model.Trigger, error) {
 func (r *RedisStore) Add(trigger model.Trigger) error {
 	con := r.redisPool.GetConn()
 	log.Debugf("Adding/Updating trigger %s ...", trigger.Event)
+	// generate random secret if required
+	if trigger.Secret == model.GenerateKeyword {
+		trigger.Secret = util.RandomString(16)
+	}
+
 	// add secret to Redis String
 	_, err := con.Do("SET", trigger.Event, trigger.Secret)
 	if err != nil {
@@ -142,6 +148,13 @@ func (r *RedisStore) Add(trigger model.Trigger) error {
 	}
 	// add pipelines to Redis Set
 	for _, v := range trigger.Pipelines {
+		// check Codefresh pipeline existence
+		err := r.pipelineSvc.CheckPipelineExist(v.Name, v.RepoOwner, v.RepoName)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		// marshal pipeline to JSON
 		pipeline, err := json.Marshal(v)
 		if err != nil {
 			log.Error(err)
@@ -216,7 +229,7 @@ func (r *RedisStore) CheckSecret(id string, message string, secret string) error
 	}
 	if triggerSecret != secret {
 		// try to check signature
-		if checkSignature(message, secret, triggerSecret) {
+		if util.CheckHmacSignature(message, secret, triggerSecret) {
 			return nil
 		}
 		return errors.New("invalid secret or HMAC signature")

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/codefresh-io/hermes/pkg/model"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -76,22 +79,25 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 					Action:      getTriggers,
 				},
 				{
+					Name: "add",
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "secret, s",
+							Usage: "trigger secret (auto-generated if skipped)",
+							Value: model.GenerateKeyword,
+						},
+					},
+					Usage:       "get defined trigger(s)",
+					ArgsUsage:   "[name] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
+					Description: "Add a new trigger connected to specified pipeline",
+					Action:      addTrigger,
+				},
+				{
 					Name: "test",
 					Flags: []cli.Flag{
 						cli.StringSliceFlag{
 							Name:  "var",
 							Usage: "variable pairs (key=val); can pass multiple pairs",
-						},
-						cli.StringFlag{
-							Name:   "codefresh, cf",
-							Usage:  "Codefresh API endpoint",
-							Value:  "https://g.codefresh.io/",
-							EnvVar: "CFAPI_URL",
-						},
-						cli.StringFlag{
-							Name:   "token, t",
-							Usage:  "Codefresh API token",
-							EnvVar: "CFAPI_TOKEN",
 						},
 					},
 					Usage:       "trigger pipeline execution with variables",
@@ -103,6 +109,17 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		},
 	}
 	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:   "codefresh, cf",
+			Usage:  "Codefresh API endpoint",
+			Value:  "https://g.codefresh.io/",
+			EnvVar: "CFAPI_URL",
+		},
+		cli.StringFlag{
+			Name:   "token, t",
+			Usage:  "Codefresh API token",
+			EnvVar: "CFAPI_TOKEN",
+		},
 		cli.StringFlag{
 			Name:   "redis",
 			Usage:  "redis host name",
@@ -160,7 +177,6 @@ func runServer(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.String("cf"), c.String("t"))
 
-	//triggerController := controller.NewController(backend.NewMemoryStore(codefresh.PipelineService))
 	triggerController := controller.NewController(backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService))
 
 	// trigger management API
@@ -184,7 +200,6 @@ func runServer(c *cli.Context) error {
 
 // get triggers by name(s), filter or ALL
 func getTriggers(c *cli.Context) error {
-	// triggerService := backend.NewMemoryStore(codefresh.PipelineService)
 	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
 	if len(c.Args()) == 0 {
 		triggers, err := triggerService.List(c.String("filter"))
@@ -196,7 +211,7 @@ func getTriggers(c *cli.Context) error {
 			fmt.Println("No triggers defined!")
 		}
 		for _, t := range triggers {
-			fmt.Printf("%+v\n", t)
+			fmt.Println(t)
 		}
 	} else {
 		for _, id := range c.Args() {
@@ -208,7 +223,7 @@ func getTriggers(c *cli.Context) error {
 			if trigger.IsEmpty() {
 				fmt.Printf("Trigger '%s' not found!\n", id)
 			} else {
-				fmt.Printf("%+v\n", trigger)
+				fmt.Println(trigger)
 			}
 		}
 	}
@@ -216,10 +231,30 @@ func getTriggers(c *cli.Context) error {
 	return nil
 }
 
+// add new trigger
+func addTrigger(c *cli.Context) error {
+	// get trigger name and pipeline
+	args := c.Args()
+	if len(args) != 4 {
+		return errors.New("wrong arguments")
+	}
+	// get codefresh endpoint
+	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
+	// get trigger service
+	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	// create trigger model
+	trigger := model.Trigger{}
+	trigger.Event = args.First()
+	trigger.Secret = c.String("secret")
+	trigger.Pipelines = make([]model.Pipeline, 1)
+	trigger.Pipelines[0] = model.Pipeline{Name: args.Get(1), RepoOwner: args.Get(2), RepoName: args.Get(3)}
+	return triggerService.Add(trigger)
+}
+
 // run all pipelines connected to specified trigger
 func testTrigger(c *cli.Context) error {
 	// get codefresh endpoint
-	codefreshService := codefresh.NewCodefreshEndpoint(c.String("cf"), c.String("t"))
+	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
 	// get trigger service
 	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
 	// convert command line 'var' variables (key=value) to map

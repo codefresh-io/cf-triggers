@@ -3,11 +3,13 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
 	"github.com/stretchr/testify/mock"
@@ -26,6 +28,11 @@ func (r *RedisPoolMock) GetConn() redis.Conn {
 
 type CFMock struct {
 	mock.Mock
+}
+
+func (c *CFMock) CheckPipelineExist(name string, repoOwner string, repoName string) error {
+	args := c.Called(name, repoOwner, repoName)
+	return args.Error(0)
 }
 
 func (c *CFMock) RunPipeline(name string, repoOwner string, repoName string, vars map[string]string) (string, error) {
@@ -217,7 +224,7 @@ func TestRedisStore_Add(t *testing.T) {
 		name    string
 		fields  fields
 		trigger model.Trigger
-		wantErr bool
+		wantErr [3]bool
 	}{
 		{
 			"add trigger",
@@ -228,7 +235,18 @@ func TestRedisStore_Add(t *testing.T) {
 					{Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
 				},
 			},
-			false,
+			[3]bool{false, false, false},
+		},
+		{
+			"add trigger with auto-generated secret",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			model.Trigger{
+				Event: "test:1", Secret: model.GenerateKeyword, Pipelines: []model.Pipeline{
+					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
+				},
+			},
+			[3]bool{false, false, false},
 		},
 		{
 			"add trigger SET error",
@@ -239,7 +257,29 @@ func TestRedisStore_Add(t *testing.T) {
 					{Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
 				},
 			},
-			true,
+			[3]bool{true, false, false},
+		},
+		{
+			"add trigger non-existing pipeline",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			model.Trigger{
+				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
+				},
+			},
+			[3]bool{false, true, false},
+		},
+		{
+			"add trigger SADD error",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			model.Trigger{
+				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
+				},
+			},
+			[3]bool{false, false, true},
 		},
 	}
 	for _, tt := range tests {
@@ -248,18 +288,39 @@ func TestRedisStore_Add(t *testing.T) {
 				redisPool:   tt.fields.redisPool,
 				pipelineSvc: tt.fields.pipelineSvc,
 			}
-			if tt.wantErr {
+			// mock CF API call
+			mock := r.pipelineSvc.(*CFMock)
+			// error cases
+			if tt.wantErr[0] {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("SET", tt.trigger.Event, tt.trigger.Secret).ExpectError(fmt.Errorf("SET error"))
 			} else {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("SET", tt.trigger.Event, tt.trigger.Secret).Expect("OK!")
+				if tt.trigger.Secret == model.GenerateKeyword {
+					r.redisPool.GetConn().(*redigomock.Conn).Command("SET", tt.trigger.Event, util.TestRandomString).Expect("OK!")
+				} else {
+					r.redisPool.GetConn().(*redigomock.Conn).Command("SET", tt.trigger.Event, tt.trigger.Secret).Expect("OK!")
+				}
 				for _, p := range tt.trigger.Pipelines {
+					if tt.wantErr[1] {
+						mock.On("CheckPipelineExist", p.Name, p.RepoOwner, p.RepoName).Return(codefresh.ErrPipelineNotFound)
+						break
+					} else {
+						mock.On("CheckPipelineExist", p.Name, p.RepoOwner, p.RepoName).Return(nil)
+					}
 					jp, _ := json.Marshal(p)
-					r.redisPool.GetConn().(*redigomock.Conn).Command("SADD", getTriggerKey(tt.trigger.Event), jp)
+					if tt.wantErr[2] {
+						r.redisPool.GetConn().(*redigomock.Conn).Command("SADD", getTriggerKey(tt.trigger.Event), jp).ExpectError(fmt.Errorf("SADD error"))
+						break
+					} else {
+						r.redisPool.GetConn().(*redigomock.Conn).Command("SADD", getTriggerKey(tt.trigger.Event), jp)
+					}
 				}
 			}
-			if err := r.Add(tt.trigger); (err != nil) != tt.wantErr {
+			// perform function call
+			if err := r.Add(tt.trigger); (err != nil) != (tt.wantErr[0] || tt.wantErr[1] || tt.wantErr[2]) {
 				t.Errorf("RedisStore.Add() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			// assert expectation
+			mock.AssertExpectations(t)
 		})
 	}
 }
@@ -450,4 +511,9 @@ func TestRedisStore_Run(t *testing.T) {
 			mock.AssertExpectations(t)
 		})
 	}
+}
+
+func TestMain(m *testing.M) {
+	util.TestMode = true
+	os.Exit(m.Run())
 }
