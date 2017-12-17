@@ -72,8 +72,12 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 							Name:  "filter, f",
 							Usage: "trigger filter",
 						},
+						cli.BoolFlag{
+							Name:  "quiet, q",
+							Usage: "only display event URIs",
+						},
 					},
-					Usage:       "get defined trigger(s)",
+					Usage:       "get trigger(s)",
 					ArgsUsage:   "[name, filter or empty (ALL)]",
 					Description: "Get trigger by name or filter, or get all triggers, if no filter specified",
 					Action:      getTriggers,
@@ -87,10 +91,17 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 							Value: model.GenerateKeyword,
 						},
 					},
-					Usage:       "get defined trigger(s)",
+					Usage:       "add trigger",
 					ArgsUsage:   "[name] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
 					Description: "Add a new trigger connected to specified pipeline",
 					Action:      addTrigger,
+				},
+				{
+					Name:        "delete",
+					Usage:       "delete trigger",
+					ArgsUsage:   "[event URI]",
+					Description: "Delete trigger by event URI",
+					Action:      deleteTrigger,
 				},
 				{
 					Name: "test",
@@ -200,6 +211,7 @@ func runServer(c *cli.Context) error {
 
 // get triggers by name(s), filter or ALL
 func getTriggers(c *cli.Context) error {
+	quiet := c.Bool("quiet")
 	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
 	if len(c.Args()) == 0 {
 		triggers, err := triggerService.List(c.String("filter"))
@@ -211,7 +223,11 @@ func getTriggers(c *cli.Context) error {
 			fmt.Println("No triggers defined!")
 		}
 		for _, t := range triggers {
-			fmt.Println(t)
+			if quiet {
+				fmt.Println(t.Event)
+			} else {
+				fmt.Println(t)
+			}
 		}
 	} else {
 		for _, id := range c.Args() {
@@ -223,7 +239,11 @@ func getTriggers(c *cli.Context) error {
 			if trigger.IsEmpty() {
 				fmt.Printf("Trigger '%s' not found!\n", id)
 			} else {
-				fmt.Println(trigger)
+				if quiet {
+					fmt.Println(trigger.Event)
+				} else {
+					fmt.Println(trigger)
+				}
 			}
 		}
 	}
@@ -249,6 +269,18 @@ func addTrigger(c *cli.Context) error {
 	trigger.Pipelines = make([]model.Pipeline, 1)
 	trigger.Pipelines[0] = model.Pipeline{Name: args.Get(1), RepoOwner: args.Get(2), RepoName: args.Get(3)}
 	return triggerService.Add(trigger)
+}
+
+// add new trigger
+func deleteTrigger(c *cli.Context) error {
+	// get trigger name
+	args := c.Args()
+	if len(args) != 1 {
+		return errors.New("wrong argument, expected trigger event URI")
+	}
+	// get trigger service
+	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	return triggerService.Delete(args.First())
 }
 
 // run all pipelines connected to specified trigger
