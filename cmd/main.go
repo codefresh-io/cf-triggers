@@ -92,7 +92,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 						},
 					},
 					Usage:       "add trigger",
-					ArgsUsage:   "[name] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
+					ArgsUsage:   "[event URI] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
 					Description: "Add a new trigger connected to specified pipeline",
 					Action:      addTrigger,
 				},
@@ -128,6 +128,13 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 					ArgsUsage:   "[event URI]",
 					Description: "Get all pipelines connected to trigger with provided event URI",
 					Action:      getTriggerPipelines,
+				},
+				{
+					Name:        "add",
+					Usage:       "add pipelines to existing trigger",
+					ArgsUsage:   "[event URI] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
+					Description: "Get all pipelines connected to trigger with provided event URI",
+					Action:      addTriggerPipelines,
 				},
 			},
 		},
@@ -217,7 +224,7 @@ func runServer(c *cli.Context) error {
 	router.Handle("DELETE", "/triggers/:id", triggerController.Delete)
 	// manage pipelines attached to trigger
 	router.Handle("GET", "/triggers/:id/pipelines", triggerController.GetPipelines)
-	// router.Handle("POST", "/triggers/:id/pipelines", triggerController.AddPipeline)
+	router.Handle("POST", "/triggers/:id/pipelines", triggerController.AddPipelines)
 	// router.Handle("DELETE", "/triggers/:id/pipelines/:pid", triggerController.DeletePipeline)
 	// invoke trigger with event payload
 	router.Handle("POST", "/trigger/:id", triggerController.TriggerEvent)
@@ -282,6 +289,22 @@ func getTriggerPipelines(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func addTriggerPipelines(c *cli.Context) error {
+	// get trigger name and pipeline
+	args := c.Args()
+	if len(args) != 4 {
+		return errors.New("wrong arguments")
+	}
+	// get codefresh endpoint
+	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
+	// get trigger service
+	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	// create pipelines
+	pipelines := make([]model.Pipeline, 1)
+	pipelines[0] = model.Pipeline{Name: args.Get(1), RepoOwner: args.Get(2), RepoName: args.Get(3)}
+	return triggerService.AddPipelines(args.First(), pipelines)
 }
 
 // add new trigger

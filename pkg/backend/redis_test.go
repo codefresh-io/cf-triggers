@@ -774,3 +774,67 @@ func TestRedisStore_GetPipelines(t *testing.T) {
 		})
 	}
 }
+
+func TestRedisStore_AddPipelines(t *testing.T) {
+	type fields struct {
+		redisPool   RedisPoolService
+		pipelineSvc codefresh.PipelineService
+		storeSvc    redisStoreInterface
+	}
+	type args struct {
+		id        string
+		pipelines []model.Pipeline
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		args     args
+		existing model.Trigger
+		wantErr  bool
+	}{
+		{
+			"add pipelines to trigger",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}, storeSvc: &storeMock{}},
+			args{
+				id: "event:test:uri",
+				pipelines: []model.Pipeline{
+					{Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "testB", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "testC", RepoOwner: "ownerB", RepoName: "repoB"},
+				},
+			},
+			model.Trigger{
+				Event: "event:test:uri", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "pipeline1", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipeline2", RepoOwner: "ownerA", RepoName: "repoA"},
+				},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool:   tt.fields.redisPool,
+				pipelineSvc: tt.fields.pipelineSvc,
+				storeSvc:    tt.fields.storeSvc,
+			}
+			// mock redis calls for Get() command
+			r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.args.id).Expect(tt.existing.Secret)
+			r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.args.id)).Expect(interfaceSlicePipelines(tt.existing.Pipelines))
+			// add pipelines to trigger
+			trigger := tt.existing
+			for _, p := range tt.args.pipelines {
+				trigger.Pipelines = append(trigger.Pipelines, p)
+			}
+			// mock store call
+			mock := r.storeSvc.(*storeMock)
+			mock.On("storeTrigger", r, trigger).Return(nil)
+			if err := r.AddPipelines(tt.args.id, tt.args.pipelines); (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.AddPipelines() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			// assert expectations
+			mock.AssertExpectations(t)
+		})
+	}
+}

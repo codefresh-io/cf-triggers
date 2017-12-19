@@ -77,6 +77,26 @@ func (c *Controller) GetPipelines(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pipelines)
 }
 
+// AddPipelines add pipelines to trigger
+func (c *Controller) AddPipelines(ctx *gin.Context) {
+	// trigger id (event URI)
+	id := ctx.Params.ByName("id")
+	// get pipelines from body
+	var pipelines []model.Pipeline
+	ctx.Bind(&pipelines)
+	// perform action
+	var err error
+	if err = c.svc.AddPipelines(id, pipelines); err != nil {
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to add trigger pipelines", "error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, pipelines)
+}
+
 // Add trigger
 func (c *Controller) Add(ctx *gin.Context) {
 	var trigger model.Trigger

@@ -73,10 +73,12 @@ func (redisStoreInternal) storeTrigger(r *RedisStore, trigger model.Trigger) err
 	}
 
 	// add secret to Redis String
-	_, err := con.Do("SET", trigger.Event, trigger.Secret)
-	if err != nil {
-		log.Error(err)
-		return err
+	if trigger.Secret != "" {
+		_, err := con.Do("SET", trigger.Event, trigger.Secret)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
 	}
 	// add pipelines to Redis Set
 	for _, v := range trigger.Pipelines {
@@ -315,4 +317,24 @@ func (r *RedisStore) GetPipelines(id string) ([]model.Pipeline, error) {
 		triggerPipelines = append(triggerPipelines, pipeline)
 	}
 	return triggerPipelines, nil
+}
+
+// AddPipelines get trigger pipelines by key
+func (r *RedisStore) AddPipelines(id string, pipelines []model.Pipeline) error {
+	log.Debugf("Updating trigger %s pipelines ...", id)
+
+	// get existing trigger - fail if not found
+	trigger, err := r.Get(id)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	// add pipelines to found trigger
+	for _, p := range pipelines {
+		trigger.Pipelines = append(trigger.Pipelines, p)
+	}
+
+	// store trigger
+	return r.storeSvc.storeTrigger(r, *trigger)
 }

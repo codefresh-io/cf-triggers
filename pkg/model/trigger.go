@@ -36,6 +36,7 @@ type (
 		Delete(id string) error
 		Update(trigger Trigger) error
 		GetPipelines(id string) ([]Pipeline, error)
+		AddPipelines(id string, pipelines []Pipeline) error
 		Run(id string, vars map[string]string) ([]string, error)
 		CheckSecret(id string, message string, secret string) error
 		Ping() (string, error)
