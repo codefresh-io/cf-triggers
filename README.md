@@ -88,38 +88,40 @@ USAGE:
     ╦ ╦┌─┐┬─┐┌┬┐┌─┐┌─┐  ╔═╗┌─┐┌┬┐┌─┐┌─┐┬─┐┌─┐┌─┐┬ ┬  ╔╦╗┬─┐┬┌─┐┌─┐┌─┐┬─┐┌─┐
     ╠═╣├┤ ├┬┘│││├┤ └─┐  ║  │ │ ││├┤ ├┤ ├┬┘├┤ └─┐├─┤   ║ ├┬┘││ ┬│ ┬├┤ ├┬┘└─┐
     ╩ ╩└─┘┴└─┴ ┴└─┘└─┘  ╚═╝└─┘─┴┘└─┘└  ┴└─└─┘└─┘┴ ┴   ╩ ┴└─┴└─┘└─┘└─┘┴└─└─┘
-
+    
 hermes respects following environment variables:
    - REDIS_HOST         - set the url to the Redis server (default localhost)
    - REDIS_PORT         - set Redis port (default to 6379)
    - REDIS_PASSWORD     - set Redis password
-
+   
 Copyright © Codefresh.io
 
 VERSION:
-   0.2.5
-  git-commit: 42279b2
-  build-date: 2017-12-06_11:26_GMT
+   Codefresh Hermes 0.2.6
+  git-commit: 8a579f0
+  build-date: 2017-12-19_14:22_GMT
   platform: darwin amd64 go1.9.2
 
-AUTHOR(S):
+AUTHOR:
    Alexei Ledenev <alexei@codefresh.io>
 
 COMMANDS:
-     server   start trigger manager server
-     trigger  configure Codefresh triggers
-     help, h  Shows a list of commands or help for one command
+     server    start trigger manager server
+     trigger   configure Codefresh triggers
+     pipeline  manage Codefresh trigger pipelines
+     help, h   Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --redis value           redis host name (default: "localhost") [$REDIS_HOST]
-   --redis-port value      redis host port (default: 6379) [$REDIS_PORT]
-   --redis-password value  redis password [$REDIS_PASSWORD]
-   --debug                 enable debug mode with verbose logging
-   --dry-run               do not execute commands, just log
-   --json                  produce log in JSON format: Logstash and Splunk friendly
-   --help, -h              show help
-   --version, -v           print the version
-
+   --codefresh value, --cf value  Codefresh API endpoint (default: "https://g.codefresh.io/") [$CFAPI_URL]
+   --token value, -t value        Codefresh API token [$CFAPI_TOKEN]
+   --redis value                  redis host name (default: "localhost") [$REDIS_HOST]
+   --redis-port value             redis host port (default: 6379) [$REDIS_PORT]
+   --redis-password value         redis password [$REDIS_PASSWORD]
+   --debug                        enable debug mode with verbose logging [$DEBUG_HERMES]
+   --dry-run                      do not execute commands, just log
+   --json                         produce log in JSON format: Logstash and Splunk friendly
+   --help, -h                     show help
+   --version, -v                  print the version
 ```
 
 ## Deploy with Helm
