@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -37,6 +38,7 @@ type (
 		Update(trigger Trigger) error
 		GetPipelines(id string) ([]Pipeline, error)
 		AddPipelines(id string, pipelines []Pipeline) error
+		DeletePipeline(id string, pid string) error
 		Run(id string, vars map[string]string) ([]string, error)
 		CheckSecret(id string, message string, secret string) error
 		Ping() (string, error)
@@ -45,6 +47,9 @@ type (
 
 // ErrTriggerNotFound error when trigger not found
 var ErrTriggerNotFound = errors.New("trigger not found")
+
+// ErrPipelineNotFound error when trigger not found
+var ErrPipelineNotFound = errors.New("pipeline not found")
 
 // ErrTriggerAlreadyExists error when trigger already exists
 var ErrTriggerAlreadyExists = errors.New("trigger already exists")
@@ -68,4 +73,13 @@ func (p Pipeline) String() string {
 		log.Errorf("error: %v", err)
 	}
 	return string(d)
+}
+
+// PipelineFromURI construct pipeline struct from uri - name:repo-owner:repo-name
+func PipelineFromURI(uri string) (*Pipeline, error) {
+	s := strings.Split(uri, ":")
+	if len(s) != 3 { // should be name:repo-owner:repo-name
+		return nil, errors.New("invalid pipeline uri, should be in form: [name]:[repo-owner]:[repo-name]")
+	}
+	return &Pipeline{Name: s[0], RepoOwner: s[1], RepoName: s[2]}, nil
 }

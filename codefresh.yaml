@@ -2,6 +2,11 @@ version: '1.0'
 
 steps:
 
+  get_version:
+    image: alpine:3.7
+    commands:
+      - cf_export VERSION=$(cat VERSION)
+
   multistage_build:
     type: build
     description: create Hermes trigger manager image with multi-stage build
@@ -19,7 +24,7 @@ steps:
   dockerhub_push:
     type: push
     candidate: ${{multistage_build}}
-    tag: stable
+    tag: ${{VERSION}}
     when:
       branch:
         only:

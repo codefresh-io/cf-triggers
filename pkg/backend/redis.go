@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -305,6 +306,9 @@ func (r *RedisStore) GetPipelines(id string) ([]model.Pipeline, error) {
 	} else if err == redis.ErrNil {
 		return nil, model.ErrTriggerNotFound
 	}
+	if len(pipelines) == 0 {
+		return nil, model.ErrTriggerNotFound
+	}
 
 	triggerPipelines := make([]model.Pipeline, 0)
 	for _, p := range pipelines {
@@ -337,4 +341,52 @@ func (r *RedisStore) AddPipelines(id string, pipelines []model.Pipeline) error {
 
 	// store trigger
 	return r.storeSvc.storeTrigger(r, *trigger)
+}
+
+// DeletePipeline remove pipeline from trigger
+func (r *RedisStore) DeletePipeline(id string, pid string) error {
+	log.Debugf("Removing pipeline %s from %s ...", pid, id)
+
+	// get existing trigger - fail if not found
+	trigger, err := r.Get(id)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	// construct pipeline from pipeline URI
+	pipeline, err := model.PipelineFromURI(pid)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	// scan all trigger pipelines and remove matching one
+	for _, p := range trigger.Pipelines {
+		// search for pipeline
+		if reflect.DeepEqual(*pipeline, p) {
+			// marshal pipeline to SON
+			jsonPipeline, err := json.Marshal(pipeline)
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+			// get Redis connection
+			con := r.redisPool.GetConn()
+			// remove pipeline from set
+			result, err := redis.Int(con.Do("SREM", getTriggerKey(id), jsonPipeline))
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+			// failed to remove
+			if result == 0 {
+				return fmt.Errorf("failed to remove pipeline")
+			}
+			return nil
+		}
+	}
+
+	// on success should return earlier
+	return model.ErrPipelineNotFound
 }

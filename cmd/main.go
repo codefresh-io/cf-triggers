@@ -133,8 +133,15 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 					Name:        "add",
 					Usage:       "add pipelines to existing trigger",
 					ArgsUsage:   "[event URI] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
-					Description: "Get all pipelines connected to trigger with provided event URI",
+					Description: "Add pipeline to existing trigger with specified event URI",
 					Action:      addTriggerPipelines,
+				},
+				{
+					Name:        "delete",
+					Usage:       "delete pipeline from existing trigger",
+					ArgsUsage:   "[event URI] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
+					Description: "Delete pipeline from existing trigger with specified event URI",
+					Action:      deleteTriggerPipeline,
 				},
 			},
 		},
@@ -225,7 +232,7 @@ func runServer(c *cli.Context) error {
 	// manage pipelines attached to trigger
 	router.Handle("GET", "/triggers/:id/pipelines", triggerController.GetPipelines)
 	router.Handle("POST", "/triggers/:id/pipelines", triggerController.AddPipelines)
-	// router.Handle("DELETE", "/triggers/:id/pipelines/:pid", triggerController.DeletePipeline)
+	router.Handle("DELETE", "/triggers/:id/pipelines/:pid", triggerController.DeletePipeline)
 	// invoke trigger with event payload
 	router.Handle("POST", "/trigger/:id", triggerController.TriggerEvent)
 	// status handlers
@@ -295,7 +302,7 @@ func addTriggerPipelines(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
 	if len(args) != 4 {
-		return errors.New("wrong arguments")
+		return errors.New("wrong number of arguments")
 	}
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
@@ -305,6 +312,19 @@ func addTriggerPipelines(c *cli.Context) error {
 	pipelines := make([]model.Pipeline, 1)
 	pipelines[0] = model.Pipeline{Name: args.Get(1), RepoOwner: args.Get(2), RepoName: args.Get(3)}
 	return triggerService.AddPipelines(args.First(), pipelines)
+}
+
+func deleteTriggerPipeline(c *cli.Context) error {
+	// get trigger name and pipeline
+	args := c.Args()
+	if len(args) != 4 {
+		return errors.New("wrong number of arguments")
+	}
+	// get trigger service
+	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	// create pipelines
+	pid := fmt.Sprintf("%s:%s:%s", args.Get(1), args.Get(2), args.Get(3))
+	return triggerService.DeletePipeline(c.Args().First(), pid)
 }
 
 // add new trigger

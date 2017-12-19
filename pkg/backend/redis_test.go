@@ -726,11 +726,12 @@ func TestRedisStore_GetPipelines(t *testing.T) {
 		storeSvc    redisStoreInterface
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		id      string
-		want    []model.Pipeline
-		wantErr bool
+		name         string
+		fields       fields
+		id           string
+		want         []model.Pipeline
+		wantRedisErr bool
+		wantEmptyErr bool
 	}{
 		{
 			"get trigger pipelines",
@@ -742,12 +743,22 @@ func TestRedisStore_GetPipelines(t *testing.T) {
 				{Name: "testC", RepoOwner: "ownerB", RepoName: "repoB"},
 			},
 			false,
+			false,
 		},
 		{
 			"get trigger pipelines SMEMBERS error",
 			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
 			"event:test:uri",
 			nil,
+			true,
+			false,
+		},
+		{
+			"get trigger pipelines EMPTY error",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			"event:test:uri",
+			nil,
+			false,
 			true,
 		},
 	}
@@ -758,14 +769,16 @@ func TestRedisStore_GetPipelines(t *testing.T) {
 				pipelineSvc: tt.fields.pipelineSvc,
 				storeSvc:    tt.fields.storeSvc,
 			}
-			if tt.wantErr {
+			if tt.wantRedisErr {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.id)).ExpectError(fmt.Errorf("SMEMBERS error"))
+			} else if tt.wantEmptyErr {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.id)).Expect(interfaceSlicePipelines(tt.want))
 			} else {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.id)).Expect(interfaceSlicePipelines(tt.want))
 			}
 			got, err := r.GetPipelines(tt.id)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.GetPipelines() error = %v, wantErr %v", err, tt.wantErr)
+			if (err != nil) != (tt.wantRedisErr || tt.wantEmptyErr) {
+				t.Errorf("RedisStore.GetPipelines() error = %v, wantErr %v", err, (tt.wantRedisErr || tt.wantEmptyErr))
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -835,6 +848,102 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 			}
 			// assert expectations
 			mock.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRedisStore_DeletePipeline(t *testing.T) {
+	type fields struct {
+		redisPool RedisPoolService
+	}
+	type args struct {
+		id  string
+		pid string
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		args     args
+		existing *model.Trigger
+		expected int64
+		wantErr  bool
+	}{
+		{
+			"delete pipeline from trigger",
+			fields{redisPool: &RedisPoolMock{}},
+			args{
+				id:  "event:test:uri",
+				pid: "pipeline1:ownerA:repoA",
+			},
+			&model.Trigger{
+				Event: "event:test:uri", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "pipeline1", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipeline2", RepoOwner: "ownerA", RepoName: "repoA"},
+				},
+			},
+			1,
+			false,
+		},
+		{
+			"try to delete non-existing pipeline from trigger",
+			fields{redisPool: &RedisPoolMock{}},
+			args{
+				id:  "event:test:uri",
+				pid: "non-existing:ownerA:repoA",
+			},
+			&model.Trigger{
+				Event: "event:test:uri", Secret: "secretA", Pipelines: []model.Pipeline{
+					{Name: "pipeline1", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "pipeline2", RepoOwner: "ownerA", RepoName: "repoA"},
+				},
+			},
+			0,
+			true,
+		},
+		{
+			"try to delete pipeline from non-existing trigger",
+			fields{redisPool: &RedisPoolMock{}},
+			args{
+				id:  "event:test:uri",
+				pid: "pipeline1:ownerA:repoA",
+			},
+			nil,
+			0,
+			true,
+		},
+		{
+			"try to delete bad URI pipeline from trigger",
+			fields{redisPool: &RedisPoolMock{}},
+			args{
+				id:  "event:test:uri",
+				pid: "pipeline1",
+			},
+			nil,
+			0,
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: tt.fields.redisPool,
+			}
+			// mock redis calls for Get() command
+			if tt.existing == nil {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.args.id).Expect(nil)
+				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.args.id)).Expect(interfaceSlicePipelines(nil))
+			} else {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", tt.args.id).Expect(tt.existing.Secret)
+				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.args.id)).Expect(interfaceSlicePipelines(tt.existing.Pipelines))
+			}
+			// remove command
+			p, _ := model.PipelineFromURI(tt.args.pid)
+			pipeline, _ := json.Marshal(p)
+			r.redisPool.GetConn().(*redigomock.Conn).Command("SREM", getTriggerKey(tt.args.id), pipeline).Expect(tt.expected)
+			// perform delete
+			if err := r.DeletePipeline(tt.args.id, tt.args.pid); (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.DeletePipeline() error = %v, wantErr %v", err, tt.wantErr)
+			}
 		})
 	}
 }

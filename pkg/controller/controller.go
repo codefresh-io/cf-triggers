@@ -97,6 +97,23 @@ func (c *Controller) AddPipelines(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, pipelines)
 }
 
+// DeletePipeline delete pipeline from trigger
+func (c *Controller) DeletePipeline(ctx *gin.Context) {
+	// get trigger event URI
+	id := ctx.Params.ByName("id")
+	// get pipeline URI
+	pid := ctx.Params.ByName("pid")
+	if err := c.svc.DeletePipeline(id, pid); err != nil {
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to remove pipeline from trigger", "error": err.Error()})
+		return
+	}
+	ctx.Status(http.StatusOK)
+}
+
 // Add trigger
 func (c *Controller) Add(ctx *gin.Context) {
 	var trigger model.Trigger
