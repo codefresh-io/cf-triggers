@@ -1,4 +1,4 @@
 apiVersion: v1
 description: Hermes All - an aggregative package of all Codefresh triggers and trigger manager
 name: hermes-all
-version: 0.1.1
+version: 0.1.2
