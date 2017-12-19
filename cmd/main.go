@@ -236,14 +236,10 @@ func getTriggers(c *cli.Context) error {
 				log.Error(err)
 				return err
 			}
-			if trigger.IsEmpty() {
-				fmt.Printf("Trigger '%s' not found!\n", id)
+			if quiet {
+				fmt.Println(trigger.Event)
 			} else {
-				if quiet {
-					fmt.Println(trigger.Event)
-				} else {
-					fmt.Println(trigger)
-				}
+				fmt.Println(trigger)
 			}
 		}
 	}

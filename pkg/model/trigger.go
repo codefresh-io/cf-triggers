@@ -1,7 +1,7 @@
 package model
 
 import (
-	"reflect"
+	"errors"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -30,8 +30,8 @@ type (
 
 	// TriggerService interface
 	TriggerService interface {
-		List(filter string) ([]Trigger, error)
-		Get(id string) (Trigger, error)
+		List(filter string) ([]*Trigger, error)
+		Get(id string) (*Trigger, error)
 		Add(trigger Trigger) error
 		Delete(id string) error
 		Update(trigger Trigger) error
@@ -41,16 +41,14 @@ type (
 	}
 )
 
-// EmptyTrigger is empty trigger to reuse
-var EmptyTrigger = Trigger{}
+// ErrTriggerNotFound error when trigger not found
+var ErrTriggerNotFound = errors.New("trigger not found")
+
+// ErrTriggerAlreadyExists error when trigger already exists
+var ErrTriggerAlreadyExists = errors.New("trigger already exists")
 
 // GenerateKeyword keyword used to auto-generate secret
 const GenerateKeyword = "!generate"
-
-// IsEmpty check if trigger is empty
-func (t Trigger) IsEmpty() bool {
-	return reflect.DeepEqual(t, EmptyTrigger)
-}
 
 // String retrun trigger as YAML string
 func (t Trigger) String() string {

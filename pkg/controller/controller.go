@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/codefresh-io/hermes/pkg/model"
@@ -29,7 +28,7 @@ func NewController(svc model.TriggerService) *Controller {
 // List triggers
 func (c *Controller) List(ctx *gin.Context) {
 	filter := ctx.Query("filter")
-	var triggers []model.Trigger
+	var triggers []*model.Trigger
 	var err error
 	if triggers, err = c.svc.List(filter); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to list triggers", "error": err.Error()})
@@ -45,14 +44,10 @@ func (c *Controller) List(ctx *gin.Context) {
 // Get trigger
 func (c *Controller) Get(ctx *gin.Context) {
 	id := ctx.Params.ByName("id")
-	var trigger model.Trigger
+	var trigger *model.Trigger
 	var err error
 	if trigger, err = c.svc.Get(id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to get trigger", "error": err.Error()})
-		return
-	}
-	if trigger.IsEmpty() {
-		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": fmt.Sprintf("trigger %s not found", id)})
+		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "failed to get trigger", "error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, trigger)
