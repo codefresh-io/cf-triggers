@@ -118,6 +118,19 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 				},
 			},
 		},
+		{
+			Name:  "pipeline",
+			Usage: "configure Codefresh trigger pipelines",
+			Subcommands: []cli.Command{
+				{
+					Name:        "get",
+					Usage:       "get pipelines connected to trigger",
+					ArgsUsage:   "[event URI]",
+					Description: "Get all pipelines connected to trigger with provided event URI",
+					Action:      getTriggerPipelines,
+				},
+			},
+		},
 	}
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -163,7 +176,10 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		},
 	}
 
-	app.Run(os.Args)
+	if err := app.Run(os.Args); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func before(c *cli.Context) error {
@@ -199,6 +215,10 @@ func runServer(c *cli.Context) error {
 	router.Handle("POST", "/triggers", triggerController.Add)
 	router.Handle("PUT", "/triggers/:id", triggerController.Update)
 	router.Handle("DELETE", "/triggers/:id", triggerController.Delete)
+	// manage pipelines attached to trigger
+	router.Handle("GET", "/triggers/:id/pipelines", triggerController.GetPipelines)
+	// router.Handle("POST", "/triggers/:id/pipelines", triggerController.AddPipeline)
+	// router.Handle("DELETE", "/triggers/:id/pipelines/:pid", triggerController.DeletePipeline)
 	// invoke trigger with event payload
 	router.Handle("POST", "/trigger/:id", triggerController.TriggerEvent)
 	// status handlers
@@ -242,6 +262,23 @@ func getTriggers(c *cli.Context) error {
 				fmt.Println(trigger)
 			}
 		}
+	}
+
+	return nil
+}
+
+func getTriggerPipelines(c *cli.Context) error {
+	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	if len(c.Args()) != 1 {
+		return errors.New("wrong arguments: expected event URI")
+	}
+	pipelines, err := triggerService.GetPipelines(c.Args().First())
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	for _, p := range pipelines {
+		fmt.Println(p)
 	}
 
 	return nil

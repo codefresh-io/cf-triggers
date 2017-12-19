@@ -35,6 +35,7 @@ type (
 		Add(trigger Trigger) error
 		Delete(id string) error
 		Update(trigger Trigger) error
+		GetPipelines(id string) ([]Pipeline, error)
 		Run(id string, vars map[string]string) ([]string, error)
 		CheckSecret(id string, message string, secret string) error
 		Ping() (string, error)
@@ -53,6 +54,15 @@ const GenerateKeyword = "!generate"
 // String retrun trigger as YAML string
 func (t Trigger) String() string {
 	d, err := yaml.Marshal(&t)
+	if err != nil {
+		log.Errorf("error: %v", err)
+	}
+	return string(d)
+}
+
+// String retrun trigger as YAML string
+func (p Pipeline) String() string {
+	d, err := yaml.Marshal(&p)
 	if err != nil {
 		log.Errorf("error: %v", err)
 	}

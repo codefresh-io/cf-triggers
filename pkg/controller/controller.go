@@ -31,7 +31,11 @@ func (c *Controller) List(ctx *gin.Context) {
 	var triggers []*model.Trigger
 	var err error
 	if triggers, err = c.svc.List(filter); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to list triggers", "error": err.Error()})
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to list triggers", "error": err.Error()})
 		return
 	}
 	if len(triggers) <= 0 {
@@ -47,10 +51,30 @@ func (c *Controller) Get(ctx *gin.Context) {
 	var trigger *model.Trigger
 	var err error
 	if trigger, err = c.svc.Get(id); err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "failed to get trigger", "error": err.Error()})
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to get trigger", "error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, trigger)
+}
+
+// GetPipelines get trigger pipelines
+func (c *Controller) GetPipelines(ctx *gin.Context) {
+	id := ctx.Params.ByName("id")
+	var pipelines []model.Pipeline
+	var err error
+	if pipelines, err = c.svc.GetPipelines(id); err != nil {
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to get trigger pipelines", "error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, pipelines)
 }
 
 // Add trigger
@@ -61,7 +85,11 @@ func (c *Controller) Add(ctx *gin.Context) {
 	if trigger.Event != "" && len(trigger.Pipelines) != 0 {
 		// add trigger
 		if err := c.svc.Add(trigger); err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to add trigger", "error": err.Error()})
+			status := http.StatusInternalServerError
+			if err == model.ErrTriggerAlreadyExists {
+				status = http.StatusBadRequest
+			}
+			ctx.JSON(status, gin.H{"status": status, "message": "failed to add trigger", "error": err.Error()})
 			return
 		}
 		// report OK
@@ -74,14 +102,36 @@ func (c *Controller) Add(ctx *gin.Context) {
 
 // Update trigger
 func (c *Controller) Update(ctx *gin.Context) {
+	var trigger model.Trigger
+	ctx.Bind(&trigger)
 
+	if trigger.Event != "" && len(trigger.Pipelines) != 0 {
+		// update trigger
+		if err := c.svc.Update(trigger); err != nil {
+			status := http.StatusInternalServerError
+			if err == model.ErrTriggerNotFound {
+				status = http.StatusNotFound
+			}
+			ctx.JSON(status, gin.H{"status": status, "message": "failed to update trigger", "error": err.Error()})
+			return
+		}
+		// report OK
+		ctx.Status(http.StatusOK)
+	} else {
+		// Display error
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"status": http.StatusUnprocessableEntity, "message": "required fields are empty"})
+	}
 }
 
 // Delete trigger
 func (c *Controller) Delete(ctx *gin.Context) {
 	id := ctx.Params.ByName("id")
 	if err := c.svc.Delete(id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to delete trigger", "error": err.Error()})
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to delete trigger", "error": err.Error()})
 		return
 	}
 	ctx.Status(http.StatusOK)
@@ -99,7 +149,11 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 	}
 	// check secret
 	if err := c.svc.CheckSecret(id, event.Original, event.Secret); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed secret validation", "error": err.Error()})
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"status": status, "message": "failed secret validation", "error": err.Error()})
 		return
 	}
 	// add original payload to variables

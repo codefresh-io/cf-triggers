@@ -718,3 +718,59 @@ func TestRedisStore_Ping(t *testing.T) {
 		})
 	}
 }
+
+func TestRedisStore_GetPipelines(t *testing.T) {
+	type fields struct {
+		redisPool   RedisPoolService
+		pipelineSvc codefresh.PipelineService
+		storeSvc    redisStoreInterface
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		id      string
+		want    []model.Pipeline
+		wantErr bool
+	}{
+		{
+			"get trigger pipelines",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			"event:test:uri",
+			[]model.Pipeline{
+				{Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
+				{Name: "testB", RepoOwner: "ownerA", RepoName: "repoA"},
+				{Name: "testC", RepoOwner: "ownerB", RepoName: "repoB"},
+			},
+			false,
+		},
+		{
+			"get trigger pipelines SMEMBERS error",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			"event:test:uri",
+			nil,
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool:   tt.fields.redisPool,
+				pipelineSvc: tt.fields.pipelineSvc,
+				storeSvc:    tt.fields.storeSvc,
+			}
+			if tt.wantErr {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.id)).ExpectError(fmt.Errorf("SMEMBERS error"))
+			} else {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("SMEMBERS", getTriggerKey(tt.id)).Expect(interfaceSlicePipelines(tt.want))
+			}
+			got, err := r.GetPipelines(tt.id)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.GetPipelines() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.GetPipelines() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

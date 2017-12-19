@@ -291,3 +291,28 @@ func (r *RedisStore) Ping() (string, error) {
 	}
 	return pong, nil
 }
+
+// GetPipelines get trigger pipelines by key
+func (r *RedisStore) GetPipelines(id string) ([]model.Pipeline, error) {
+	con := r.redisPool.GetConn()
+	// get pipelines from Set
+	pipelines, err := redis.Values(con.Do("SMEMBERS", getTriggerKey(id)))
+	if err != nil && err != redis.ErrNil {
+		log.Error(err)
+		return nil, err
+	} else if err == redis.ErrNil {
+		return nil, model.ErrTriggerNotFound
+	}
+
+	triggerPipelines := make([]model.Pipeline, 0)
+	for _, p := range pipelines {
+		var pipeline model.Pipeline
+		json.Unmarshal(p.([]byte), &pipeline)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		triggerPipelines = append(triggerPipelines, pipeline)
+	}
+	return triggerPipelines, nil
+}
