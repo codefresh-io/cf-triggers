@@ -96,7 +96,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 						},
 					},
 					Usage:       "add trigger",
-					ArgsUsage:   "[event URI] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
+					ArgsUsage:   "[event URI] [pipeline repo-owner] [pipeline repo-name] [pipeline name]",
 					Description: "Add a new trigger connected to specified pipeline",
 					Action:      addTrigger,
 				},
@@ -136,14 +136,14 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 				{
 					Name:        "add",
 					Usage:       "add pipelines to existing trigger",
-					ArgsUsage:   "[event URI] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
+					ArgsUsage:   "[event URI] [pipeline repo-owner] [pipeline repo-name] [pipeline name] ",
 					Description: "Add pipeline to existing trigger with specified event URI",
 					Action:      addTriggerPipelines,
 				},
 				{
 					Name:        "delete",
 					Usage:       "delete pipeline from existing trigger",
-					ArgsUsage:   "[event URI] [pipeline name] [pipeline repo-owner] [pipeline repo-name]",
+					ArgsUsage:   "[event URI] [pipeline repo-owner] [pipeline repo-name] [pipeline name] ",
 					Description: "Delete pipeline from existing trigger with specified event URI",
 					Action:      deleteTriggerPipeline,
 				},
@@ -318,7 +318,7 @@ func addTriggerPipelines(c *cli.Context) error {
 	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
 	// create pipelines
 	pipelines := make([]model.Pipeline, 1)
-	pipelines[0] = model.Pipeline{Name: args.Get(1), RepoOwner: args.Get(2), RepoName: args.Get(3)}
+	pipelines[0] = model.Pipeline{RepoOwner: args.Get(1), RepoName: args.Get(2), Name: args.Get(3)}
 	return triggerService.AddPipelines(args.First(), pipelines)
 }
 
@@ -351,7 +351,7 @@ func addTrigger(c *cli.Context) error {
 	trigger.Event = args.First()
 	trigger.Secret = c.String("secret")
 	trigger.Pipelines = make([]model.Pipeline, 1)
-	trigger.Pipelines[0] = model.Pipeline{Name: args.Get(1), RepoOwner: args.Get(2), RepoName: args.Get(3)}
+	trigger.Pipelines[0] = model.Pipeline{RepoOwner: args.Get(1), RepoName: args.Get(2), Name: args.Get(3)}
 	return triggerService.Add(trigger)
 }
 
