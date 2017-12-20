@@ -11,12 +11,12 @@ import (
 type (
 	// Pipeline Codefresh Pipeline URI
 	Pipeline struct {
-		// pipeline name
-		Name string `json:"name" yaml:"name"`
 		// Git repository owner
 		RepoOwner string `json:"repo-owner" yaml:"repo-owner"`
 		// Git repository name
 		RepoName string `json:"repo-name" yaml:"repo-name"`
+		// pipeline name
+		Name string `json:"name" yaml:"name"`
 	}
 
 	// Trigger describes a trigger type
@@ -75,11 +75,16 @@ func (p Pipeline) String() string {
 	return string(d)
 }
 
-// PipelineFromURI construct pipeline struct from uri - name:repo-owner:repo-name
+// PipelineFromURI construct pipeline struct from uri - repo-owner:repo-name:name
 func PipelineFromURI(uri string) (*Pipeline, error) {
 	s := strings.Split(uri, ":")
 	if len(s) != 3 { // should be name:repo-owner:repo-name
-		return nil, errors.New("invalid pipeline uri, should be in form: [name]:[repo-owner]:[repo-name]")
+		return nil, errors.New("invalid pipeline uri, should be in form: [repo-owner]:[repo-name]:[name]")
 	}
-	return &Pipeline{Name: s[0], RepoOwner: s[1], RepoName: s[2]}, nil
+	return &Pipeline{RepoOwner: s[0], RepoName: s[1], Name: s[2]}, nil
+}
+
+// PipelineToURI convert pipeline struct to pipeline-uri
+func PipelineToURI(p *Pipeline) string {
+	return strings.Join([]string{p.RepoOwner, p.RepoName, p.Name}, ":")
 }

@@ -72,6 +72,10 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 							Name:  "filter, f",
 							Usage: "trigger filter",
 						},
+						cli.StringFlag{
+							Name:  "pipeline, p",
+							Usage: "additional filter by pipeline URI",
+						},
 						cli.BoolFlag{
 							Name:  "quiet, q",
 							Usage: "only display event URIs",
@@ -225,6 +229,10 @@ func runServer(c *cli.Context) error {
 		c.Redirect(http.StatusFound, "/triggers")
 	})
 	router.Handle("GET", "/triggers/", triggerController.List) // pass filter as query parameter
+	// TODO: implement
+	// router.Handle("GET", "/triggers/types", triggerController.ListTypes)
+	// router.Handle("GET", "/triggers/types/:type", triggerController.GetType)
+	// router.Handle("GET", "/triggers/:id/text", triggerController.GetHumanText)
 	router.Handle("GET", "/triggers/:id", triggerController.Get)
 	router.Handle("POST", "/triggers", triggerController.Add)
 	router.Handle("PUT", "/triggers/:id", triggerController.Update)

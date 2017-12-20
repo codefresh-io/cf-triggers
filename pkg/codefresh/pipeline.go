@@ -15,7 +15,7 @@ type (
 	// PipelineService Codefresh Service
 	PipelineService interface {
 		CheckPipelineExist(name, repoOwner, repoName string) error
-		RunPipeline(name string, repoOwner string, repoName string, vars map[string]string) (string, error)
+		RunPipeline(repoOwner string, repoName string, name string, vars map[string]string) (string, error)
 		Ping() error
 	}
 
@@ -56,8 +56,8 @@ func (api *APIEndpoint) ping() error {
 	return nil
 }
 
-// find Codefresh pipeline by name and repo details (owner and name)
-func (api *APIEndpoint) getPipelineByNameAndRepo(name, repoOwner, repoName string) (string, error) {
+// find Codefresh pipeline ID by repo (owner and name) and name
+func (api *APIEndpoint) getPipelineID(repoOwner, repoName, name string) (string, error) {
 	// GET pipelines for repository
 	type CFPipeline struct {
 		ID   string `json:"_id"`
@@ -117,8 +117,8 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 }
 
 // CheckPipelineExist check if Codefresh pipeline exists
-func (api *APIEndpoint) CheckPipelineExist(name, repoOwner, repoName string) error {
-	_, err := api.getPipelineByNameAndRepo(name, repoOwner, repoName)
+func (api *APIEndpoint) CheckPipelineExist(repoOwner, repoName, name string) error {
+	_, err := api.getPipelineID(repoOwner, repoName, name)
 	if err != nil {
 		return err
 	}
@@ -126,9 +126,9 @@ func (api *APIEndpoint) CheckPipelineExist(name, repoOwner, repoName string) err
 }
 
 // RunPipeline run Codefresh pipeline
-func (api *APIEndpoint) RunPipeline(name, repoOwner, repoName string, vars map[string]string) (string, error) {
+func (api *APIEndpoint) RunPipeline(repoOwner, repoName, name string, vars map[string]string) (string, error) {
 	// get pipeline id from repo and name
-	id, err := api.getPipelineByNameAndRepo(name, repoOwner, repoName)
+	id, err := api.getPipelineID(repoOwner, repoName, name)
 	if err != nil && err != ErrPipelineNotFound {
 		return "", err
 	} else if err == ErrPipelineNotFound {

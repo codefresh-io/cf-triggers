@@ -1,7 +1,65 @@
 package backend
 
+/*  REDIS Data Model
+
+	Secrets (String)
+
+	+------------------------------------------+
+	|                                          |
+	|                                          |
+	| +--------------------+      +----------+ |
+	| |                    |      |          | |
+	| | secret:{event-uri} +------> {secret} | |
+	| |                    |      |          | |
+	| +--------------------+      +----------+ |
+	|                                          |
+	|                                          |
+	+------------------------------------------+
+
+
+				Triggers (ZSET)
+
+	+-------------------------------------------------+
+	|                                                 |
+	|                                                 |
+	| +---------------------+     +-----------------+ |
+	| |                     |     |                 | |
+	| | trigger:{event-uri} +-----> {pipeline-uri}  | |
+	| |                     |     |                 | |
+	| +---------------------+     | ...             | |
+	|                             |                 | |
+	|                             | {pipeline-uri}  | |
+	|                             |                 | |
+	|                             +-----------------+ |
+	|                                                 |
+	|                                                 |
+	+-------------------------------------------------+
+
+
+				Pipelines (ZSET)
+
+	+---------------------------------------------------+
+	|                                                   |
+	|                                                   |
+	| +-------------------------+      +-------------+  |
+	| |                         |      |             |  |
+	| | pipeline:{pipeline-uri} +------> {event-uri} |  |
+	| |                         |      |             |  |
+	| +-------------------------+      | ...         |  |
+	|                                  |             |  |
+	|                                  | {event-uri} |  |
+	|                                  |             |  |
+	|                                  +-------------+  |
+	|                                                   |
+	|                                                   |
+	+---------------------------------------------------+
+
+	* event-uri     - URI unique identifier for event (specified by event provider)
+    * pipeline-uri  - Codefresh pipeline URI {repo-owner}:{repo-name}:{name}
+
+*/
+
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -73,9 +131,9 @@ func (redisStoreInternal) storeTrigger(r *RedisStore, trigger model.Trigger) err
 		trigger.Secret = util.RandomString(16)
 	}
 
-	// add secret to Redis String
+	// add secret to Secrets (Redis STRING)
 	if trigger.Secret != "" {
-		_, err := con.Do("SET", trigger.Event, trigger.Secret)
+		_, err := con.Do("SET", getSecretKey(trigger.Event), trigger.Secret)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -84,19 +142,15 @@ func (redisStoreInternal) storeTrigger(r *RedisStore, trigger model.Trigger) err
 	// add pipelines to Redis Set
 	for _, v := range trigger.Pipelines {
 		// check Codefresh pipeline existence
-		err := r.pipelineSvc.CheckPipelineExist(v.Name, v.RepoOwner, v.RepoName)
+		err := r.pipelineSvc.CheckPipelineExist(v.RepoOwner, v.RepoName, v.Name)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
-		// marshal pipeline to JSON
-		pipeline, err := json.Marshal(v)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
+		// create pipeline URI
+		pipeline := model.PipelineToURI(&v)
 		log.Debugf("trigger '%s' <- '%s' pipeline \n", trigger.Event, pipeline)
-		_, err = con.Do("SADD", getTriggerKey(trigger.Event), pipeline)
+		_, err = con.Do("ZADD", getTriggerKey(trigger.Event), pipeline)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -105,15 +159,27 @@ func (redisStoreInternal) storeTrigger(r *RedisStore, trigger model.Trigger) err
 	return nil
 }
 
-func getTriggerKey(id string) string {
+func getPrefixKey(prefix, id string) string {
 	// set * for empty id
 	if id == "" {
 		id = "*"
 	}
-	if strings.HasPrefix(id, "trigger:") {
+	if strings.HasPrefix(id, prefix+":") {
 		return id
 	}
-	return fmt.Sprintf("trigger:%s", id)
+	return fmt.Sprintf("%s:%s", prefix, id)
+}
+
+func getTriggerKey(id string) string {
+	return getPrefixKey("trigger", id)
+}
+
+func getSecretKey(id string) string {
+	return getPrefixKey("secret", id)
+}
+
+func getPipelineKey(id string) string {
+	return getPrefixKey("secret", id)
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
@@ -134,7 +200,11 @@ func (r *RedisStore) List(filter string) ([]*model.Trigger, error) {
 	// Iterate through all trigger keys and get triggers
 	triggers := []*model.Trigger{}
 	for _, k := range keys {
-		trigger, err := r.Get(string(k.([]uint8)))
+		// trim trigger: prefix before Get()
+		eventURI := string(k.([]uint8))
+		eventURI = strings.TrimPrefix(eventURI, "trigger:")
+		// get trigger by eventURI
+		trigger, err := r.Get(eventURI)
 		if err != nil {
 			log.Error(err)
 			return nil, err
@@ -147,17 +217,15 @@ func (r *RedisStore) List(filter string) ([]*model.Trigger, error) {
 // Get trigger by key
 func (r *RedisStore) Get(id string) (*model.Trigger, error) {
 	con := r.redisPool.GetConn()
-	// remove "trigger:" prefix
-	id = strings.TrimPrefix(id, "trigger:")
 	log.Debugf("Getting trigger %s ...", id)
 	// get secret from String
-	secret, err := redis.String(con.Do("GET", id))
+	secret, err := redis.String(con.Do("GET", getSecretKey(id)))
 	if err != nil && err != redis.ErrNil {
 		log.Error(err)
 		return nil, err
 	}
 	// get pipelines from Set
-	pipelines, err := redis.Values(con.Do("SMEMBERS", getTriggerKey(id)))
+	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(id), 0, -1))
 	if err != nil && err != redis.ErrNil {
 		log.Error(err)
 		return nil, err
@@ -170,13 +238,12 @@ func (r *RedisStore) Get(id string) (*model.Trigger, error) {
 		trigger.Secret = secret
 	}
 	for _, p := range pipelines {
-		var pipeline model.Pipeline
-		json.Unmarshal(p.([]byte), &pipeline)
+		pipeline, err := model.PipelineFromURI(p)
 		if err != nil {
 			log.Error(err)
 			return nil, err
 		}
-		trigger.Pipelines = append(trigger.Pipelines, pipeline)
+		trigger.Pipelines = append(trigger.Pipelines, *pipeline)
 	}
 	return trigger, nil
 }
@@ -187,7 +254,7 @@ func (r *RedisStore) Add(trigger model.Trigger) error {
 	log.Debugf("Adding trigger %s ...", trigger.Event)
 
 	// check if there is an existing trigger with assigned pipelines
-	count, err := redis.Int(con.Do("SCARD", getTriggerKey(trigger.Event)))
+	count, err := redis.Int(con.Do("ZCARD", getTriggerKey(trigger.Event)))
 	if err != nil && err != redis.ErrNil {
 		log.Error(err)
 		return err
@@ -218,11 +285,9 @@ func (r *RedisStore) Update(trigger model.Trigger) error {
 // Delete trigger by id
 func (r *RedisStore) Delete(id string) error {
 	con := r.redisPool.GetConn()
-	// remove "trigger:" prefix
-	id = strings.TrimPrefix(id, "trigger:")
 	log.Debugf("Deleting trigger %s ...", id)
 	// delete Redis String (secret)
-	if _, err := con.Do("DEL", id); err != nil {
+	if _, err := con.Do("DEL", getSecretKey(id)); err != nil {
 		log.Error(err)
 		return err
 	}
@@ -243,7 +308,7 @@ func (r *RedisStore) Run(id string, vars map[string]string) ([]string, error) {
 		return nil, err
 	}
 	for _, p := range trigger.Pipelines {
-		runID, err := r.pipelineSvc.RunPipeline(p.Name, p.RepoOwner, p.RepoName, vars)
+		runID, err := r.pipelineSvc.RunPipeline(p.RepoOwner, p.RepoName, p.Name, vars)
 		if err != nil {
 			log.Error(err)
 			return nil, err
@@ -258,11 +323,9 @@ func (r *RedisStore) Run(id string, vars map[string]string) ([]string, error) {
 // CheckSecret check trigger secret
 func (r *RedisStore) CheckSecret(id string, message string, secret string) error {
 	con := r.redisPool.GetConn()
-	// remove "trigger:" prefix
-	id = strings.TrimPrefix(id, "trigger:")
 	log.Debugf("Getting trigger %s ...", id)
 	// get secret from String
-	triggerSecret, err := redis.String(con.Do("GET", id))
+	triggerSecret, err := redis.String(con.Do("GET", getSecretKey(id)))
 	if err != nil && err != redis.ErrNil {
 		log.Error(err)
 		return err
@@ -299,7 +362,7 @@ func (r *RedisStore) Ping() (string, error) {
 func (r *RedisStore) GetPipelines(id string) ([]model.Pipeline, error) {
 	con := r.redisPool.GetConn()
 	// get pipelines from Set
-	pipelines, err := redis.Values(con.Do("SMEMBERS", getTriggerKey(id)))
+	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(id), 0, -1))
 	if err != nil && err != redis.ErrNil {
 		log.Error(err)
 		return nil, err
@@ -312,13 +375,12 @@ func (r *RedisStore) GetPipelines(id string) ([]model.Pipeline, error) {
 
 	triggerPipelines := make([]model.Pipeline, 0)
 	for _, p := range pipelines {
-		var pipeline model.Pipeline
-		json.Unmarshal(p.([]byte), &pipeline)
+		pipeline, err := model.PipelineFromURI(p)
 		if err != nil {
 			log.Error(err)
 			return nil, err
 		}
-		triggerPipelines = append(triggerPipelines, pipeline)
+		triggerPipelines = append(triggerPipelines, *pipeline)
 	}
 	return triggerPipelines, nil
 }
@@ -326,7 +388,6 @@ func (r *RedisStore) GetPipelines(id string) ([]model.Pipeline, error) {
 // AddPipelines get trigger pipelines by key
 func (r *RedisStore) AddPipelines(id string, pipelines []model.Pipeline) error {
 	log.Debugf("Updating trigger %s pipelines ...", id)
-
 	// get existing trigger - fail if not found
 	trigger, err := r.Get(id)
 	if err != nil {
@@ -365,16 +426,11 @@ func (r *RedisStore) DeletePipeline(id string, pid string) error {
 	for _, p := range trigger.Pipelines {
 		// search for pipeline
 		if reflect.DeepEqual(*pipeline, p) {
-			// marshal pipeline to SON
-			jsonPipeline, err := json.Marshal(pipeline)
-			if err != nil {
-				log.Error(err)
-				return err
-			}
+			pid := model.PipelineToURI(&p)
 			// get Redis connection
 			con := r.redisPool.GetConn()
 			// remove pipeline from set
-			result, err := redis.Int(con.Do("SREM", getTriggerKey(id), jsonPipeline))
+			result, err := redis.Int(con.Do("ZREM", getTriggerKey(id), pid))
 			if err != nil {
 				log.Error(err)
 				return err

@@ -1,7 +1,7 @@
 dependencies:
   # trigger manager
   - name: hermes
-    version: 0.1.4
+    version: 0.2.0
     repository: http://charts.codefresh.io/apps/
     tags:
       - trigger-manager
