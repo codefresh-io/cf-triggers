@@ -68,9 +68,9 @@ hermes respects following environment variables:
 Copyright © Codefresh.io
 
 VERSION:
-   Codefresh Hermes 0.2.6
-  git-commit: 8a579f0
-  build-date: 2017-12-19_14:22_GMT
+  0.4.1
+  git-commit: a51893e
+  build-date: 2017-12-21_10:47_GMT
   platform: darwin amd64 go1.9.2
 
 AUTHOR:
@@ -79,7 +79,7 @@ AUTHOR:
 COMMANDS:
      server    start trigger manager server
      trigger   configure Codefresh triggers
-     pipeline  manage Codefresh trigger pipelines
+     pipeline  configure Codefresh trigger pipelines
      help, h   Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:

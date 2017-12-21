@@ -32,6 +32,7 @@ type (
 	// TriggerService interface
 	TriggerService interface {
 		List(filter string) ([]*Trigger, error)
+		ListByPipeline(pipelineURI string) ([]*Trigger, error)
 		Get(eventURI string) (*Trigger, error)
 		Add(trigger Trigger) error
 		Delete(eventURI string) error

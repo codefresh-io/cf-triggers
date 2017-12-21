@@ -74,7 +74,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 						},
 						cli.StringFlag{
 							Name:  "pipeline, p",
-							Usage: "additional filter by pipeline URI",
+							Usage: "additional filter by pipeline URI (ignored when using '--filter')",
 						},
 						cli.BoolFlag{
 							Name:  "quiet, q",
@@ -229,10 +229,9 @@ func runServer(c *cli.Context) error {
 		c.Redirect(http.StatusFound, "/triggers")
 	})
 	router.Handle("GET", "/triggers/", triggerController.List) // pass filter as query parameter
-	// TODO: implement
-	// router.Handle("GET", "/triggers/types", triggerController.ListTypes)
-	// router.Handle("GET", "/triggers/types/:type", triggerController.GetType)
-	// router.Handle("GET", "/triggers/:id/text", triggerController.GetHumanText)
+	router.Handle("GET", "/triggers/types", triggerController.ListTypes)
+	router.Handle("GET", "/triggers/types/:type", triggerController.GetType)
+	router.Handle("GET", "/triggers/:id/text", triggerController.GetEventHumanText)
 	router.Handle("GET", "/triggers/:id", triggerController.Get)
 	router.Handle("POST", "/triggers", triggerController.Add)
 	router.Handle("PUT", "/triggers/:id", triggerController.Update)
@@ -255,14 +254,39 @@ func runServer(c *cli.Context) error {
 func getTriggers(c *cli.Context) error {
 	quiet := c.Bool("quiet")
 	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
-	if len(c.Args()) == 0 {
-		triggers, err := triggerService.List(c.String("filter"))
+	filter := c.String("filter")
+	pipelineURI := c.String("pipeline")
+	// Handle 'pipeline'
+	if pipelineURI != "" {
+		if filter != "" {
+			return fmt.Errorf("pipeline cannot be used with filter")
+		}
+		triggers, err := triggerService.ListByPipeline(pipelineURI)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
 		if len(triggers) == 0 {
-			fmt.Println("No triggers defined!")
+			return fmt.Errorf("no triggers defined")
+		}
+		for _, t := range triggers {
+			if quiet {
+				fmt.Println(t.Event)
+			} else {
+				fmt.Println(t)
+			}
+		}
+		return nil
+	}
+	// Handle 'filter'
+	if len(c.Args()) == 0 {
+		triggers, err := triggerService.List(filter)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		if len(triggers) == 0 {
+			return fmt.Errorf("no triggers defined")
 		}
 		for _, t := range triggers {
 			if quiet {

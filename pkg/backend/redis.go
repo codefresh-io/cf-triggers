@@ -165,14 +165,14 @@ func (redisStoreInternal) storeTrigger(r *RedisStore, trigger model.Trigger) err
 		}
 		// create pipeline URI
 		pipelineURI := model.PipelineToURI(&v)
-		log.Debugf("trigger '%s' <- '%s' pipeline \n", trigger.Event, pipelineURI)
+		log.Debugf("trigger '%s' <- '%s' pipeline", trigger.Event, pipelineURI)
 		// add pipeline to Triggers
 		_, err = con.Do("ZADD", getTriggerKey(trigger.Event), 0, pipelineURI)
 		if err != nil {
 			return discardOnError(con, err)
 		}
 		// add trigger to Pipelines
-		log.Debugf("pipeline '%s' <- '%s' trigger \n", pipelineURI, trigger.Event)
+		log.Debugf("pipeline '%s' <- '%s' trigger", pipelineURI, trigger.Event)
 		_, err = con.Do("ZADD", getPipelineKey(pipelineURI), 0, trigger.Event)
 		if err != nil {
 			return discardOnError(con, err)
@@ -208,7 +208,7 @@ func getSecretKey(id string) string {
 }
 
 func getPipelineKey(id string) string {
-	return getPrefixKey("secret", id)
+	return getPrefixKey("pipeline", id)
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
@@ -231,6 +231,30 @@ func (r *RedisStore) List(filter string) ([]*model.Trigger, error) {
 	for _, k := range keys {
 		// trim trigger: prefix before Get()
 		eventURI := strings.TrimPrefix(k, "trigger:")
+		// get trigger by eventURI
+		trigger, err := r.Get(eventURI)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		triggers = append(triggers, trigger)
+	}
+	return triggers, nil
+}
+
+// ListByPipeline get list of defined triggers
+func (r *RedisStore) ListByPipeline(pipelineURI string) ([]*model.Trigger, error) {
+	con := r.redisPool.GetConn()
+	log.Debugf("Getting triggers for pipeline %s..", pipelineURI)
+	events, err := redis.Strings(con.Do("ZRANGE", getPipelineKey(pipelineURI), 0, -1))
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	// Iterate through all events and get triggers
+	triggers := []*model.Trigger{}
+	for _, eventURI := range events {
 		// get trigger by eventURI
 		trigger, err := r.Get(eventURI)
 		if err != nil {

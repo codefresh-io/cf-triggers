@@ -28,15 +28,29 @@ func NewController(svc model.TriggerService) *Controller {
 // List triggers
 func (c *Controller) List(ctx *gin.Context) {
 	filter := ctx.Query("filter")
+	pipelineURI := ctx.Query("pipeline")
 	var triggers []*model.Trigger
 	var err error
-	if triggers, err = c.svc.List(filter); err != nil {
-		status := http.StatusInternalServerError
-		if err == model.ErrTriggerNotFound {
-			status = http.StatusNotFound
+	// get by pipelineURI
+	if pipelineURI != "" {
+		if triggers, err = c.svc.ListByPipeline(pipelineURI); err != nil {
+			status := http.StatusInternalServerError
+			if err == model.ErrTriggerNotFound {
+				status = http.StatusNotFound
+			}
+			ctx.JSON(status, gin.H{"status": status, "message": "failed to list triggers by pipeline", "error": err.Error()})
+			return
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to list triggers", "error": err.Error()})
-		return
+	} else {
+		// get by filter
+		if triggers, err = c.svc.List(filter); err != nil {
+			status := http.StatusInternalServerError
+			if err == model.ErrTriggerNotFound {
+				status = http.StatusNotFound
+			}
+			ctx.JSON(status, gin.H{"status": status, "message": "failed to list triggers by filter", "error": err.Error()})
+			return
+		}
 	}
 	if len(triggers) <= 0 {
 		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "no triggers found"})
@@ -206,6 +220,21 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, runs)
+}
+
+// ListTypes get registered trigger types
+func (c *Controller) ListTypes(ctx *gin.Context) {
+	ctx.String(http.StatusNotImplemented, "Not implemented")
+}
+
+// GetType get details for specific trigger type
+func (c *Controller) GetType(ctx *gin.Context) {
+	ctx.String(http.StatusNotImplemented, "Not implemented")
+}
+
+// GetEventHumanText get human readable text for event (ask Event Provider)
+func (c *Controller) GetEventHumanText(ctx *gin.Context) {
+	ctx.String(http.StatusNotImplemented, "Not implemented")
 }
 
 // GetHealth status

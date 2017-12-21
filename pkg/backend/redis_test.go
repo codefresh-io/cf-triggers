@@ -166,6 +166,73 @@ func TestRedisStore_List(t *testing.T) {
 	}
 }
 
+func TestRedisStore_ListByPipeline(t *testing.T) {
+	type fields struct {
+		redisPool RedisPoolService
+	}
+	type args struct {
+		pipelineURI string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		events  []string
+		want    []*model.Trigger
+		wantErr bool
+	}{
+		{
+			"get empty list",
+			fields{redisPool: &RedisPoolMock{}},
+			args{"codefresh:demo:build"},
+			[]string{},
+			[]*model.Trigger{},
+			false,
+		},
+		{
+			"get triggers",
+			fields{redisPool: &RedisPoolMock{}},
+			args{"codefresh:demo:build"},
+			[]string{"test:1", "test:2"},
+			[]*model.Trigger{
+				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
+					{RepoOwner: "codefresh", RepoName: "demo", Name: "build"},
+					{RepoOwner: "ownerA", RepoName: "repoA", Name: "test2"},
+				}},
+				&model.Trigger{Event: "test:2", Secret: "secretB", Pipelines: []model.Pipeline{
+					{RepoOwner: "ownerB", RepoName: "repoB", Name: "test"},
+					{RepoOwner: "codefresh", RepoName: "demo", Name: "build"},
+				}},
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: tt.fields.redisPool,
+			}
+			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getPipelineKey(tt.args.pipelineURI), 0, -1).Expect(interfaceSlice(tt.events))
+			for i, eventURI := range tt.events {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(eventURI)).Expect(tt.want[i].Secret)
+				pipelines := make([]string, 0)
+				for _, p := range tt.want[i].Pipelines {
+					pipelines = append(pipelines, model.PipelineToURI(&p))
+				}
+				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(eventURI), 0, -1).Expect(interfaceSlice(pipelines))
+			}
+			got, err := r.ListByPipeline(tt.args.pipelineURI)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.ListByPipeline() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.ListByPipeline() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRedisStore_Get(t *testing.T) {
 	type fields struct {
 		redisPool   RedisPoolService
