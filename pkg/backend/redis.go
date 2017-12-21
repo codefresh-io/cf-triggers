@@ -342,8 +342,16 @@ func (r *RedisStore) Update(trigger model.Trigger) error {
 func (r *RedisStore) Delete(eventURI string) error {
 	con := r.redisPool.GetConn()
 	log.Debugf("Deleting trigger %s ...", eventURI)
+
+	// get pipelines for trigger
+	log.Debugf("Get pipelines for eventURI '%s'", eventURI)
+	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(eventURI), 0, -1))
+	if err != nil {
+		return discardOnError(con, err)
+	}
+
 	// start Redis transaction
-	_, err := con.Do("MULTI")
+	_, err = con.Do("MULTI")
 	if err != nil {
 		log.Error(err)
 		return err
@@ -354,12 +362,7 @@ func (r *RedisStore) Delete(eventURI string) error {
 	if _, err := con.Do("DEL", getSecretKey(eventURI)); err != nil {
 		return discardOnError(con, err)
 	}
-	// get pipelines for trigger
-	log.Debugf("Get pipelines for eventURI '%s'", eventURI)
-	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(eventURI), 0, -1))
-	if err != nil {
-		return discardOnError(con, err)
-	}
+
 	// delete eventURI from Pipelines (Redis Sorted Set)
 	for _, p := range pipelines {
 		log.Debugf("Remove '%s' eventURI from pipeline '%s'", eventURI, p)

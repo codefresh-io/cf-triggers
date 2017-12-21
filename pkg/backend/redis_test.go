@@ -549,8 +549,7 @@ func TestRedisStore_Update(t *testing.T) {
 
 func TestRedisStore_Delete(t *testing.T) {
 	type fields struct {
-		redisPool   RedisPoolService
-		pipelineSvc codefresh.PipelineService
+		redisPool RedisPoolService
 	}
 	type args struct {
 		id        string
@@ -565,21 +564,28 @@ func TestRedisStore_Delete(t *testing.T) {
 	}{
 		{
 			"delete trigger",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			fields{redisPool: &RedisPoolMock{}},
 			args{id: "test", pipelines: []string{"p1", "p2"}},
 			false,
 			false,
 		},
 		{
+			"delete trigger from single pipeline",
+			fields{redisPool: &RedisPoolMock{}},
+			args{id: "test", pipelines: []string{"p1"}},
+			false,
+			false,
+		},
+		{
 			"delete trigger DEL secret error",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			fields{redisPool: &RedisPoolMock{}},
 			args{id: "test"},
 			true,
 			false,
 		},
 		{
 			"delete trigger DEL trigger error",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			fields{redisPool: &RedisPoolMock{}},
 			args{id: "test"},
 			false,
 			true,
@@ -588,9 +594,10 @@ func TestRedisStore_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &RedisStore{
-				redisPool:   tt.fields.redisPool,
-				pipelineSvc: tt.fields.pipelineSvc,
+				redisPool: tt.fields.redisPool,
 			}
+			// get pipelines
+			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.id), 0, -1).Expect(interfaceSlice(tt.args.pipelines))
 			// expect Redis transaction open
 			r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI").Expect("OK!")
 			// delete secret
@@ -602,7 +609,6 @@ func TestRedisStore_Delete(t *testing.T) {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getSecretKey(tt.args.id)).Expect("OK!")
 			}
 			// delete trigger from pipelines
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.id), 0, -1).Expect(interfaceSlice(tt.args.pipelines))
 			for _, p := range tt.args.pipelines {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(p), tt.args.id)
 			}
