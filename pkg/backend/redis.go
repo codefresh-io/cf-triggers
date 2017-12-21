@@ -350,22 +350,26 @@ func (r *RedisStore) Delete(eventURI string) error {
 	}
 
 	// delete secret from Secrets (Redis String)
+	log.Debugf("Delete secret for eventURI '%s'", eventURI)
 	if _, err := con.Do("DEL", getSecretKey(eventURI)); err != nil {
 		return discardOnError(con, err)
 	}
 	// get pipelines for trigger
+	log.Debugf("Get pipelines for eventURI '%s'", eventURI)
 	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(eventURI), 0, -1))
 	if err != nil {
 		return discardOnError(con, err)
 	}
 	// delete eventURI from Pipelines (Redis Sorted Set)
 	for _, p := range pipelines {
+		log.Debugf("Remove '%s' eventURI from pipeline '%s'", eventURI, p)
 		if _, err := con.Do("ZREM", getPipelineKey(p), eventURI); err != nil {
 			return discardOnError(con, err)
 		}
 	}
 
 	// delete trigger from Triggers (Redis Sorted Set)
+	log.Debugf("Delete trigger for eventURI '%s'", eventURI)
 	if _, err := con.Do("DEL", getTriggerKey(eventURI)); err != nil {
 		return discardOnError(con, err)
 	}
