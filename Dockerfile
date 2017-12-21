@@ -1,4 +1,4 @@
-# Copyright 2015 The Kubernetes Authors. All rights reserved.
+# Copyright 2017 The Codefresh Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ RUN hack/build.sh
 #
 # ------ Hermes Trigger manager image ------
 #
-FROM alpine:3.6
+FROM alpine:3.7
 
 RUN apk add --no-cache ca-certificates
 

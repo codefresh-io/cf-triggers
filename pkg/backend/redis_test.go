@@ -328,14 +328,14 @@ func TestRedisStore_storeTrigger(t *testing.T) {
 					}
 					pipelineURI := model.PipelineToURI(&p)
 					if tt.wantErr[2] {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), pipelineURI).ExpectError(fmt.Errorf("SADD error"))
+						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, pipelineURI).ExpectError(fmt.Errorf("SADD error"))
 						// expect transaction discard on error
 						r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
 						break
 					} else {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), pipelineURI)
+						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, pipelineURI)
 					}
-					r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(pipelineURI), tt.trigger.Event)
+					r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(pipelineURI), 0, tt.trigger.Event)
 					// expect Redis transaction exec
 					r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC").Expect("OK!")
 				}
@@ -423,6 +423,7 @@ func TestRedisStore_Update(t *testing.T) {
 		fields    fields
 		pipelines []string
 		trigger   model.Trigger
+		count     int64
 		wantErr   error
 	}{
 		{
@@ -435,6 +436,7 @@ func TestRedisStore_Update(t *testing.T) {
 					{RepoOwner: "ownerA", RepoName: "repoB", Name: "pipelineB"},
 				},
 			},
+			1,
 			nil,
 		},
 		{
@@ -447,6 +449,7 @@ func TestRedisStore_Update(t *testing.T) {
 					{RepoOwner: "ownerA", RepoName: "repoB", Name: "pipelineB"},
 				},
 			},
+			0,
 			model.ErrTriggerNotFound,
 		},
 	}
@@ -460,7 +463,7 @@ func TestRedisStore_Update(t *testing.T) {
 			// mock store call
 			mock := r.storeSvc.(*storeMock)
 			// mock redis
-			r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.trigger.Event)).Expect(tt.trigger.Secret)
+			r.redisPool.GetConn().(*redigomock.Conn).Command("ZCARD", getTriggerKey(tt.trigger.Event)).Expect(tt.count)
 			if tt.wantErr != nil {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.trigger.Event), 0, -1).Expect(nil)
 			} else {
@@ -844,11 +847,12 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 		fields    fields
 		args      args
 		pipelines []string
-		existing  model.Trigger
+		trigger   model.Trigger
+		exists    bool
 		wantErr   bool
 	}{
 		{
-			"add pipelines to trigger",
+			"add pipelines to existing trigger",
 			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}, storeSvc: &storeMock{}},
 			args{
 				id: "event:test:uri",
@@ -865,6 +869,25 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 					{RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
 				},
 			},
+			true,
+			false,
+		},
+		{
+			"add pipelines leads to new trigger",
+			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}, storeSvc: &storeMock{}},
+			args{
+				id: "event:test:uri",
+				pipelines: []model.Pipeline{
+					{Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "testB", RepoOwner: "ownerA", RepoName: "repoA"},
+					{Name: "testC", RepoOwner: "ownerB", RepoName: "repoB"},
+				},
+			},
+			[]string{"ownerA:repoA:pipeline1", "ownerA:repoA:pipeline2"},
+			model.Trigger{
+				Event: "event:test:uri", Secret: "", Pipelines: []model.Pipeline{},
+			},
+			false,
 			false,
 		},
 	}
@@ -876,10 +899,16 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 				storeSvc:    tt.fields.storeSvc,
 			}
 			// mock redis calls for Get() command
-			r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.id)).Expect(tt.existing.Secret)
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.id), 0, -1).Expect(interfaceSlice(tt.pipelines))
+			if !tt.exists {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.id)).Expect(nil)
+				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.id), 0, -1).Expect(nil)
+				r.redisPool.GetConn().(*redigomock.Conn).Command("ZCARD", getTriggerKey(tt.args.id)).Expect(nil)
+			} else {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.id)).Expect(tt.trigger.Secret)
+				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.id), 0, -1).Expect(interfaceSlice(tt.pipelines))
+			}
 			// add pipelines to trigger
-			trigger := tt.existing
+			trigger := tt.trigger
 			for _, p := range tt.args.pipelines {
 				trigger.Pipelines = append(trigger.Pipelines, p)
 			}

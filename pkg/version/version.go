@@ -36,7 +36,10 @@ var (
 	}
 
 	// HumanVersion is a human readable app version
-	HumanVersion = fmt.Sprintf("Codefresh Hermes %s\n\tgit-commit: %s\n\tbuild-date: %s\n\tplatform: %s %s %s", Version.SemVer, Version.GitCommit, Version.BuildTime, Version.Os, Version.Arch, Version.GoVersion)
+	HumanVersion = fmt.Sprintf("%s\n\tgit-commit: %s\n\tbuild-date: %s\n\tplatform: %s %s %s", Version.SemVer, Version.GitCommit, Version.BuildTime, Version.Os, Version.Arch, Version.GoVersion)
+
+	// WebVersion is a human readable app version
+	WebVersion = fmt.Sprintf("%s\n%s\n\tgit-commit: %s\n\tbuild-date: %s\n\tplatform: %s %s %s", ASCIILogo, Version.SemVer, Version.GitCommit, Version.BuildTime, Version.Os, Version.Arch, Version.GoVersion)
 
 	// ASCIILogo CLI logo
 	ASCIILogo = `

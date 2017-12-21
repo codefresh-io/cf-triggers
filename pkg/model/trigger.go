@@ -32,15 +32,15 @@ type (
 	// TriggerService interface
 	TriggerService interface {
 		List(filter string) ([]*Trigger, error)
-		Get(id string) (*Trigger, error)
+		Get(eventURI string) (*Trigger, error)
 		Add(trigger Trigger) error
-		Delete(id string) error
+		Delete(eventURI string) error
 		Update(trigger Trigger) error
-		GetPipelines(id string) ([]Pipeline, error)
-		AddPipelines(id string, pipelines []Pipeline) error
-		DeletePipeline(id string, pid string) error
-		Run(id string, vars map[string]string) ([]string, error)
-		CheckSecret(id string, message string, secret string) error
+		GetPipelines(eventURI string) ([]Pipeline, error)
+		AddPipelines(eventURI string, pipelines []Pipeline) error
+		DeletePipeline(eventURI string, pipelineURI string) error
+		Run(eventURI string, vars map[string]string) ([]string, error)
+		CheckSecret(eventURI string, message string, secret string) error
 		Ping() (string, error)
 	}
 )

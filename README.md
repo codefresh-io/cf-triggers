@@ -45,35 +45,6 @@ Based on above **claim**, we can construct unique URI for any event coming from 
 | Cron                    | once a Day, at 1:30pm: `30 13 * * *`                          | `cron:30 13 * * *`                     |
 | Private Docker Registry | push `demo\demochat` to private Docker registry `myhost:5000` | `registry:myhost:5000:demo:demochat`   |
 
-## Event Flow Diagram
-
-```ascii
-          DockerHub Event Provider        Hermes trigger manager       pipeline manager (cfapi)
-
-                    +                            +                             +
-original event      |                            |                             |
-                    |                            |                             |
-        +---------> |  normalized event (vars)   |                             |
-                    |                            |                             |
-                    | +------------------------> |     pipeline: p1(vars)      |
-                    |                            |                             |
-                    |                            | +-------------------------> |
-                    |     OK: running p1,p2,p3   |                             |
-                    | <------------------------+ |                             |
-                    |                            |     pipeline: p2(vars)      |
-                    |                            |                             |
-                    |                            | +-------------------------> |
-                    |                            |                             |
-                    |                            |                             |
-                    |                            |     pipeline: p3(vars)      |
-                    |                            |                             |
-                    |                            | +-------------------------> |
-                    |                            |                             |
-                    |                            |                             |
-                    +                            +                             +
-
-```
-
 ## Trigger Manager
 
 Hermes trigger manager is a single binary file `hermes`. This file includes both configuration CLI and trigger manager server.
@@ -88,12 +59,12 @@ USAGE:
     ╦ ╦┌─┐┬─┐┌┬┐┌─┐┌─┐  ╔═╗┌─┐┌┬┐┌─┐┌─┐┬─┐┌─┐┌─┐┬ ┬  ╔╦╗┬─┐┬┌─┐┌─┐┌─┐┬─┐┌─┐
     ╠═╣├┤ ├┬┘│││├┤ └─┐  ║  │ │ ││├┤ ├┤ ├┬┘├┤ └─┐├─┤   ║ ├┬┘││ ┬│ ┬├┤ ├┬┘└─┐
     ╩ ╩└─┘┴└─┴ ┴└─┘└─┘  ╚═╝└─┘─┴┘└─┘└  ┴└─└─┘└─┘┴ ┴   ╩ ┴└─┴└─┘└─┘└─┘┴└─└─┘
-    
+
 hermes respects following environment variables:
    - REDIS_HOST         - set the url to the Redis server (default localhost)
    - REDIS_PORT         - set Redis port (default to 6379)
    - REDIS_PASSWORD     - set Redis password
-   
+
 Copyright © Codefresh.io
 
 VERSION:

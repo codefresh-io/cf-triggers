@@ -225,5 +225,5 @@ func (c *Controller) Ping(ctx *gin.Context) {
 
 // GetVersion get app version
 func (c *Controller) GetVersion(ctx *gin.Context) {
-	ctx.String(http.StatusOK, version.HumanVersion)
+	ctx.String(http.StatusOK, version.WebVersion)
 }
