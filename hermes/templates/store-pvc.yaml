@@ -2,7 +2,7 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: {{ template "hermes.fullname" . }}
+  name: "{{ .Release.Name }}-{{ .Values.redis.nameOverride }}"
   labels:
     app: {{ template "hermes.fullname" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
