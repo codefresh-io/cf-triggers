@@ -222,21 +222,6 @@ func (c *Controller) TriggerEvent(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, runs)
 }
 
-// ListTypes get registered trigger types
-func (c *Controller) ListTypes(ctx *gin.Context) {
-	ctx.String(http.StatusNotImplemented, "Not implemented")
-}
-
-// GetType get details for specific trigger type
-func (c *Controller) GetType(ctx *gin.Context) {
-	ctx.String(http.StatusNotImplemented, "Not implemented")
-}
-
-// GetEventHumanText get human readable text for event (ask Event Provider)
-func (c *Controller) GetEventHumanText(ctx *gin.Context) {
-	ctx.String(http.StatusNotImplemented, "Not implemented")
-}
-
 // GetHealth status
 func (c *Controller) GetHealth(ctx *gin.Context) {
 	_, err := c.svc.Ping()
