@@ -1,9 +1,9 @@
 dependencies:
 - name: hermes
   repository: http://charts.codefresh.io/apps/
-  version: 0.2.0
+  version: 0.2.1
 - name: nomios
   repository: http://charts.codefresh.io/apps/
   version: 0.1.2
-digest: sha256:f88d306093da34627e57dfe20e19ecf9596845fb90e734c05535a8b44f12eae9
-generated: 2017-12-21T14:32:59.43019+02:00
+digest: sha256:f4caa39c874ce77348353780dd694b26736495b4bf2fb2744d2f6068e385b592
+generated: 2017-12-21T17:00:15.669578+02:00
