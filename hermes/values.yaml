@@ -2,15 +2,25 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 replicaCount: 1
+
 image:
   repository: codefresh/hermes
-  tag: 0.4.1
+  tag: 0.4.2
   pullPolicy: IfNotPresent
+
 service:
   name: hermes
   type: ClusterIP
   externalPort: 80
   internalPort: 8080
+
+# override redis service name to 'store'
+redis:
+  nameOverride: store
+
+# Redis store size
+store:
+  size: 8Gi
 
 # enable/disable to see verbose output
 debug: true

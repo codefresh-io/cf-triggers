@@ -1,4 +1,16 @@
 apiVersion: v1
 description: Hermes - Codefresh Trigger Manager
 name: hermes
-version: 0.2.0
+version: 0.2.1
+icon: https://raw.githubusercontent.com/codefresh-io/hermes/master/docs/data_model.md
+keywords:
+  - codefresh
+  - triggers
+  - trigger-manager
+home: https://github.com/codefresh-io/hermes
+sources:
+  - https://github.com/codefresh-io/hermes
+maintainers: # (optional)
+  - name: Alexei Ledenev
+    email: alexei.led@gmail.com
+appVersion: 0.4.2

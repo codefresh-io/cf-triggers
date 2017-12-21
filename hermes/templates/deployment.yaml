@@ -30,11 +30,11 @@ spec:
             value: release
           {{- end }}
           - name: REDIS_HOST
-            value: "{{ .Release.Name }}-redis"
+            value: "{{ .Release.Name }}-{{ .Values.redis.nameOverride }}"
           - name: REDIS_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: "{{ .Release.Name }}-redis"
+                name: "{{ .Release.Name }}-{{ .Values.redis.nameOverride }}"
                 key: redis-password
           - name: CFAPI_URL
             {{- if .Values.cfapi.service }}
