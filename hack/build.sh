@@ -17,7 +17,7 @@ go_build() {
   [ -d "${DIST}" ] || mkdir -p "${DIST}"
   CGO_ENABLED=0 go build \
     -ldflags "-X $pkg/version.SemVer=${VERSION} -X $pkg/version.GitCommit=${VCS_COMMIT_ID} -X $pkg/version.BuildTime=${BUILD_TIME}" \
-    -o "${DIST}/hermes" ./cmd/main.go
+    -o "${DIST}/hermes" ./cmd
 }
 
 go_build
