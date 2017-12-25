@@ -8,6 +8,8 @@ Project:
     ☐ Get trigger metadata (type, kind, fields, field types, required and optional, event uri template)
     ☐ Get event URI in human readable format
     ✔ Filter trigger by pipeline uri @done (12/21/2017, 12:28:17 PM)
+    ☐ Backup Redis Store periodically; consider [stash](https://github.com/appscode/stash/)
+    ☐ Configure Restore procedure
 
 Tests:
     ✔ Test `RedisStore.Add` @done (12/6/2017, 12:53:44 PM)
@@ -25,4 +27,5 @@ Event Sources:
     ☐ GitHub Tag
     ☐ GitHub Release
     ☐ Docker Registry Notification
-    ☐ Cron
+    ☐ Cron Event
+    ☐ GCR
