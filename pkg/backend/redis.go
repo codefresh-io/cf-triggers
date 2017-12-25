@@ -112,15 +112,9 @@ func (rp *RedisPool) GetConn() redis.Conn {
 type RedisStore struct {
 	redisPool   RedisPoolService
 	pipelineSvc codefresh.PipelineService
-	storeSvc    redisStoreInterface
-}
-
-// redisStoreInterface interfacing methods for better testability
-type redisStoreInterface interface {
-	storeTrigger(r *RedisStore, trigger model.Trigger) error
-}
-
-type redisStoreInternal struct {
+	// keep functions as members (for test stubbing)
+	deleteFunc       func(eventURI string) error
+	storeTriggerFunc func(trigger model.Trigger) error
 }
 
 // helper function - discard Redis transaction and return error
@@ -130,60 +124,6 @@ func discardOnError(con redis.Conn, err error) error {
 		return err
 	}
 	log.Error(err)
-	return err
-}
-
-// common code for RedisStore.Add() and RedisStore.Update()
-func (redisStoreInternal) storeTrigger(r *RedisStore, trigger model.Trigger) error {
-	con := r.redisPool.GetConn()
-	// generate random secret if required
-	if trigger.Secret == model.GenerateKeyword {
-		trigger.Secret = util.RandomString(16)
-	}
-
-	// start Redis transaction
-	_, err := con.Do("MULTI")
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// add secret to Secrets (Redis STRING)
-	if trigger.Secret != "" {
-		_, err := con.Do("SET", getSecretKey(trigger.Event), trigger.Secret)
-		if err != nil {
-			return discardOnError(con, err)
-		}
-	}
-
-	// add pipelines to Triggers (Redis Sorted Set) and trigger to Pipelines (Sorted Set)
-	for _, v := range trigger.Pipelines {
-		// check Codefresh pipeline existence
-		err := r.pipelineSvc.CheckPipelineExist(v.RepoOwner, v.RepoName, v.Name)
-		if err != nil {
-			return discardOnError(con, err)
-		}
-		// create pipeline URI
-		pipelineURI := model.PipelineToURI(&v)
-		log.Debugf("trigger '%s' <- '%s' pipeline", trigger.Event, pipelineURI)
-		// add pipeline to Triggers
-		_, err = con.Do("ZADD", getTriggerKey(trigger.Event), 0, pipelineURI)
-		if err != nil {
-			return discardOnError(con, err)
-		}
-		// add trigger to Pipelines
-		log.Debugf("pipeline '%s' <- '%s' trigger", pipelineURI, trigger.Event)
-		_, err = con.Do("ZADD", getPipelineKey(pipelineURI), 0, trigger.Event)
-		if err != nil {
-			return discardOnError(con, err)
-		}
-	}
-
-	// submit transaction
-	_, err = con.Do("EXEC")
-	if err != nil {
-		log.Error(err)
-	}
 	return err
 }
 
@@ -213,7 +153,14 @@ func getPipelineKey(id string) string {
 
 // NewRedisStore create new Redis DB for storing trigger map
 func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService) model.TriggerService {
-	return &RedisStore{&RedisPool{newPool(server, port, password)}, pipelineSvc, &redisStoreInternal{}}
+	r := new(RedisStore)
+	r.redisPool = &RedisPool{newPool(server, port, password)}
+	r.pipelineSvc = pipelineSvc
+	// set functions
+	r.deleteFunc = r.Delete
+	r.storeTriggerFunc = r.StoreTrigger
+	return r
+	//return &RedisStore{&RedisPool{newPool(server, port, password)}, pipelineSvc, &redisStoreInternal{}}
 }
 
 // List get list of defined triggers
@@ -300,6 +247,60 @@ func (r *RedisStore) Get(eventURI string) (*model.Trigger, error) {
 	return trigger, nil
 }
 
+// StoreTrigger (non-interface) common code for RedisStore.Add() and RedisStore.Update()
+func (r *RedisStore) StoreTrigger(trigger model.Trigger) error {
+	con := r.redisPool.GetConn()
+	// generate random secret if required
+	if trigger.Secret == model.GenerateKeyword {
+		trigger.Secret = util.RandomString(16)
+	}
+
+	// start Redis transaction
+	_, err := con.Do("MULTI")
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	// add secret to Secrets (Redis STRING)
+	if trigger.Secret != "" {
+		_, err := con.Do("SET", getSecretKey(trigger.Event), trigger.Secret)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+	}
+
+	// add pipelines to Triggers (Redis Sorted Set) and trigger to Pipelines (Sorted Set)
+	for _, v := range trigger.Pipelines {
+		// check Codefresh pipeline existence
+		err := r.pipelineSvc.CheckPipelineExist(v.RepoOwner, v.RepoName, v.Name)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+		// create pipeline URI
+		pipelineURI := model.PipelineToURI(&v)
+		log.Debugf("trigger '%s' <- '%s' pipeline", trigger.Event, pipelineURI)
+		// add pipeline to Triggers
+		_, err = con.Do("ZADD", getTriggerKey(trigger.Event), 0, pipelineURI)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+		// add trigger to Pipelines
+		log.Debugf("pipeline '%s' <- '%s' trigger", pipelineURI, trigger.Event)
+		_, err = con.Do("ZADD", getPipelineKey(pipelineURI), 0, trigger.Event)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+	}
+
+	// submit transaction
+	_, err = con.Do("EXEC")
+	if err != nil {
+		log.Error(err)
+	}
+	return err
+}
+
 // Add new trigger {Event, Secret, Pipelines}
 func (r *RedisStore) Add(trigger model.Trigger) error {
 	con := r.redisPool.GetConn()
@@ -316,7 +317,7 @@ func (r *RedisStore) Add(trigger model.Trigger) error {
 	}
 
 	// store trigger
-	return r.storeSvc.storeTrigger(r, trigger)
+	return r.storeTriggerFunc(trigger)
 }
 
 // Update trigger
@@ -335,7 +336,7 @@ func (r *RedisStore) Update(trigger model.Trigger) error {
 	}
 
 	// store trigger
-	return r.storeSvc.storeTrigger(r, trigger)
+	return r.storeTriggerFunc(trigger)
 }
 
 // Delete trigger by id
@@ -497,7 +498,7 @@ func (r *RedisStore) AddPipelines(eventURI string, pipelines []model.Pipeline) e
 	}
 
 	// store (update) existing trigger
-	return r.storeSvc.storeTrigger(r, *trigger)
+	return r.storeTriggerFunc(*trigger)
 }
 
 // DeletePipeline remove pipeline from trigger
@@ -505,13 +506,8 @@ func (r *RedisStore) DeletePipeline(eventURI string, pipelineURI string) error {
 	// get Redis connection
 	con := r.redisPool.GetConn()
 	log.Debugf("Removing pipeline %s from %s ...", pipelineURI, eventURI)
-	// check if trigger exists == secret with eventURI exists
-	_, err := redis.String(con.Do("GET", getSecretKey(eventURI)))
-	if err != nil && err != redis.ErrNil {
-		log.Error(err)
-		return err
-	}
-	// remove pipeline from set
+
+	// try to remove pipeline from set
 	result, err := redis.Int(con.Do("ZREM", getTriggerKey(eventURI), pipelineURI))
 	if err != nil {
 		log.Error(err)
@@ -521,5 +517,17 @@ func (r *RedisStore) DeletePipeline(eventURI string, pipelineURI string) error {
 	if result == 0 {
 		return model.ErrPipelineNotFound
 	}
+
+	// check if there are pipelines left
+	count, err := redis.Int(con.Do("ZCARD", getTriggerKey(eventURI)))
+	if err != nil && err != redis.ErrNil {
+		log.Error(err)
+		return err
+	}
+	// no more pipelines -> delete trigger
+	if count == 0 {
+		return r.deleteFunc(eventURI)
+	}
+
 	return nil
 }
