@@ -112,6 +112,8 @@ type RedisStore struct {
 	redisPool   RedisPoolService
 	pipelineSvc codefresh.PipelineService
 	// keep functions as members (for test stubbing)
+	getFunc          func(eventURI string) (*model.Trigger, error)
+	addFunc          func(trigger model.Trigger) error
 	deleteFunc       func(eventURI string) error
 	storeTriggerFunc func(trigger model.Trigger) error
 }
@@ -158,6 +160,9 @@ func NewRedisStore(server string, port int, password string, pipelineSvc codefre
 	// set functions
 	r.deleteFunc = r.Delete
 	r.storeTriggerFunc = r.StoreTrigger
+	r.getFunc = r.Get
+	r.addFunc = r.Add
+	// return RedisStore
 	return r
 }
 
@@ -177,7 +182,7 @@ func (r *RedisStore) List(filter string) ([]*model.Trigger, error) {
 		// trim trigger: prefix before Get()
 		eventURI := strings.TrimPrefix(k, "trigger:")
 		// get trigger by eventURI
-		trigger, err := r.Get(eventURI)
+		trigger, err := r.getFunc(eventURI)
 		if err != nil {
 			log.Error(err)
 			return nil, err
@@ -201,7 +206,7 @@ func (r *RedisStore) ListByPipeline(pipelineURI string) ([]*model.Trigger, error
 	triggers := []*model.Trigger{}
 	for _, eventURI := range events {
 		// get trigger by eventURI
-		trigger, err := r.Get(eventURI)
+		trigger, err := r.getFunc(eventURI)
 		if err != nil {
 			log.Error(err)
 			return nil, err
@@ -422,7 +427,7 @@ func (r *RedisStore) GetPipelines(eventURI string) ([]model.Pipeline, error) {
 func (r *RedisStore) AddPipelines(eventURI string, pipelines []model.Pipeline) error {
 	log.Debugf("Updating trigger %s pipelines ...", eventURI)
 	// get existing trigger
-	trigger, err := r.Get(eventURI)
+	trigger, err := r.getFunc(eventURI)
 	if err != nil && err != model.ErrTriggerNotFound {
 		log.Error(err)
 		return err
@@ -440,7 +445,7 @@ func (r *RedisStore) AddPipelines(eventURI string, pipelines []model.Pipeline) e
 
 	// add trigger if not found
 	if err == model.ErrTriggerNotFound {
-		return r.Add(*trigger)
+		return r.addFunc(*trigger)
 	}
 
 	// store (update) existing trigger

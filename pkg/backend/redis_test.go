@@ -41,6 +41,19 @@ func (c *storeMock) Delete(e string) error {
 	return args.Error(0)
 }
 
+func (c *storeMock) Add(t model.Trigger) error {
+	args := c.Called(t)
+	return args.Error(0)
+}
+
+func (c *storeMock) Get(e string) (*model.Trigger, error) {
+	args := c.Called(e)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Trigger), args.Error(1)
+}
+
 // helper function to convert []string to []interface{}
 // see https://github.com/golang/go/wiki/InterfaceSlice
 func interfaceSlice(slice []string) []interface{} {
@@ -132,13 +145,14 @@ func TestRedisStore_List(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mock := &storeMock{}
 			r := &RedisStore{
 				redisPool: tt.fields.redisPool,
+				getFunc:   mock.Get,
 			}
 			r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getTriggerKey(tt.filter)).Expect(interfaceSlice(tt.keys))
 			for i, k := range tt.keys {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(k)).Expect(tt.want[i].Secret)
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(k), 0, -1).Expect(interfaceSlice(tt.pipelines[i]))
+				mock.On("Get", k).Return(tt.want[i], nil)
 			}
 			got, err := r.List(tt.filter)
 			if (err != nil) != tt.wantErr {
@@ -148,6 +162,7 @@ func TestRedisStore_List(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("RedisStore.List() = %v, want %v", got, tt.want)
 			}
+			mock.AssertExpectations(t)
 		})
 	}
 }
@@ -195,17 +210,14 @@ func TestRedisStore_ListByPipeline(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mock := &storeMock{}
 			r := &RedisStore{
 				redisPool: tt.fields.redisPool,
+				getFunc:   mock.Get,
 			}
 			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getPipelineKey(tt.args.pipelineURI), 0, -1).Expect(interfaceSlice(tt.events))
 			for i, eventURI := range tt.events {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(eventURI)).Expect(tt.want[i].Secret)
-				pipelines := make([]string, 0)
-				for _, p := range tt.want[i].Pipelines {
-					pipelines = append(pipelines, model.PipelineToURI(&p))
-				}
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(eventURI), 0, -1).Expect(interfaceSlice(pipelines))
+				mock.On("Get", eventURI).Return(tt.want[i], nil)
 			}
 			got, err := r.ListByPipeline(tt.args.pipelineURI)
 			if (err != nil) != tt.wantErr {
@@ -215,6 +227,7 @@ func TestRedisStore_ListByPipeline(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("RedisStore.ListByPipeline() = %v, want %v", got, tt.want)
 			}
+			mock.AssertExpectations(t)
 		})
 	}
 }
@@ -730,18 +743,17 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 		redisPool RedisPoolService
 	}
 	type args struct {
-		id        string
-		pipelines []model.Pipeline
+		id          string
+		pipelineIDs []string
+		pipelines   []model.Pipeline
 	}
 	tests := []struct {
-		name      string
-		fields    fields
-		args      args
-		pipelines []string
-		trigger   model.Trigger
-		mock      *storeMock
-		exists    bool
-		wantErr   bool
+		name    string
+		fields  fields
+		args    args
+		trigger model.Trigger
+		exists  bool
+		wantErr bool
 	}{
 		{
 			"add pipelines to existing trigger",
@@ -754,14 +766,12 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 					{Name: "testC", RepoOwner: "ownerB", RepoName: "repoB"},
 				},
 			},
-			[]string{"ownerA:repoA:pipeline1", "ownerA:repoA:pipeline2"},
 			model.Trigger{
 				Event: "event:test:uri", Secret: "secretA", Pipelines: []model.Pipeline{
 					{RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline1"},
 					{RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
 				},
 			},
-			&storeMock{},
 			true,
 			false,
 		},
@@ -776,42 +786,43 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 					{Name: "testC", RepoOwner: "ownerB", RepoName: "repoB"},
 				},
 			},
-			[]string{"ownerA:repoA:pipeline1", "ownerA:repoA:pipeline2"},
 			model.Trigger{
 				Event: "event:test:uri", Secret: "", Pipelines: []model.Pipeline{},
 			},
-			&storeMock{},
 			false,
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mock := &storeMock{}
 			r := &RedisStore{
 				redisPool:        tt.fields.redisPool,
-				storeTriggerFunc: tt.mock.StoreTrigger,
+				addFunc:          mock.Add,
+				getFunc:          mock.Get,
+				storeTriggerFunc: mock.StoreTrigger,
 			}
-			// mock redis calls for Get() command
-			if !tt.exists {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.id)).Expect(nil)
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.id), 0, -1).Expect(nil)
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZCARD", getTriggerKey(tt.args.id)).Expect(nil)
-			} else {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.id)).Expect(tt.trigger.Secret)
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.id), 0, -1).Expect(interfaceSlice(tt.pipelines))
-			}
-			// add pipelines to trigger
+			// create new trigger and add pipelines
 			trigger := tt.trigger
 			for _, p := range tt.args.pipelines {
 				trigger.Pipelines = append(trigger.Pipelines, p)
 			}
-			// mock store call
-			tt.mock.On("StoreTrigger", trigger).Return(nil)
+
+			// mock redis calls for Get() command
+			if !tt.exists {
+				mock.On("Get", tt.args.id).Return(nil, model.ErrTriggerNotFound)
+				// add trigger
+				mock.On("Add", trigger).Return(nil)
+			} else {
+				mock.On("Get", tt.args.id).Return(&tt.trigger, nil)
+				// update trigger
+				mock.On("StoreTrigger", trigger).Return(nil)
+			}
 			if err := r.AddPipelines(tt.args.id, tt.args.pipelines); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.AddPipelines() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			// assert expectations
-			tt.mock.AssertExpectations(t)
+			mock.AssertExpectations(t)
 		})
 	}
 }
