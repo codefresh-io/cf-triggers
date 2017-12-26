@@ -25,27 +25,6 @@ func (r *RedisPoolMock) GetConn() redis.Conn {
 	return r.conn
 }
 
-// Mock CF API
-
-type CFMock struct {
-	mock.Mock
-}
-
-func (c *CFMock) CheckPipelineExist(repoOwner string, repoName string, name string) error {
-	args := c.Called(repoOwner, repoName, name)
-	return args.Error(0)
-}
-
-func (c *CFMock) RunPipeline(repoOwner string, repoName string, name string, vars map[string]string) (string, error) {
-	args := c.Called(repoOwner, repoName, name, vars)
-	return args.String(0), args.Error(1)
-}
-
-func (c *CFMock) Ping() error {
-	args := c.Called()
-	return args.Error(0)
-}
-
 // Mock some RedisStore methods
 
 type storeMock struct {
@@ -301,8 +280,7 @@ func TestRedisStore_Get(t *testing.T) {
 
 func TestRedisStore_StoreTrigger(t *testing.T) {
 	type fields struct {
-		redisPool   RedisPoolService
-		pipelineSvc codefresh.PipelineService
+		redisPool RedisPoolService
 	}
 	tests := []struct {
 		name    string
@@ -312,7 +290,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 	}{
 		{
 			"store trigger",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
 				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
 					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
@@ -323,7 +301,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 		},
 		{
 			"store trigger with auto-generated secret",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
 				Event: "test:1", Secret: model.GenerateKeyword, Pipelines: []model.Pipeline{
 					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
@@ -334,7 +312,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 		},
 		{
 			"store trigger SET error",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
 				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
 					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
@@ -345,7 +323,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 		},
 		{
 			"store trigger non-existing pipeline",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
 				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
 					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
@@ -356,7 +334,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 		},
 		{
 			"store trigger SADD error",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: &CFMock{}},
+			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
 				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
 					{Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
@@ -368,12 +346,11 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mock := codefresh.NewCodefreshMockEndpoint()
 			r := &RedisStore{
 				redisPool:   tt.fields.redisPool,
-				pipelineSvc: tt.fields.pipelineSvc,
+				pipelineSvc: mock,
 			}
-			// mock CF API call
-			mock := r.pipelineSvc.(*CFMock)
 			// expect Redis transaction open
 			r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI").Expect("OK!")
 			// error cases
@@ -629,55 +606,31 @@ func TestRedisStore_Delete(t *testing.T) {
 	}
 }
 
-func TestRedisStore_CheckSecret(t *testing.T) {
+func TestMain(m *testing.M) {
+	util.TestMode = true
+	os.Exit(m.Run())
+}
+
+func TestRedisStore_Ping(t *testing.T) {
 	type fields struct {
 		redisPool RedisPoolService
 	}
-	type args struct {
-		id      string
-		secret  string
-		message string
-	}
 	tests := []struct {
-		name           string
-		fields         fields
-		args           args
-		expectedSecret string
-		wantErr        bool
+		name    string
+		fields  fields
+		want    string
+		wantErr bool
 	}{
 		{
-			"check secret",
+			"happy ping",
 			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test", secret: "secretAAA", message: "hello world"},
-			"secretAAA",
+			"PONG",
 			false,
 		},
 		{
-			"check secret error",
+			"failed ping - no Redis",
 			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test", secret: "secretAAA", message: "hello world"},
-			"secretBBB",
-			true,
-		},
-		{
-			"check secret signature sha1",
-			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test", secret: "c61fe17e43c57ac8b18a1cb7b2e9ff666f506fa5", message: "hello world"},
-			"secretKey",
-			false,
-		},
-		{
-			"check empty secret",
-			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test", secret: "", message: "hello world"},
 			"",
-			false,
-		},
-		{
-			"check no secret passed",
-			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test", secret: "", message: "hello world"},
-			"secretKey",
 			true,
 		},
 	}
@@ -686,147 +639,19 @@ func TestRedisStore_CheckSecret(t *testing.T) {
 			r := &RedisStore{
 				redisPool: tt.fields.redisPool,
 			}
-			r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.id)).Expect(tt.expectedSecret)
-			if err := r.CheckSecret(tt.args.id, tt.args.message, tt.args.secret); (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.CheckSecret() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestRedisStore_Run(t *testing.T) {
-	type fields struct {
-		redisPool   RedisPoolService
-		pipelineSvc codefresh.PipelineService
-	}
-	type args struct {
-		id        string
-		vars      map[string]string
-		pipelines []string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		trigger model.Trigger
-		want    []string
-		wantErr bool
-	}{
-		{
-			"run pipeline",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: new(CFMock)},
-			args{
-				id:        "test:event",
-				vars:      map[string]string{"V1": "AAA", "V2": "BBB"},
-				pipelines: []string{"ownerA:repoA:pipeline1", "ownerA:repoA:pipeline2", "ownerA:repoB:pipeline3"},
-			},
-			model.Trigger{
-				Event: "test:event", Secret: "secretA", Pipelines: []model.Pipeline{
-					{RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline1"},
-					{RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
-					{RepoOwner: "ownerA", RepoName: "repoB", Name: "pipeline3"},
-				},
-			},
-			[]string{"pipeline1_runID", "pipeline2_runID", "pipeline3_runID"},
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool:   tt.fields.redisPool,
-				pipelineSvc: tt.fields.pipelineSvc,
-			}
-			// mock call
-			mock := r.pipelineSvc.(*CFMock)
-			for i, p := range tt.trigger.Pipelines {
-				mock.On("RunPipeline", p.RepoOwner, p.RepoName, p.Name, tt.args.vars).Return(tt.want[i], nil)
-			}
-			// mock redis commands
-			r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.trigger.Event)).Expect(tt.trigger.Secret)
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.trigger.Event), 0, -1).Expect(interfaceSlice(tt.args.pipelines))
-			// perform call
-			got, err := r.Run(tt.args.id, tt.args.vars)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.Run() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("RedisStore.Run() = %v, want %v", got, tt.want)
-			}
-			// assert expectation
-			mock.AssertExpectations(t)
-		})
-	}
-}
-
-func TestMain(m *testing.M) {
-	util.TestMode = true
-	os.Exit(m.Run())
-}
-
-func TestRedisStore_Ping(t *testing.T) {
-	type fields struct {
-		redisPool   RedisPoolService
-		pipelineSvc codefresh.PipelineService
-	}
-	tests := []struct {
-		name             string
-		fields           fields
-		want             string
-		wantRedisErr     bool
-		wantCodefreshErr bool
-	}{
-		{
-			"happy ping",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: new(CFMock)},
-			"PONG",
-			false,
-			false,
-		},
-		{
-			"failed ping - no Redis",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: new(CFMock)},
-			"Redis Error",
-			true,
-			false,
-		},
-		{
-			"failed ping - no Codefresh",
-			fields{redisPool: &RedisPoolMock{}, pipelineSvc: new(CFMock)},
-			"Codefresh Error",
-			false,
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool:   tt.fields.redisPool,
-				pipelineSvc: tt.fields.pipelineSvc,
-			}
-			// mock call
-			mock := r.pipelineSvc.(*CFMock)
-			if tt.wantRedisErr {
+			if tt.wantErr {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("PING").ExpectError(fmt.Errorf("PING error"))
 			} else {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("PING").Expect(tt.want)
-				if tt.wantCodefreshErr {
-					mock.On("Ping").Return(fmt.Errorf("Codefresh Ping Error"))
-				} else {
-					mock.On("Ping").Return(nil)
-				}
 			}
 			got, err := r.Ping()
-			if (err != nil) != (tt.wantRedisErr || tt.wantCodefreshErr) {
-				t.Errorf("RedisStore.Ping() error = %v, wantErr %v", err, (tt.wantRedisErr || tt.wantCodefreshErr))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.Ping() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
 				t.Errorf("RedisStore.Ping() = %v, want %v", got, tt.want)
 			}
-			// assert expectation
-			mock.AssertExpectations(t)
 		})
 	}
 }

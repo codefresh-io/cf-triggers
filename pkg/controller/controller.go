@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/codefresh-io/hermes/pkg/model"
-	"github.com/codefresh-io/hermes/pkg/version"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,11 +16,11 @@ type Event struct {
 
 // Controller trigger controller
 type Controller struct {
-	svc model.TriggerService
+	svc model.TriggerReaderWriter
 }
 
 // NewController new trigger controller
-func NewController(svc model.TriggerService) *Controller {
+func NewController(svc model.TriggerReaderWriter) *Controller {
 	return &Controller{svc}
 }
 
@@ -186,58 +185,4 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 	ctx.Status(http.StatusOK)
-}
-
-// TriggerEvent pipelines for trigger
-func (c *Controller) TriggerEvent(ctx *gin.Context) {
-	// get trigger id
-	id := ctx.Params.ByName("eventURI")
-	// get event payload
-	var event Event
-	if err := ctx.BindJSON(&event); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "message": "error in JSON body", "error": err.Error()})
-		return
-	}
-	// check secret
-	if err := c.svc.CheckSecret(id, event.Original, event.Secret); err != nil {
-		status := http.StatusInternalServerError
-		if err == model.ErrTriggerNotFound {
-			status = http.StatusNotFound
-		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed secret validation", "error": err.Error()})
-		return
-	}
-	// add original payload to variables
-	vars := make(map[string]string)
-	for k, v := range event.Variables {
-		vars[k] = v
-	}
-	vars["EVENT_PAYLOAD"] = event.Original
-	// run pipelines
-	runs, err := c.svc.Run(id, vars)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to run trigger pipelines", "error": err.Error()})
-		return
-	}
-	ctx.JSON(http.StatusOK, runs)
-}
-
-// GetHealth status
-func (c *Controller) GetHealth(ctx *gin.Context) {
-	_, err := c.svc.Ping()
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to talk to Redis", "error": err.Error()})
-	} else {
-		ctx.String(http.StatusOK, "Healthy")
-	}
-}
-
-// Ping return PONG with OK
-func (c *Controller) Ping(ctx *gin.Context) {
-	ctx.String(http.StatusOK, "PONG")
-}
-
-// GetVersion get app version
-func (c *Controller) GetVersion(ctx *gin.Context) {
-	ctx.String(http.StatusOK, version.WebVersion)
 }

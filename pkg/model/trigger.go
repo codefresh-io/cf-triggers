@@ -19,6 +19,12 @@ type (
 		Name string `json:"name" yaml:"name"`
 	}
 
+	// PipelineRun pipeline run with ID (can be empty on error) and error (when failed)
+	PipelineRun struct {
+		ID    string `json:"id" yaml:"id"`
+		Error error  `json:"error, omitempty" yaml:"error,omitempty"`
+	}
+
 	// Trigger describes a trigger type
 	Trigger struct {
 		// unique event URI, use ':' instead of '/'
@@ -29,8 +35,8 @@ type (
 		Pipelines []Pipeline `json:"pipelines" yaml:"pipelines"`
 	}
 
-	// TriggerService interface
-	TriggerService interface {
+	// TriggerReaderWriter interface
+	TriggerReaderWriter interface {
 		List(filter string) ([]*Trigger, error)
 		ListByPipeline(pipelineURI string) ([]*Trigger, error)
 		Get(eventURI string) (*Trigger, error)
@@ -40,9 +46,21 @@ type (
 		GetPipelines(eventURI string) ([]Pipeline, error)
 		AddPipelines(eventURI string, pipelines []Pipeline) error
 		DeletePipeline(eventURI string, pipelineURI string) error
-		Run(eventURI string, vars map[string]string) ([]string, error)
-		CheckSecret(eventURI string, message string, secret string) error
+	}
+
+	// Runner pipeline runner
+	Runner interface {
+		Run(pipelines []Pipeline, vars map[string]string) ([]PipelineRun, error)
+	}
+
+	// Pinger ping response
+	Pinger interface {
 		Ping() (string, error)
+	}
+
+	// SecretChecker validates message secret or HMAC signature
+	SecretChecker interface {
+		Validate(message string, secret string, key string) error
 	}
 )
 

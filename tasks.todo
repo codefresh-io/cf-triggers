@@ -4,7 +4,7 @@ Project:
     ✔ Update NOTES.txt with instruction how to setup trigger @done (12/14/2017, 12:45:31 PM)
     ✔ Implement trigger.add command - validate pipeline existence, generate secret @done (12/20/2017, 12:55:58 PM)
     ✔ Create trigger, if not exists, when adding a new pipeline @done (12/21/2017, 12:28:07 PM)
-    ☐ Delete trigger, when deleting pipeline and no other pipeline remains
+    ✔ Delete trigger, when deleting pipeline and no other pipeline remains @done (12/25/2017, 5:01:51 PM)
     ☐ Get trigger metadata (type, kind, fields, field types, required and optional, event uri template)
     ☐ Get event URI in human readable format
     ✔ Filter trigger by pipeline uri @done (12/21/2017, 12:28:17 PM)

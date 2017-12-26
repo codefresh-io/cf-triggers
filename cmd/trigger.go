@@ -77,7 +77,7 @@ var triggerCommand = cli.Command{
 // get triggers by name(s), filter or ALL
 func getTriggers(c *cli.Context) error {
 	quiet := c.Bool("quiet")
-	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
 	filter := c.String("filter")
 	pipelineURI := c.String("pipeline")
 	// Handle 'pipeline'
@@ -85,7 +85,7 @@ func getTriggers(c *cli.Context) error {
 		if filter != "" {
 			return fmt.Errorf("pipeline cannot be used with filter")
 		}
-		triggers, err := triggerService.ListByPipeline(pipelineURI)
+		triggers, err := triggerReaderWriter.ListByPipeline(pipelineURI)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -104,7 +104,7 @@ func getTriggers(c *cli.Context) error {
 	}
 	// Handle 'filter'
 	if len(c.Args()) == 0 {
-		triggers, err := triggerService.List(filter)
+		triggers, err := triggerReaderWriter.List(filter)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -121,7 +121,7 @@ func getTriggers(c *cli.Context) error {
 		}
 	} else {
 		for _, id := range c.Args() {
-			trigger, err := triggerService.Get(id)
+			trigger, err := triggerReaderWriter.Get(id)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -147,14 +147,14 @@ func addTrigger(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
 	// get trigger service
-	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
 	// create trigger model
 	trigger := model.Trigger{}
 	trigger.Event = args.First()
 	trigger.Secret = c.String("secret")
 	trigger.Pipelines = make([]model.Pipeline, 1)
 	trigger.Pipelines[0] = model.Pipeline{RepoOwner: args.Get(1), RepoName: args.Get(2), Name: args.Get(3)}
-	return triggerService.Add(trigger)
+	return triggerReaderWriter.Add(trigger)
 }
 
 // add new trigger
@@ -165,8 +165,8 @@ func deleteTrigger(c *cli.Context) error {
 		return errors.New("wrong argument, expected trigger event URI")
 	}
 	// get trigger service
-	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
-	return triggerService.Delete(args.First())
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	return triggerReaderWriter.Delete(args.First())
 }
 
 // run all pipelines connected to specified trigger
@@ -174,7 +174,9 @@ func testTrigger(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
 	// get trigger service
-	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	// get pipeline runner
+	runner := backend.NewRunner(codefreshService)
 	// convert command line 'var' variables (key=value) to map
 	vars := make(map[string]string)
 	for _, v := range c.StringSlice("var") {
@@ -185,14 +187,24 @@ func testTrigger(c *cli.Context) error {
 		vars[kv[0]] = kv[1]
 	}
 
-	// get trigger from argument
-	runs, err := triggerService.Run(c.Args().First(), vars)
+	// get trigger pipelines
+	pipelines, err := triggerReaderWriter.GetPipelines(c.Args().First())
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Running %d pipelines ...\n", len(runs))
+	// run pipelines
+	runs, err := runner.Run(pipelines, vars)
+	if err != nil {
+		return err
+	}
+
+	// print out runs
 	for _, r := range runs {
-		fmt.Println("\t", r)
+		if r.Error != nil {
+			fmt.Println("\terror: ", err.Error())
+		} else {
+			fmt.Println("\trun: ", r.ID)
+		}
 	}
 	return nil
 }

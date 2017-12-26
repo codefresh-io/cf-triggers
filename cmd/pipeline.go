@@ -40,11 +40,11 @@ var pipelineCommand = cli.Command{
 }
 
 func getTriggerPipelines(c *cli.Context) error {
-	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
 	if len(c.Args()) != 1 {
 		return errors.New("wrong arguments: expected event URI")
 	}
-	pipelines, err := triggerService.GetPipelines(c.Args().First())
+	pipelines, err := triggerReaderWriter.GetPipelines(c.Args().First())
 	if err != nil {
 		log.Error(err)
 		return err
@@ -65,11 +65,11 @@ func addTriggerPipelines(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
 	// get trigger service
-	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
 	// create pipelines
 	pipelines := make([]model.Pipeline, 1)
 	pipelines[0] = model.Pipeline{RepoOwner: args.Get(1), RepoName: args.Get(2), Name: args.Get(3)}
-	return triggerService.AddPipelines(args.First(), pipelines)
+	return triggerReaderWriter.AddPipelines(args.First(), pipelines)
 }
 
 func deleteTriggerPipeline(c *cli.Context) error {
@@ -79,8 +79,8 @@ func deleteTriggerPipeline(c *cli.Context) error {
 		return errors.New("wrong number of arguments")
 	}
 	// get trigger service
-	triggerService := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
 	// create pipelines
 	pid := fmt.Sprintf("%s:%s:%s", args.Get(1), args.Get(2), args.Get(3))
-	return triggerService.DeletePipeline(c.Args().First(), pid)
+	return triggerReaderWriter.DeletePipeline(c.Args().First(), pid)
 }

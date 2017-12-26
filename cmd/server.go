@@ -46,7 +46,17 @@ func runServer(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.String("cf"), c.String("t"))
 
-	triggerController := controller.NewController(backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService))
+	// get trigger backend service
+	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+
+	// get pipeline runner service
+	runner := backend.NewRunner(codefreshService)
+
+	// get secret checker
+	secretChecker := backend.NewSecretChecker()
+
+	// trigger controller
+	triggerController := controller.NewController(triggerBackend)
 
 	// trigger management API
 	router.Handle("GET", "/", func(c *gin.Context) {
@@ -72,12 +82,14 @@ func runServer(c *cli.Context) error {
 	router.Handle("DELETE", "/triggers/:eventURI/pipelines/:pipelineURI", triggerController.DeletePipeline)
 
 	// invoke trigger with event payload
-	router.Handle("POST", "/trigger/:eventURI", triggerController.TriggerEvent)
+	runnerController := controller.NewRunnerController(runner, triggerBackend, secretChecker)
+	router.Handle("POST", "/trigger/:eventURI", runnerController.TriggerEvent)
 
 	// status handlers
-	router.GET("/health", triggerController.GetHealth)
-	router.GET("/version", triggerController.GetVersion)
-	router.GET("/ping", triggerController.Ping)
+	statusController := controller.NewStatusController(triggerBackend, codefreshService)
+	router.GET("/health", statusController.GetHealth)
+	router.GET("/version", statusController.GetVersion)
+	router.GET("/ping", statusController.Ping)
 
 	return router.Run(fmt.Sprintf(":%d", c.Int("port")))
 }

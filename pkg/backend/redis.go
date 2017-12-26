@@ -60,7 +60,6 @@ package backend
 */
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -152,7 +151,7 @@ func getPipelineKey(id string) string {
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
-func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService) model.TriggerService {
+func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService) *RedisStore {
 	r := new(RedisStore)
 	r.redisPool = &RedisPool{newPool(server, port, password)}
 	r.pipelineSvc = pipelineSvc
@@ -160,7 +159,6 @@ func NewRedisStore(server string, port int, password string, pipelineSvc codefre
 	r.deleteFunc = r.Delete
 	r.storeTriggerFunc = r.StoreTrigger
 	return r
-	//return &RedisStore{&RedisPool{newPool(server, port, password)}, pipelineSvc, &redisStoreInternal{}}
 }
 
 // List get list of defined triggers
@@ -386,63 +384,11 @@ func (r *RedisStore) Delete(eventURI string) error {
 	return err
 }
 
-// Run trigger pipelines
-func (r *RedisStore) Run(eventURI string, vars map[string]string) ([]string, error) {
-	var runs []string
-	trigger, err := r.Get(eventURI)
-	if err != nil {
-		log.Error(err)
-		return nil, err
-	}
-	for _, p := range trigger.Pipelines {
-		runID, err := r.pipelineSvc.RunPipeline(p.RepoOwner, p.RepoName, p.Name, vars)
-		if err != nil {
-			log.Error(err)
-			return nil, err
-		}
-		if runID != "" {
-			runs = append(runs, runID)
-		}
-	}
-	return runs, nil
-}
-
-// CheckSecret check trigger secret
-func (r *RedisStore) CheckSecret(eventURI string, message string, secret string) error {
-	con := r.redisPool.GetConn()
-	log.Debugf("Getting trigger %s ...", eventURI)
-	// get secret from String
-	triggerSecret, err := redis.String(con.Do("GET", getSecretKey(eventURI)))
-	if err != nil && err != redis.ErrNil {
-		log.Error(err)
-		return err
-	}
-	if triggerSecret != secret {
-		// try to check signature
-		if util.CheckHmacSignature(message, secret, triggerSecret) {
-			return nil
-		}
-		return errors.New("invalid secret or HMAC signature")
-	}
-	return nil
-}
-
-// Ping Redis and Codefresh services
+// Ping Redis services
 func (r *RedisStore) Ping() (string, error) {
 	con := r.redisPool.GetConn()
 	// get pong from Redis
-	pong, err := redis.String(con.Do("PING"))
-	if err != nil {
-		log.Error(err)
-		return "Redis Error", err
-	}
-	// get version from Codefresh API
-	err = r.pipelineSvc.Ping()
-	if err != nil {
-		log.Error(err)
-		return "Codefresh Error", err
-	}
-	return pong, nil
+	return redis.String(con.Do("PING"))
 }
 
 // GetPipelines get trigger pipelines by eventURI
@@ -457,7 +403,7 @@ func (r *RedisStore) GetPipelines(eventURI string) ([]model.Pipeline, error) {
 		return nil, model.ErrTriggerNotFound
 	}
 	if len(pipelines) == 0 {
-		return nil, model.ErrTriggerNotFound
+		return nil, model.ErrPipelineNotFound
 	}
 
 	triggerPipelines := make([]model.Pipeline, 0)
