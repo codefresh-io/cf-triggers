@@ -49,13 +49,13 @@ spec:
                 key: cfapi-token
           livenessProbe:
             httpGet:
-              path: /health
+              path: /ping
               port: {{ .Values.service.internalPort }}
             initialDelaySeconds: 10
             periodSeconds: 30
           readinessProbe:
             httpGet:
-              path: /ping
+              path: /health
               port: {{ .Values.service.internalPort }}
             initialDelaySeconds: 10
             periodSeconds: 30

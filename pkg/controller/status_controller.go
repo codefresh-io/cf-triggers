@@ -26,11 +26,13 @@ func (c *StatusController) GetHealth(ctx *gin.Context) {
 	_, err := c.backend.Ping()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to talk to backend", "error": err.Error()})
+		return
 	}
 	// check codefresh service
 	err = c.codefresh.Ping()
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to talk to Codefresh API", "error": err.Error()})
+		return
 	}
 	// everything is good
 	ctx.String(http.StatusOK, "Healthy")
