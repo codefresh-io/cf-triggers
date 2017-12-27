@@ -30,12 +30,10 @@ var ErrPipelineNotFound = errors.New("codefresh: pipeline not found")
 
 func checkResponse(text string, err error, status int) (string, error) {
 	if err != nil {
-		log.Errorf("%s - error: %s", text, err)
 		return "", err
 	}
 	if status < http.StatusOK || status >= http.StatusBadRequest {
 		msg := fmt.Sprintf("%s - cf-api error: %s", text, http.StatusText(status))
-		log.Error(msg)
 		return "", fmt.Errorf(msg)
 	}
 	return "", nil
