@@ -29,9 +29,11 @@ spec:
           - name: GIN_MODE
             value: release
           {{- end }}
-          - name: REDIS_HOST
+          - name: STORE_HOST
             value: "{{ .Release.Name }}-{{ .Values.redis.nameOverride }}"
-          - name: REDIS_PASSWORD
+          - name: STORE_PORT
+            value: {{ .Values.redis.port | quote }}
+          - name: STORE_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: "{{ .Release.Name }}-{{ .Values.redis.nameOverride }}"

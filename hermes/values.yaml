@@ -17,6 +17,7 @@ service:
 # override redis service name to 'store'
 redis:
   nameOverride: store
+  port: 6379
 
 # Redis store size
 store:

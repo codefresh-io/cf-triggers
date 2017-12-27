@@ -20,9 +20,9 @@ func main() {
 	app.UsageText = fmt.Sprintf(`Configure triggers for Codefresh pipeline execution or start trigger manager server. Process "normalized" events and run Codefresh pipelines with variables extracted from events payload.
 %s
 hermes respects following environment variables:
-   - REDIS_HOST         - set the url to the Redis server (default localhost)
-   - REDIS_PORT         - set Redis port (default to 6379)
-   - REDIS_PASSWORD     - set Redis password
+   - STORE_HOST         - set the url to the Redis store server (default localhost)
+   - STORE_PORT         - set Redis store port (default to 6379)
+   - STORE_PASSWORD     - set Redis store password
    
 Copyright © Codefresh.io`, version.ASCIILogo)
 	app.Before = before
@@ -46,20 +46,20 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		},
 		cli.StringFlag{
 			Name:   "redis",
-			Usage:  "redis host name",
+			Usage:  "redis store host name",
 			Value:  "localhost",
-			EnvVar: "REDIS_HOST",
+			EnvVar: "STORE_HOST",
 		},
 		cli.IntFlag{
 			Name:   "redis-port",
-			Usage:  "redis host port",
+			Usage:  "redis store port",
 			Value:  6379,
-			EnvVar: "REDIS_PORT",
+			EnvVar: "STORE_PORT",
 		},
 		cli.StringFlag{
 			Name:   "redis-password",
-			Usage:  "redis password",
-			EnvVar: "REDIS_PASSWORD",
+			Usage:  "redis store password",
+			EnvVar: "STORE_PASSWORD",
 		},
 		cli.BoolFlag{
 			Name:   "debug",
