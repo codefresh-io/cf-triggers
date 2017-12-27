@@ -65,25 +65,25 @@ func runServer(c *cli.Context) error {
 
 	// get supported events
 	eventController := controller.NewEventController()
-	router.Handle("GET", "/events/info/:eventURI", eventController.GetEventInfo)
+	router.Handle("GET", "/events/info/:id", eventController.GetEventInfo)
 	router.Handle("GET", "/events/types/", eventController.ListTypes)
 	router.Handle("GET", "/events/types/:type", eventController.GetType)
 
 	// manage triggers
 	router.Handle("GET", "/triggers/", triggerController.List) // pass filter or pipeline as query parameter
-	router.Handle("GET", "/triggers/:eventURI", triggerController.Get)
+	router.Handle("GET", "/triggers/:id", triggerController.Get)
 	router.Handle("POST", "/triggers", triggerController.Add)
-	router.Handle("PUT", "/triggers/:eventURI", triggerController.Update)
-	router.Handle("DELETE", "/triggers/:eventURI", triggerController.Delete)
+	router.Handle("PUT", "/triggers/:id", triggerController.Update)
+	router.Handle("DELETE", "/triggers/:id", triggerController.Delete)
 
 	// manage pipelines attached to trigger
-	router.Handle("GET", "/triggers/:eventURI/pipelines", triggerController.GetPipelines)
-	router.Handle("POST", "/triggers/:eventURI/pipelines", triggerController.AddPipelines)
-	router.Handle("DELETE", "/triggers/:eventURI/pipelines/:pipelineURI", triggerController.DeletePipeline)
+	router.Handle("GET", "/triggers/:id/pipelines", triggerController.GetPipelines)
+	router.Handle("POST", "/triggers/:id/pipelines", triggerController.AddPipelines)
+	router.Handle("DELETE", "/triggers/:id/pipelines/:pid", triggerController.DeletePipeline)
 
 	// invoke trigger with event payload
 	runnerController := controller.NewRunnerController(runner, triggerBackend, secretChecker)
-	router.Handle("POST", "/trigger/:eventURI", runnerController.TriggerEvent)
+	router.Handle("POST", "/trigger/:id", runnerController.TriggerEvent)
 
 	// status handlers
 	statusController := controller.NewStatusController(triggerBackend, codefreshService)

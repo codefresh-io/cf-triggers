@@ -60,6 +60,7 @@ func (api *APIEndpoint) ping() error {
 
 // find Codefresh pipeline ID by repo (owner and name) and name
 func (api *APIEndpoint) getPipelineID(repoOwner, repoName, name string) (string, error) {
+	log.Debugf("Getting pipeline repo-owner:%s repo-name:%s name:%s", repoOwner, repoName, name)
 	// GET pipelines for repository
 	type CFPipeline struct {
 		ID   string `json:"_id"`

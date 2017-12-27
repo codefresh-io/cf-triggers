@@ -60,7 +60,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 // Get trigger
 func (c *Controller) Get(ctx *gin.Context) {
-	id := ctx.Params.ByName("eventURI")
+	id := ctx.Params.ByName("id")
 	var trigger *model.Trigger
 	var err error
 	if trigger, err = c.svc.Get(id); err != nil {
@@ -76,7 +76,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 
 // GetPipelines get trigger pipelines
 func (c *Controller) GetPipelines(ctx *gin.Context) {
-	id := ctx.Params.ByName("eventURI")
+	id := ctx.Params.ByName("id")
 	var pipelines []model.Pipeline
 	var err error
 	if pipelines, err = c.svc.GetPipelines(id); err != nil {
@@ -93,7 +93,7 @@ func (c *Controller) GetPipelines(ctx *gin.Context) {
 // AddPipelines add pipelines to trigger
 func (c *Controller) AddPipelines(ctx *gin.Context) {
 	// trigger id (event URI)
-	id := ctx.Params.ByName("eventURI")
+	id := ctx.Params.ByName("id")
 	// get pipelines from body
 	var pipelines []model.Pipeline
 	ctx.Bind(&pipelines)
@@ -113,9 +113,9 @@ func (c *Controller) AddPipelines(ctx *gin.Context) {
 // DeletePipeline delete pipeline from trigger
 func (c *Controller) DeletePipeline(ctx *gin.Context) {
 	// get trigger event URI
-	id := ctx.Params.ByName("eventURI")
+	id := ctx.Params.ByName("id")
 	// get pipeline URI
-	pid := ctx.Params.ByName("pipelineURI")
+	pid := ctx.Params.ByName("pid")
 	if err := c.svc.DeletePipeline(id, pid); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
@@ -175,7 +175,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 
 // Delete trigger
 func (c *Controller) Delete(ctx *gin.Context) {
-	id := ctx.Params.ByName("eventURI")
+	id := ctx.Params.ByName("id")
 	if err := c.svc.Delete(id); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {

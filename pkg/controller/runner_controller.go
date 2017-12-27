@@ -22,7 +22,7 @@ func NewRunnerController(runner model.Runner, trigger model.TriggerReaderWriter,
 // TriggerEvent pipelines for trigger
 func (c *RunnerController) TriggerEvent(ctx *gin.Context) {
 	// get trigger id
-	id := ctx.Params.ByName("eventURI")
+	id := ctx.Params.ByName("id")
 	// get event payload
 	var event Event
 	if err := ctx.BindJSON(&event); err != nil {
