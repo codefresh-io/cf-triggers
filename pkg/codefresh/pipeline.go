@@ -28,6 +28,19 @@ type (
 // ErrPipelineNotFound error when pipeline not found
 var ErrPipelineNotFound = errors.New("codefresh: pipeline not found")
 
+func checkResponse(text string, err error, status int) (string, error) {
+	if err != nil {
+		log.Errorf("%s - error: %s", text, err)
+		return "", err
+	}
+	if status < http.StatusOK || status >= http.StatusBadRequest {
+		msg := fmt.Sprintf("%s - cf-api error: %s", text, http.StatusText(status))
+		log.Error(msg)
+		return "", fmt.Errorf(msg)
+	}
+	return "", nil
+}
+
 // create a new map of variables
 // each key is converted to UPPER case and prefixed with 'EVENT_'
 func preprocessVariables(vars map[string]string) map[string]string {
@@ -44,45 +57,41 @@ func preprocessVariables(vars map[string]string) map[string]string {
 
 // NewCodefreshEndpoint create new Codefresh API endpoint from url and API token
 func NewCodefreshEndpoint(url, token string) PipelineService {
-	log.Debugf("Initializing CF API %s ...", url)
+	log.Debugf("initializing cf-api %s ...", url)
 	endpoint := sling.New().Base(url).Set("x-access-token", token)
 	return &APIEndpoint{endpoint}
 }
 
 // find Codefresh pipeline by name and repo details (owner and name)
 func (api *APIEndpoint) ping() error {
-	if _, err := api.endpoint.New().Get("api/ping").ReceiveSuccess(nil); err != nil {
-		log.Error("Failed to ping API ", err)
-		return err
-	}
-	return nil
+	resp, err := api.endpoint.New().Get("api/ping").ReceiveSuccess(nil)
+	_, err = checkResponse("ping", err, resp.StatusCode)
+	return err
 }
 
 // find Codefresh pipeline ID by repo (owner and name) and name
 func (api *APIEndpoint) getPipelineID(repoOwner, repoName, name string) (string, error) {
-	log.Debugf("Getting pipeline repo-owner:%s repo-name:%s name:%s", repoOwner, repoName, name)
+	log.Debugf("getting pipeline repo-owner:%s repo-name:%s name:%s", repoOwner, repoName, name)
 	// GET pipelines for repository
 	type CFPipeline struct {
 		ID   string `json:"_id"`
 		Name string `json:"name"`
 	}
 	pipelines := new([]CFPipeline)
-	res, err := api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines)
+	resp, err := api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines)
+	_, err = checkResponse("get pipelines", err, resp.StatusCode)
 	if err != nil {
-		log.Errorf("Error geting pipelines for repo-owner:%s repo-name:%s. Error: %s", repoOwner, repoName, err)
-		return "", ErrPipelineNotFound
+		return "", err
 	}
-	log.Debugf("HTTP Response: %v", res)
 
 	// scan for pipeline ID
 	for _, p := range *pipelines {
-		log.Debugf("Checking pipeline %v", p)
 		if p.Name == name {
-			log.Debugf("Found id '%s' for the pipeline '%s'", p.ID, name)
+			log.Debugf("found id '%s' for the pipeline '%s'", p.ID, name)
 			return p.ID, nil
 		}
 	}
-	log.Errorf("Failed to find '%s' pipeline", name)
+	log.Errorf("failed to find '%s' pipeline", name)
 
 	return "", ErrPipelineNotFound
 }
@@ -102,24 +111,27 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 	}
 	req, err := api.endpoint.New().Post(fmt.Sprint("api/builds/", id)).BodyJSON(body).Request()
 	if err != nil {
-		log.Errorf("Failed to run pipeline %s. Error: %s", id, err)
+		log.Errorf("failed to build run request for pipeline %s. error: %s", id, err)
 		return "", err
 	}
 
 	// get run id
 	resp, err := http.DefaultClient.Do(req)
+	_, err = checkResponse("run pipeline", err, resp.StatusCode)
 	if err != nil {
 		return "", err
 	}
+
 	defer resp.Body.Close()
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Errorf("close response body error")
 		return "", err
 	}
 	runID := string(respData)
 
 	if resp.StatusCode == http.StatusOK {
-		log.Debugf("Pipeline '%s' is running with run id: '%s'", id, runID)
+		log.Debugf("pipeline '%s' is running with run id: '%s'", id, runID)
 	}
 	return runID, nil
 }
@@ -140,7 +152,7 @@ func (api *APIEndpoint) RunPipeline(repoOwner, repoName, name string, vars map[s
 	if err != nil && err != ErrPipelineNotFound {
 		return "", err
 	} else if err == ErrPipelineNotFound {
-		log.Debugf("Skipping pipeline '%s' for repository '%s/%s'", name, repoOwner, repoName)
+		log.Debugf("skipping pipeline '%s' for repository '%s/%s'", name, repoOwner, repoName)
 		return "", nil
 	}
 	// invoke pipeline by id
