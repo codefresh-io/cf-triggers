@@ -44,6 +44,7 @@ func preprocessVariables(vars map[string]string) map[string]string {
 
 // NewCodefreshEndpoint create new Codefresh API endpoint from url and API token
 func NewCodefreshEndpoint(url, token string) PipelineService {
+	log.Debugf("Initializing CF API %s ...", url)
 	endpoint := sling.New().Base(url).Set("x-access-token", token)
 	return &APIEndpoint{endpoint}
 }
@@ -51,6 +52,7 @@ func NewCodefreshEndpoint(url, token string) PipelineService {
 // find Codefresh pipeline by name and repo details (owner and name)
 func (api *APIEndpoint) ping() error {
 	if _, err := api.endpoint.New().Get("api/ping").ReceiveSuccess(nil); err != nil {
+		log.Error("Failed to ping API ", err)
 		return err
 	}
 	return nil
@@ -65,6 +67,7 @@ func (api *APIEndpoint) getPipelineID(repoOwner, repoName, name string) (string,
 	}
 	pipelines := new([]CFPipeline)
 	if _, err := api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines); err != nil {
+		log.Errorf("Error geting pipelines for repo-owner:%s repo-name:%s. Error: %s", repoOwner, repoName, err)
 		return "", ErrPipelineNotFound
 	}
 
@@ -95,6 +98,7 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 	}
 	req, err := api.endpoint.New().Post(fmt.Sprint("api/builds/", id)).BodyJSON(body).Request()
 	if err != nil {
+		log.Errorf("Failed to run pipeline %s. Error: %s", id, err)
 		return "", err
 	}
 

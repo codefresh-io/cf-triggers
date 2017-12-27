@@ -393,7 +393,11 @@ func (r *RedisStore) Delete(eventURI string) error {
 func (r *RedisStore) Ping() (string, error) {
 	con := r.redisPool.GetConn()
 	// get pong from Redis
-	return redis.String(con.Do("PING"))
+	pong, err := redis.String(con.Do("PING"))
+	if err != nil {
+		log.Error(err)
+	}
+	return pong, err
 }
 
 // GetPipelines get trigger pipelines by eventURI
