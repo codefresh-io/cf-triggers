@@ -67,10 +67,12 @@ func (api *APIEndpoint) getPipelineID(repoOwner, repoName, name string) (string,
 		Name string `json:"name"`
 	}
 	pipelines := new([]CFPipeline)
-	if _, err := api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines); err != nil {
+	res, err := api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines)
+	if err != nil {
 		log.Errorf("Error geting pipelines for repo-owner:%s repo-name:%s. Error: %s", repoOwner, repoName, err)
 		return "", ErrPipelineNotFound
 	}
+	log.Debugf("HTTP Response: %v", res)
 
 	// scan for pipeline ID
 	for _, p := range *pipelines {
