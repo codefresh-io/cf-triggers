@@ -74,6 +74,7 @@ func (api *APIEndpoint) getPipelineID(repoOwner, repoName, name string) (string,
 
 	// scan for pipeline ID
 	for _, p := range *pipelines {
+		log.Debugf("Checking pipeline %v", p)
 		if p.Name == name {
 			log.Debugf("Found id '%s' for the pipeline '%s'", p.ID, name)
 			return p.ID, nil
