@@ -76,8 +76,8 @@ func Test_NewEventHandlerManagerSingleton(t *testing.T) {
 	config := createValidConfig("singleton")
 	defer os.Remove(config)
 	// create 2 instances
-	manager1 := NewEventHandlerManager(config)
-	manager2 := NewEventHandlerManager(config)
+	manager1 := NewEventHandlerManager(config, true)
+	manager2 := NewEventHandlerManager(config, true)
 	if manager1 != manager2 {
 		t.Error("non singleton EventHandlerManager")
 	}
