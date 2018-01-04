@@ -14,6 +14,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  revision = "629574ca2a5df945712d3079857300b5e4da0236"
+  version = "v1.4.2"
+
+[[projects]]
   name = "github.com/garyburd/redigo"
   packages = ["internal","redis"]
   revision = "47dc60e71eed504e3ef8e77ee3c6fe720f3be57f"
@@ -112,6 +118,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e60be476ce599b7b5a4ddd9a63f02178ea0d5072bd9fb3e525b24a964bf53e82"
+  inputs-digest = "c3eb2e6f9c50626278dd1dbfd752220eca2c23f30d1ff2f1105aa870e9d39044"
   solver-name = "gps-cdcl"
   solver-version = 1

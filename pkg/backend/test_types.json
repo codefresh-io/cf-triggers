@@ -1,0 +1,43 @@
+{
+    "types": [{
+            "type": "registry",
+            "kind": "dockerhub",
+            "service-url": "http://localhost:8080",
+            "uri-template": "index.docker.io:{{repo-owner}}:{{repo-name}}:push",
+            "uri-regex": "^index\\.docker\\.io:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "config": [{
+                    "name": "repo-owner",
+                    "type": "string",
+                    "validator": "^[A-z0-9]+$",
+                    "required": true
+                },
+                {
+                    "name": "repo-name",
+                    "type": "string",
+                    "validator": "^[A-z0-9]+$",
+                    "required": true
+                }
+            ]
+        },
+        {
+            "type": "registry",
+            "kind": "cfcr",
+            "service-url": "http://localhost:8080",
+            "uri-template": "r.cfcr.io:{{repo-owner}}:{{repo-name}}:push",
+            "uri-regex": "^r\\.cfcr\\.io:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "config": [{
+                    "name": "repo-owner",
+                    "type": "string",
+                    "validator": "^[A-z0-9]+$",
+                    "required": true
+                },
+                {
+                    "name": "repo-name",
+                    "type": "string",
+                    "validator": "^[A-z0-9]+$",
+                    "required": true
+                }
+            ]
+        }
+    ]
+}

@@ -216,6 +216,19 @@ func (r *RedisStore) ListByPipeline(pipelineURI string) ([]*model.Trigger, error
 	return triggers, nil
 }
 
+// GetSecret trigger by eventURI
+func (r *RedisStore) GetSecret(eventURI string) (string, error) {
+	con := r.redisPool.GetConn()
+	log.Debugf("Getting trigger secret for %s ...", eventURI)
+	// get secret from String
+	secret, err := redis.String(con.Do("GET", getSecretKey(eventURI)))
+	if err != nil && err != redis.ErrNil {
+		log.Error(err)
+		return "", err
+	}
+	return secret, nil
+}
+
 // Get trigger by eventURI
 func (r *RedisStore) Get(eventURI string) (*model.Trigger, error) {
 	con := r.redisPool.GetConn()

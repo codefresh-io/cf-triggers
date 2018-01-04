@@ -1,5 +1,10 @@
 package model
 
+import (
+	log "github.com/sirupsen/logrus"
+	yaml "gopkg.in/yaml.v2"
+)
+
 type (
 	// ConfigField configuration field
 	ConfigField struct {
@@ -17,12 +22,21 @@ type (
 	EventType struct {
 		// Event type name; e.g. registry, git
 		Type string `json:"type" yaml:"type"`
-		//Event kind name; e.g. dockerhub/ecr/gcr (registry), github/bitbucket/gitlab (git)
+		// Event Handler service url
+		ServiceURL string `json:"service-url" yaml:"service-url"`
+		//Event kind name; e.g. dockerhub|ecr|gcr (registry), github|bitbucket|gitlab (git)
 		Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 		// URI template; e.g. index.docker.io:{{namespace}}:{{name}}:push
-		URITemplate string `json:"uri-template" yaml:"uri-template"`
+		URITemplate string `json:"uri-template,omitempty" yaml:"uri-template,omitempty"`
+		// URI pattern; event uri match pattern - helps to detect type and kind from uri
+		URIPattern string `json:"uri-regex" yaml:"uri-regex"`
 		// Configuration Fields
-		Config []ConfigField `json:"config" yaml:"config"`
+		Config []ConfigField `json:"config,omitempty" yaml:"config,omitempty"`
+	}
+
+	// EventTypes array of event types
+	EventTypes struct {
+		Types []EventType `json:"types" yaml:"types"`
 	}
 
 	// EventInfo event info - EVERYTHING for specific event (eventURI)
@@ -33,5 +47,25 @@ type (
 		Description string `json:"description,omitempty" yaml:"description,omitempty"`
 		// Status current event handler status (active, error, not active)
 		Status string `json:"status,omitempty" yaml:"status,omitempty"`
+		// Help text
+		Help string `json:"help,omitempty" yaml:"help,omitempty"`
 	}
 )
+
+// String retrun event type as YAML string
+func (t EventType) String() string {
+	d, err := yaml.Marshal(&t)
+	if err != nil {
+		log.Errorf("error: %v", err)
+	}
+	return string(d)
+}
+
+// String retrun event info as YAML string
+func (t EventInfo) String() string {
+	d, err := yaml.Marshal(&t)
+	if err != nil {
+		log.Errorf("error: %v", err)
+	}
+	return string(d)
+}

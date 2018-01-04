@@ -953,3 +953,54 @@ func TestRedisStore_DeletePipeline(t *testing.T) {
 		})
 	}
 }
+
+func TestRedisStore_GetSecret(t *testing.T) {
+	type fields struct {
+		redisPool RedisPoolService
+	}
+	type args struct {
+		eventURI string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "get secret",
+			fields:  fields{redisPool: &RedisPoolMock{}},
+			args:    args{eventURI: "event:test"},
+			want:    "123456789",
+			wantErr: false,
+		},
+		{
+			name:    "get secret missing",
+			fields:  fields{redisPool: &RedisPoolMock{}},
+			args:    args{eventURI: "event:test"},
+			want:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: tt.fields.redisPool,
+			}
+			if tt.wantErr {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.eventURI)).ExpectError(fmt.Errorf("GET error"))
+			} else {
+				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.eventURI)).Expect(tt.want)
+			}
+			got, err := r.GetSecret(tt.args.eventURI)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.GetSecret() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("RedisStore.GetSecret() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

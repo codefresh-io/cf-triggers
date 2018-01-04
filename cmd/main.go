@@ -31,6 +31,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		serverCommand,
 		triggerCommand,
 		pipelineCommand,
+		infoCommand,
 	}
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -45,13 +46,13 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			EnvVar: "CFAPI_TOKEN",
 		},
 		cli.StringFlag{
-			Name:   "redis",
+			Name:   "redis, r",
 			Usage:  "redis store host name",
 			Value:  "localhost",
 			EnvVar: "STORE_HOST",
 		},
 		cli.IntFlag{
-			Name:   "redis-port",
+			Name:   "redis-port, p",
 			Usage:  "redis store port",
 			Value:  6379,
 			EnvVar: "STORE_PORT",
@@ -61,8 +62,18 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			Usage:  "redis store password",
 			EnvVar: "STORE_PASSWORD",
 		},
+		cli.StringFlag{
+			Name:   "config, c",
+			Usage:  "type config file",
+			Value:  "/etc/hermes/type_config.json",
+			EnvVar: "TYPES_CONFIG",
+		},
 		cli.BoolFlag{
-			Name:   "debug",
+			Name:  "skip-monitor",
+			Usage: "skip monitorring config file for changes",
+		},
+		cli.BoolFlag{
+			Name:   "debug, d",
 			Usage:  "enable debug mode with verbose logging",
 			EnvVar: "DEBUG_HERMES",
 		},

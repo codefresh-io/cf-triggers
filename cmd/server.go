@@ -15,17 +15,6 @@ import (
 var serverCommand = cli.Command{
 	Name: "server",
 	Flags: []cli.Flag{
-		cli.StringFlag{
-			Name:   "codefresh, cf",
-			Usage:  "Codefresh API endpoint",
-			Value:  "https://g.codefresh.io/",
-			EnvVar: "CFAPI_URL",
-		},
-		cli.StringFlag{
-			Name:   "token, t",
-			Usage:  "Codefresh API token",
-			EnvVar: "CFAPI_TOKEN",
-		},
 		cli.IntFlag{
 			Name:  "port",
 			Usage: "TCP port for the trigger manager server",
@@ -44,7 +33,10 @@ func runServer(c *cli.Context) error {
 	router := gin.Default()
 
 	// get codefresh endpoint
-	codefreshService := codefresh.NewCodefreshEndpoint(c.String("cf"), c.String("t"))
+	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("codefresh"), c.GlobalString("token"))
+
+	// get event handler informer
+	eventHandlerInformer := backend.NewEventHandlerManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 
 	// get trigger backend service
 	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
@@ -64,10 +56,10 @@ func runServer(c *cli.Context) error {
 	})
 
 	// get supported events
-	eventController := controller.NewEventController()
+	eventController := controller.NewEventController(triggerBackend, eventHandlerInformer)
 	router.Handle("GET", "/events/info/:id", eventController.GetEventInfo)
 	router.Handle("GET", "/events/types/", eventController.ListTypes)
-	router.Handle("GET", "/events/types/:type", eventController.GetType)
+	router.Handle("GET", "/events/types/:type/:kind", eventController.GetType)
 
 	// manage triggers
 	router.Handle("GET", "/triggers/", triggerController.List) // pass filter or pipeline as query parameter
