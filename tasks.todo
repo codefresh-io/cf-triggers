@@ -10,6 +10,10 @@ Project:
     ✔ Filter trigger by pipeline uri @done (12/21/2017, 12:28:17 PM)
     ☐ Backup Redis Store periodically; consider [stash](https://github.com/appscode/stash/)
     ☐ Configure Restore procedure
+    ✔ Switch to internal cfapi (need to update getPipeline call) @done (1/7/2018, 5:01:42 PM)
+    ☐ Desing and write discovery job (read config, discover all,check update needed, update)
+    ✔ update cfapi proxy if needed @done (1/7/2018, 5:01:53 PM)
+    ☐ expose codefresh cui commands
 
 Tests:
     ✔ Test `RedisStore.Add` @done (12/6/2017, 12:53:44 PM)

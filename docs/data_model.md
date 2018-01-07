@@ -75,6 +75,6 @@
 Codefresh **Pipeline URI** is a unique identifier for Codefresh pipeline.
 
 ```sh
-# {repo-owner}:{repo-name}:{name}
-"codefresh-io:trigger-examples:run_pipeline"
+# {account}:{repo-owner}:{repo-name}:{name}
+"codefresh:codefresh-io:trigger-examples:run_pipeline"
 ```

@@ -47,7 +47,7 @@ var triggerCommand = cli.Command{
 				},
 			},
 			Usage:       "add trigger",
-			ArgsUsage:   "<event URI> <pipeline repo-owner> <pipeline repo-name> <pipeline name>",
+			ArgsUsage:   "<event URI> <account name> <pipeline repo-owner> <pipeline repo-name> <pipeline name>",
 			Description: "Add a new trigger connected to specified pipeline",
 			Action:      addTrigger,
 		},
@@ -141,7 +141,7 @@ func getTriggers(c *cli.Context) error {
 func addTrigger(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) != 4 {
+	if len(args) != 5 {
 		return errors.New("wrong arguments")
 	}
 	// get codefresh endpoint
@@ -153,7 +153,12 @@ func addTrigger(c *cli.Context) error {
 	trigger.Event = args.First()
 	trigger.Secret = c.String("secret")
 	trigger.Pipelines = make([]model.Pipeline, 1)
-	trigger.Pipelines[0] = model.Pipeline{RepoOwner: args.Get(1), RepoName: args.Get(2), Name: args.Get(3)}
+	trigger.Pipelines[0] = model.Pipeline{
+		Account:   args.Get(1),
+		RepoOwner: args.Get(2),
+		RepoName:  args.Get(3),
+		Name:      args.Get(4),
+	}
 	return triggerReaderWriter.Add(trigger)
 }
 

@@ -289,7 +289,7 @@ func (r *RedisStore) StoreTrigger(trigger model.Trigger) error {
 	// add pipelines to Triggers (Redis Sorted Set) and trigger to Pipelines (Sorted Set)
 	for _, v := range trigger.Pipelines {
 		// check Codefresh pipeline existence
-		err := r.pipelineSvc.CheckPipelineExist(v.RepoOwner, v.RepoName, v.Name)
+		err := r.pipelineSvc.CheckPipelineExist(v.Account, v.RepoOwner, v.RepoName, v.Name)
 		if err != nil {
 			return discardOnError(con, err)
 		}

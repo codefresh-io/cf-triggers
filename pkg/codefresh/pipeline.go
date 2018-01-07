@@ -14,14 +14,15 @@ import (
 type (
 	// PipelineService Codefresh Service
 	PipelineService interface {
-		CheckPipelineExist(name, repoOwner, repoName string) error
-		RunPipeline(repoOwner string, repoName string, name string, vars map[string]string) (string, error)
+		CheckPipelineExist(account, name, repoOwner, repoName string) error
+		RunPipeline(account, repoOwner, repoName, name string, vars map[string]string) (string, error)
 		Ping() error
 	}
 
 	// APIEndpoint Codefresh API endpoint
 	APIEndpoint struct {
 		endpoint *sling.Sling
+		internal bool
 	}
 )
 
@@ -57,7 +58,7 @@ func preprocessVariables(vars map[string]string) map[string]string {
 func NewCodefreshEndpoint(url, token string) PipelineService {
 	log.Debugf("initializing cf-api %s ...", url)
 	endpoint := sling.New().Base(url).Set("x-access-token", token).Set("Authorization", token)
-	return &APIEndpoint{endpoint}
+	return &APIEndpoint{endpoint, token == ""}
 }
 
 // find Codefresh pipeline by name and repo details (owner and name)
@@ -68,7 +69,7 @@ func (api *APIEndpoint) ping() error {
 }
 
 // find Codefresh pipeline ID by repo (owner and name) and name
-func (api *APIEndpoint) getPipelineID(repoOwner, repoName, name string) (string, error) {
+func (api *APIEndpoint) getPipelineID(account, repoOwner, repoName, name string) (string, error) {
 	log.Debugf("getting pipeline repo-owner:%s repo-name:%s name:%s", repoOwner, repoName, name)
 	// GET pipelines for repository
 	type CFPipeline struct {
@@ -76,7 +77,15 @@ func (api *APIEndpoint) getPipelineID(repoOwner, repoName, name string) (string,
 		Name string `json:"name"`
 	}
 	pipelines := new([]CFPipeline)
-	resp, err := api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines)
+	var resp *http.Response
+	var err error
+	if api.internal {
+		// use internal cfapi - another endpoint and need to ass account
+		resp, err = api.endpoint.New().Get(fmt.Sprintf("api/pipelines/%s/%s/%s", account, repoOwner, repoName)).ReceiveSuccess(pipelines)
+	} else {
+		// use public cfapi
+		resp, err = api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines)
+	}
 	_, err = checkResponse("get pipelines", err, resp.StatusCode)
 	if err != nil {
 		return "", err
@@ -135,8 +144,8 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 }
 
 // CheckPipelineExist check if Codefresh pipeline exists
-func (api *APIEndpoint) CheckPipelineExist(repoOwner, repoName, name string) error {
-	_, err := api.getPipelineID(repoOwner, repoName, name)
+func (api *APIEndpoint) CheckPipelineExist(account, repoOwner, repoName, name string) error {
+	_, err := api.getPipelineID(account, repoOwner, repoName, name)
 	if err != nil {
 		return err
 	}
@@ -144,9 +153,9 @@ func (api *APIEndpoint) CheckPipelineExist(repoOwner, repoName, name string) err
 }
 
 // RunPipeline run Codefresh pipeline
-func (api *APIEndpoint) RunPipeline(repoOwner, repoName, name string, vars map[string]string) (string, error) {
+func (api *APIEndpoint) RunPipeline(account, repoOwner, repoName, name string, vars map[string]string) (string, error) {
 	// get pipeline id from repo and name
-	id, err := api.getPipelineID(repoOwner, repoName, name)
+	id, err := api.getPipelineID(account, repoOwner, repoName, name)
 	if err != nil && err != ErrPipelineNotFound {
 		return "", err
 	} else if err == ErrPipelineNotFound {

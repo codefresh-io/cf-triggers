@@ -21,7 +21,7 @@ func (r *PipelineRunner) Run(pipelines []model.Pipeline, vars map[string]string)
 	var runs []model.PipelineRun
 	for _, p := range pipelines {
 		var pr model.PipelineRun
-		pr.ID, pr.Error = r.pipelineSvc.RunPipeline(p.RepoOwner, p.RepoName, p.Name, vars)
+		pr.ID, pr.Error = r.pipelineSvc.RunPipeline(p.Account, p.RepoOwner, p.RepoName, p.Name, vars)
 		if pr.Error != nil {
 			log.Error(pr.Error)
 		}

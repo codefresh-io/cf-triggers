@@ -25,14 +25,14 @@ var pipelineCommand = cli.Command{
 		{
 			Name:        "add",
 			Usage:       "add pipelines to existing trigger",
-			ArgsUsage:   "<event URI> <pipeline repo-owner> <pipeline repo-name> <pipeline name>",
+			ArgsUsage:   "<event URI> <account name> <pipeline repo-owner> <pipeline repo-name> <pipeline name>",
 			Description: "Add pipeline to existing trigger with specified event URI",
 			Action:      addTriggerPipelines,
 		},
 		{
 			Name:        "delete",
 			Usage:       "delete pipeline from existing trigger",
-			ArgsUsage:   "<event URI> <pipeline repo-owner> <pipeline repo-name> <pipeline name>",
+			ArgsUsage:   "<event URI> <account name> <pipeline repo-owner> <pipeline repo-name> <pipeline name>",
 			Description: "Delete pipeline from existing trigger with specified event URI",
 			Action:      deleteTriggerPipeline,
 		},
@@ -59,7 +59,7 @@ func getTriggerPipelines(c *cli.Context) error {
 func addTriggerPipelines(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) != 4 {
+	if len(args) != 5 {
 		return errors.New("wrong number of arguments")
 	}
 	// get codefresh endpoint
@@ -68,19 +68,24 @@ func addTriggerPipelines(c *cli.Context) error {
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
 	// create pipelines
 	pipelines := make([]model.Pipeline, 1)
-	pipelines[0] = model.Pipeline{RepoOwner: args.Get(1), RepoName: args.Get(2), Name: args.Get(3)}
+	pipelines[0] = model.Pipeline{
+		Account:   args.Get(1),
+		RepoOwner: args.Get(2),
+		RepoName:  args.Get(3),
+		Name:      args.Get(4),
+	}
 	return triggerReaderWriter.AddPipelines(args.First(), pipelines)
 }
 
 func deleteTriggerPipeline(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) != 4 {
+	if len(args) != 5 {
 		return errors.New("wrong number of arguments")
 	}
 	// get trigger service
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
 	// create pipelines
-	pid := fmt.Sprintf("%s:%s:%s", args.Get(1), args.Get(2), args.Get(3))
+	pid := fmt.Sprintf("%s:%s:%s:%s", args.Get(1), args.Get(2), args.Get(3), args.Get(4))
 	return triggerReaderWriter.DeletePipeline(c.Args().First(), pid)
 }
