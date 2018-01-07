@@ -81,9 +81,11 @@ func (api *APIEndpoint) getPipelineID(account, repoOwner, repoName, name string)
 	var err error
 	if api.internal {
 		// use internal cfapi - another endpoint and need to ass account
+		log.Debugf("using internal cfapi for account:%s", account)
 		resp, err = api.endpoint.New().Get(fmt.Sprintf("api/pipelines/%s/%s/%s", account, repoOwner, repoName)).ReceiveSuccess(pipelines)
 	} else {
 		// use public cfapi
+		log.Debugf("using public cfapi for default account:%s", account)
 		resp, err = api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines)
 	}
 	_, err = checkResponse("get pipelines", err, resp.StatusCode)
