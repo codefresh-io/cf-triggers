@@ -29,15 +29,22 @@ type (
 // ErrPipelineNotFound error when pipeline not found
 var ErrPipelineNotFound = errors.New("codefresh: pipeline not found")
 
-func checkResponse(text string, err error, status int) (string, error) {
+func checkResponse(text string, err error, resp *http.Response) error {
 	if err != nil {
-		return "", err
+		return err
 	}
-	if status < http.StatusOK || status >= http.StatusBadRequest {
-		msg := fmt.Sprintf("%s - cf-api error: %s", text, http.StatusText(status))
-		return "", fmt.Errorf(msg)
+	if resp != nil && (resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest) {
+		msg := fmt.Sprintf("%s cfapi error: %s", text, http.StatusText(resp.StatusCode))
+		// try to get details from response body
+		defer resp.Body.Close()
+		respData, err := ioutil.ReadAll(resp.Body)
+		if err == nil {
+			details := string(respData)
+			msg = fmt.Sprintf("%s; more details: %s", msg, details)
+		}
+		return fmt.Errorf(msg)
 	}
-	return "", nil
+	return nil
 }
 
 // create a new map of variables
@@ -64,8 +71,7 @@ func NewCodefreshEndpoint(url, token string) PipelineService {
 // find Codefresh pipeline by name and repo details (owner and name)
 func (api *APIEndpoint) ping() error {
 	resp, err := api.endpoint.New().Get("api/ping").ReceiveSuccess(nil)
-	_, err = checkResponse("ping", err, resp.StatusCode)
-	return err
+	return checkResponse("ping", err, resp)
 }
 
 // find Codefresh pipeline ID by repo (owner and name) and name
@@ -88,7 +94,7 @@ func (api *APIEndpoint) getPipelineID(account, repoOwner, repoName, name string)
 		log.Debugf("using public cfapi for default account:%s", account)
 		resp, err = api.endpoint.New().Get(fmt.Sprint("api/services/", repoOwner, "/", repoName)).ReceiveSuccess(pipelines)
 	}
-	_, err = checkResponse("get pipelines", err, resp.StatusCode)
+	err = checkResponse("get pipelines", err, resp)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +132,7 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 
 	// get run id
 	resp, err := http.DefaultClient.Do(req)
-	_, err = checkResponse("run pipeline", err, resp.StatusCode)
+	err = checkResponse("run pipeline", err, resp)
 	if err != nil {
 		return "", err
 	}

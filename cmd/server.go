@@ -30,7 +30,10 @@ var serverCommand = cli.Command{
 func runServer(c *cli.Context) error {
 	fmt.Println()
 	fmt.Println(version.ASCIILogo)
-	router := gin.Default()
+
+	// Creates a router without any middleware by default
+	router := gin.New()
+	router.Use(gin.Recovery())
 
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("codefresh"), c.GlobalString("token"))
@@ -56,28 +59,30 @@ func runServer(c *cli.Context) error {
 	})
 
 	// get supported events
+	eventsAPI := router.Group("/events", gin.Logger())
 	eventController := controller.NewEventController(triggerBackend, eventHandlerInformer)
-	router.Handle("GET", "/events/info/:id", eventController.GetEventInfo)
-	router.Handle("GET", "/events/types/", eventController.ListTypes)
-	router.Handle("GET", "/events/types/:type/:kind", eventController.GetType)
+	eventsAPI.Handle("GET", "/info/:id", eventController.GetEventInfo)
+	eventsAPI.Handle("GET", "/types/", eventController.ListTypes)
+	eventsAPI.Handle("GET", "/types/:type/:kind", eventController.GetType)
 
 	// manage triggers
-	router.Handle("GET", "/triggers/", triggerController.List) // pass filter or pipeline as query parameter
-	router.Handle("GET", "/triggers/:id", triggerController.Get)
-	router.Handle("POST", "/triggers", triggerController.Add)
-	router.Handle("PUT", "/triggers/:id", triggerController.Update)
-	router.Handle("DELETE", "/triggers/:id", triggerController.Delete)
+	triggersAPI := router.Group("/triggers", gin.Logger())
+	triggersAPI.Handle("GET", "/", triggerController.List) // pass filter or pipeline as query parameter
+	triggersAPI.Handle("GET", "/:id", triggerController.Get)
+	triggersAPI.Handle("POST", "/", triggerController.Add)
+	triggersAPI.Handle("PUT", "/:id", triggerController.Update)
+	triggersAPI.Handle("DELETE", "/:id", triggerController.Delete)
 
 	// manage pipelines attached to trigger
-	router.Handle("GET", "/triggers/:id/pipelines", triggerController.GetPipelines)
-	router.Handle("POST", "/triggers/:id/pipelines", triggerController.AddPipelines)
-	router.Handle("DELETE", "/triggers/:id/pipelines/:pid", triggerController.DeletePipeline)
+	triggersAPI.Handle("GET", "/:id/pipelines", triggerController.GetPipelines)
+	triggersAPI.Handle("POST", "/:id/pipelines", triggerController.AddPipelines)
+	triggersAPI.Handle("DELETE", "/:id/pipelines/:pid", triggerController.DeletePipeline)
 
 	// invoke trigger with event payload
 	runnerController := controller.NewRunnerController(runner, triggerBackend, secretChecker)
-	router.Handle("POST", "/trigger/:id", runnerController.TriggerEvent)
+	triggersAPI.Handle("POST", "/:id", runnerController.TriggerEvent)
 
-	// status handlers
+	// status handlers (without logging)
 	statusController := controller.NewStatusController(triggerBackend, codefreshService)
 	router.GET("/health", statusController.GetHealth)
 	router.GET("/version", statusController.GetVersion)

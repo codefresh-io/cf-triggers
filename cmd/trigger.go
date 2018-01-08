@@ -206,7 +206,7 @@ func testTrigger(c *cli.Context) error {
 	// print out runs
 	for _, r := range runs {
 		if r.Error != nil {
-			fmt.Println("\terror: ", err.Error())
+			fmt.Println("\terror: ", r.Error)
 		} else {
 			fmt.Println("\trun: ", r.ID)
 		}
