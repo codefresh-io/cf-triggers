@@ -8,8 +8,31 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 data:
+  # TODO: replace hardcoded value with discovery
   type_config.json: |
     {
-        "types": []
+        "types": [
+          {
+            "type": "registry",
+            "kind": "dockerhub",
+            "service-url": "http://{{ printf "%s-nomios" .Release.Name }}",
+            "uri-template": "index.docker.io:{{"{{"}}repo-owner{{"}}"}}:{{"{{"}}repo-name{{"}}"}}:push",
+            "uri-regex": "^index\\.docker\\.io:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "config": [
+              {
+                "name": "repo-owner",
+                "type": "string",
+                "validator": "^[A-z0-9]+$",
+                "required": true
+              },
+              {
+                "name": "repo-name",
+                "type": "string",
+                "validator": "^[A-z0-9]+$",
+                "required": true
+              }
+            ]
+          }
+        ]
     }
  

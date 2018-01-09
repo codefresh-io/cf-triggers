@@ -51,7 +51,6 @@ config:
 
 ```
 
-
 - `type` - event type; e.g. `registry`, `cron`, `git`
 - `kind` - (optional) event kind; e.g. `dockerhub`, `ecr`, `gcr`
 - `service-url` - event handler service url (including protocol and port); `hermes` invokes `REST API`
