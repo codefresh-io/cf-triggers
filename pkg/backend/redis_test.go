@@ -791,7 +791,7 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 				},
 			},
 			model.Trigger{
-				Event: "event:test:uri", Secret: "", Pipelines: []model.Pipeline{},
+				Event: "event:test:uri", Secret: "!generate", Pipelines: []model.Pipeline{},
 			},
 			false,
 			false,
