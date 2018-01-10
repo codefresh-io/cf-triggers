@@ -238,6 +238,8 @@ func (r *RedisStore) Get(eventURI string) (*model.Trigger, error) {
 	if err != nil && err != redis.ErrNil {
 		log.Error(err)
 		return nil, err
+	} else if err == redis.ErrNil {
+		return nil, model.ErrTriggerNotFound
 	}
 	// get pipelines from Set
 	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(eventURI), 0, -1))
