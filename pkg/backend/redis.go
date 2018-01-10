@@ -453,6 +453,7 @@ func (r *RedisStore) AddPipelines(eventURI string, pipelines []model.Pipeline) e
 	if err == model.ErrTriggerNotFound {
 		trigger = &model.Trigger{}
 		trigger.Event = eventURI
+		trigger.Secret = model.GenerateKeyword
 	}
 
 	// add pipelines to found/created trigger
