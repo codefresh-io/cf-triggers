@@ -8,7 +8,6 @@ import (
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
-	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -87,7 +86,6 @@ func getTriggers(c *cli.Context) error {
 		}
 		triggers, err := triggerReaderWriter.ListByPipeline(pipelineURI)
 		if err != nil {
-			log.Error(err)
 			return err
 		}
 		if len(triggers) == 0 {
@@ -106,7 +104,6 @@ func getTriggers(c *cli.Context) error {
 	if len(c.Args()) == 0 {
 		triggers, err := triggerReaderWriter.List(filter)
 		if err != nil {
-			log.Error(err)
 			return err
 		}
 		if len(triggers) == 0 {
@@ -123,7 +120,6 @@ func getTriggers(c *cli.Context) error {
 		for _, id := range c.Args() {
 			trigger, err := triggerReaderWriter.Get(id)
 			if err != nil {
-				log.Error(err)
 				return err
 			}
 			if quiet {

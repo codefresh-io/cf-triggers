@@ -83,7 +83,7 @@ const GenerateKeyword = "!generate"
 func (t Trigger) String() string {
 	d, err := yaml.Marshal(&t)
 	if err != nil {
-		log.Errorf("error: %v", err)
+		log.WithError(err).Error("Failed to convert Trigger to YAML")
 	}
 	return string(d)
 }
@@ -92,7 +92,7 @@ func (t Trigger) String() string {
 func (p Pipeline) String() string {
 	d, err := yaml.Marshal(&p)
 	if err != nil {
-		log.Errorf("error: %v", err)
+		log.WithError(err).Error("Failed to convert Pipeline to YAML")
 	}
 	return string(d)
 }

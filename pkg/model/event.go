@@ -56,7 +56,7 @@ type (
 func (t EventType) String() string {
 	d, err := yaml.Marshal(&t)
 	if err != nil {
-		log.Errorf("error: %v", err)
+		log.WithError(err).Error("Failed to convert EventType to YAML")
 	}
 	return string(d)
 }
@@ -65,7 +65,7 @@ func (t EventType) String() string {
 func (t EventInfo) String() string {
 	d, err := yaml.Marshal(&t)
 	if err != nil {
-		log.Errorf("error: %v", err)
+		log.WithError(err).Error("Failed to convert EventInfo to YAML")
 	}
 	return string(d)
 }

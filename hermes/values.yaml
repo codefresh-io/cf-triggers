@@ -5,7 +5,7 @@ replicaCount: 1
 
 image:
   repository: codefresh/hermes
-  tag: 0.5.1
+  tag: 0.5.2
   pullPolicy: IfNotPresent
 
 service:
@@ -23,8 +23,8 @@ redis:
 store:
   size: 8Gi
 
-# enable/disable to see verbose output
-debug: true
+# set log level
+logLevel: debug
 
 # configure cfapi access
 cfapi:

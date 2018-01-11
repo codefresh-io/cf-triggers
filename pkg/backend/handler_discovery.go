@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"regexp"
 	"sync"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/codefresh-io/hermes/pkg/util"
-	yaml "gopkg.in/yaml.v2"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -54,13 +54,18 @@ func NewEventHandlerManager(configFile string, skipMonitor bool) *EventHandlerMa
 		instance = new(EventHandlerManager)
 		instance.configFile = configFile
 		// load config file
+		log.WithFields(log.Fields{
+			"config":       configFile,
+			"skip-monitor": skipMonitor,
+		}).Debug("Loading types configuration (first time)")
 		var err error
 		instance.eventTypes, err = loadEventHandlerTypes(configFile)
 		if err != nil {
-			log.Error(err)
+			log.WithError(err).Error("Failed to load types configuration")
 		}
 		// start monitoring
 		if !skipMonitor {
+			log.Debug("Starting monitor config types file for updates")
 			instance.watcher = instance.monitorConfigFile()
 		}
 	})
@@ -73,13 +78,13 @@ func loadEventHandlerTypes(configFile string) (model.EventTypes, error) {
 	eventTypes := model.EventTypes{}
 	eventTypesData, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		log.Errorf("failed to read config file %v", err)
+		log.WithError(err).Error("Failed to read config file")
 		return eventTypes, err
 	}
 
-	err = yaml.Unmarshal(eventTypesData, &eventTypes)
+	err = json.Unmarshal(eventTypesData, &eventTypes)
 	if err != nil {
-		log.Errorf("bad config file format %v", err)
+		log.WithError(err).Error("Failed to load types configuration from JSON file")
 		return eventTypes, err
 	}
 	return eventTypes, nil
@@ -88,6 +93,7 @@ func loadEventHandlerTypes(configFile string) (model.EventTypes, error) {
 // Close - free file watcher resources
 func (m *EventHandlerManager) Close() {
 	if m.watcher != nil {
+		log.Debug("Close file watcher")
 		m.watcher.Close()
 	}
 }
@@ -97,17 +103,17 @@ func (m *EventHandlerManager) Close() {
 func (m *EventHandlerManager) monitorConfigFile() *util.FileWatcher {
 	// Watch the file for modification and update the config manager with the new config when it's available
 	watcher, err := util.WatchFile(m.configFile, time.Second, func() {
-		log.Debug("Event Handler types file updated")
+		log.Debug("Config types file updated")
 		m.Lock()
 		defer m.Unlock()
 		var err error
 		m.eventTypes, err = loadEventHandlerTypes(m.configFile)
 		if err != nil {
-			log.Error(err)
+			log.WithError(err).Error("Failed to load config file")
 		}
 	})
 	if err != nil {
-		log.Error(err)
+		log.WithError(err).Error("Failed to watch file for changes")
 	}
 
 	return watcher
@@ -121,7 +127,7 @@ func (m *EventHandlerManager) GetTypes() []model.EventType {
 		return m.eventTypes.Types
 	}
 
-	log.Error("fail to fetch event types")
+	log.Error("Failed to fetch event types")
 	return nil
 }
 
@@ -136,7 +142,10 @@ func (m *EventHandlerManager) GetType(eventType string, eventKind string) *model
 		}
 	}
 
-	log.Errorf("fail to find event type %s kind %s", eventType, eventKind)
+	log.WithFields(log.Fields{
+		"type": eventType,
+		"kind": eventKind,
+	}).Error("fail to find event type")
 	return nil
 }
 
@@ -148,7 +157,10 @@ func (m *EventHandlerManager) MatchType(eventURI string) *model.EventType {
 	for _, e := range m.eventTypes.Types {
 		r, err := regexp.Compile(e.URIPattern)
 		if err != nil {
-			log.Errorf("bad uri regex pattern for type:%s", e.Type)
+			log.WithFields(log.Fields{
+				"type":  e.Type,
+				"regex": e.URIPattern,
+			}).Error("bad uri regex pattern for type")
 			continue // skip
 		}
 		if r.MatchString(eventURI) {
@@ -156,12 +168,13 @@ func (m *EventHandlerManager) MatchType(eventURI string) *model.EventType {
 		}
 	}
 
-	log.Errorf("fail to find event type for %s", eventURI)
+	log.WithField("event-uri", eventURI).Errorf("Failed to find event type")
 	return nil
 }
 
 // GetEventInfo get individual event handler type (by type and kind)
 func (m *EventHandlerManager) GetEventInfo(eventURI string, secret string) *model.EventInfo {
+	log.WithField("event-uri", eventURI).Debug("Getting detailed event info")
 	et := m.MatchType(eventURI)
 	if et == nil {
 		return nil
@@ -171,7 +184,7 @@ func (m *EventHandlerManager) GetEventInfo(eventURI string, secret string) *mode
 	handler := model.NewEventHandlerEndpoint(et.ServiceURL)
 	info, err := handler.GetEventInfo(eventURI, secret)
 	if err != nil {
-		log.Error(err)
+		log.WithError(err).Error("Failed to get event info")
 		return nil
 	}
 

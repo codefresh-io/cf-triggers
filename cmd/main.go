@@ -35,7 +35,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 	}
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:   "codefresh, cf",
+			Name:   "codefresh, c",
 			Usage:  "Codefresh API endpoint",
 			Value:  "https://g.codefresh.io/",
 			EnvVar: "CFAPI_URL",
@@ -58,7 +58,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			EnvVar: "STORE_PORT",
 		},
 		cli.StringFlag{
-			Name:   "redis-password",
+			Name:   "redis-password, s",
 			Usage:  "redis store password",
 			EnvVar: "STORE_PASSWORD",
 		},
@@ -69,20 +69,21 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			EnvVar: "TYPES_CONFIG",
 		},
 		cli.BoolFlag{
-			Name:  "skip-monitor",
+			Name:  "skip-monitor, m",
 			Usage: "skip monitorring config file for changes",
 		},
-		cli.BoolFlag{
-			Name:   "debug, d",
-			Usage:  "enable debug mode with verbose logging",
-			EnvVar: "DEBUG_HERMES",
+		cli.StringFlag{
+			Name:   "log-level, l",
+			Usage:  "set log level (debug, info, warning(*), error, fatal, panic)",
+			Value:  "warning",
+			EnvVar: "LOG_LEVEL",
 		},
 		cli.BoolFlag{
-			Name:  "dry-run",
+			Name:  "dry-run, x",
 			Usage: "do not execute commands, just log",
 		},
 		cli.BoolFlag{
-			Name:  "json",
+			Name:  "json, j",
 			Usage: "produce log in JSON format: Logstash and Splunk friendly",
 		},
 	}
@@ -95,8 +96,21 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 
 func before(c *cli.Context) error {
 	// set debug log level
-	if c.GlobalBool("debug") {
+	switch level := c.GlobalString("log-level"); level {
+	case "debug", "DEBUG":
 		log.SetLevel(log.DebugLevel)
+	case "info", "INFO":
+		log.SetLevel(log.InfoLevel)
+	case "warning", "WARNING":
+		log.SetLevel(log.WarnLevel)
+	case "error", "ERROR":
+		log.SetLevel(log.ErrorLevel)
+	case "fatal", "FATAL":
+		log.SetLevel(log.FatalLevel)
+	case "panic", "PANIC":
+		log.SetLevel(log.PanicLevel)
+	default:
+		log.SetLevel(log.WarnLevel)
 	}
 	// set log formatter to JSON
 	if c.GlobalBool("json") {

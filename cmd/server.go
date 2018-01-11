@@ -9,6 +9,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/controller"
 	"github.com/codefresh-io/hermes/pkg/version"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -37,12 +38,18 @@ func runServer(c *cli.Context) error {
 
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("codefresh"), c.GlobalString("token"))
+	log.WithField("cfapi", c.GlobalString("codefresh")).Debug("Using Codefresh API")
 
 	// get event handler informer
 	eventHandlerInformer := backend.NewEventHandlerManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	log.WithField("config", c.GlobalString("config")).Debug("Monitoring types config file")
 
 	// get trigger backend service
 	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	log.WithFields(log.Fields{
+		"redis server": c.GlobalString("redis"),
+		"redis port":   c.GlobalInt("redis-port"),
+	}).Debug("Using Redis backend server")
 
 	// get pipeline runner service
 	runner := backend.NewRunner(codefreshService)

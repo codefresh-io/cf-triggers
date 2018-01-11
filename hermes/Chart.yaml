@@ -13,4 +13,4 @@ sources:
 maintainers: # (optional)
   - name: Alexei Ledenev
     email: alexei.led@gmail.com
-appVersion: 0.5.1
+appVersion: 0.5

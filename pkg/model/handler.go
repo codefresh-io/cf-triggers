@@ -22,7 +22,7 @@ type (
 
 // NewEventHandlerEndpoint create new Event Handler API endpoint from url and API token
 func NewEventHandlerEndpoint(url string) EventHandlerService {
-	log.Debugf("initializing event-handler api %s ...", url)
+	log.WithField("url", url).Debug("Initializing event-handler api")
 	endpoint := sling.New().Base(url)
 	return &APIEndpoint{endpoint}
 }

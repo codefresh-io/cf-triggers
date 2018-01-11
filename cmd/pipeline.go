@@ -7,7 +7,6 @@ import (
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
-	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -46,7 +45,6 @@ func getTriggerPipelines(c *cli.Context) error {
 	}
 	pipelines, err := triggerReaderWriter.GetPipelines(c.Args().First())
 	if err != nil {
-		log.Error(err)
 		return err
 	}
 	for _, p := range pipelines {
