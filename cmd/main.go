@@ -63,7 +63,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			EnvVar: "STORE_PASSWORD",
 		},
 		cli.StringFlag{
-			Name:   "config, c",
+			Name:   "config",
 			Usage:  "type config file",
 			Value:  "/etc/hermes/type_config.json",
 			EnvVar: "TYPES_CONFIG",
