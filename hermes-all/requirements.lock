@@ -4,6 +4,6 @@ dependencies:
   version: 0.3.1
 - name: nomios
   repository: http://127.0.0.1:8879/charts
-  version: 0.2.0
-digest: sha256:30b5c7325a8ca62c0407e6b98e81551a1d9b3c50640a9595a3c75de62b334016
-generated: 2018-01-08T13:40:29.651065+02:00
+  version: 0.2.1
+digest: sha256:c291018143ed8d0e6c7330661df8e1b8d3203cd4e40a216f3b62615d25312b40
+generated: 2018-01-11T17:46:19.136835+02:00

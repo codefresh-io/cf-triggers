@@ -61,16 +61,16 @@ USAGE:
     ╩ ╩└─┘┴└─┴ ┴└─┘└─┘  ╚═╝└─┘─┴┘└─┘└  ┴└─└─┘└─┘┴ ┴   ╩ ┴└─┴└─┘└─┘└─┘┴└─└─┘
 
 hermes respects following environment variables:
-   - REDIS_HOST         - set the url to the Redis server (default localhost)
-   - REDIS_PORT         - set Redis port (default to 6379)
-   - REDIS_PASSWORD     - set Redis password
+   - STORE_HOST         - set the url to the Redis store server (default localhost)
+   - STORE_PORT         - set Redis store port (default to 6379)
+   - STORE_PASSWORD     - set Redis store password
 
 Copyright © Codefresh.io
 
 VERSION:
-  0.4.1
-  git-commit: a51893e
-  build-date: 2017-12-21_10:47_GMT
+   0.5.2
+  git-commit: 6f88d67
+  build-date: 2018-01-11_14:43_GMT
   platform: darwin amd64 go1.9.2
 
 AUTHOR:
@@ -80,19 +80,23 @@ COMMANDS:
      server    start trigger manager server
      trigger   configure Codefresh triggers
      pipeline  configure Codefresh trigger pipelines
+     info      get information about installed event handlers and events
      help, h   Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --codefresh value, --cf value  Codefresh API endpoint (default: "https://g.codefresh.io/") [$CFAPI_URL]
-   --token value, -t value        Codefresh API token [$CFAPI_TOKEN]
-   --redis value                  redis host name (default: "localhost") [$REDIS_HOST]
-   --redis-port value             redis host port (default: 6379) [$REDIS_PORT]
-   --redis-password value         redis password [$REDIS_PASSWORD]
-   --debug                        enable debug mode with verbose logging [$DEBUG_HERMES]
-   --dry-run                      do not execute commands, just log
-   --json                         produce log in JSON format: Logstash and Splunk friendly
-   --help, -h                     show help
-   --version, -v                  print the version
+   --codefresh value, -c value       Codefresh API endpoint (default: "https://g.codefresh.io/") [$CFAPI_URL]
+   --token value, -t value           Codefresh API token [$CFAPI_TOKEN]
+   --redis value, -r value           redis store host name (default: "localhost") [$STORE_HOST]
+   --redis-port value, -p value      redis store port (default: 6379) [$STORE_PORT]
+   --redis-password value, -s value  redis store password [$STORE_PASSWORD]
+   --config value                    type config file (default: "/etc/hermes/type_config.json") [$TYPES_CONFIG]
+   --skip-monitor, -m                skip monitorring config file for changes
+   --log-level value, -l value       set log level (debug, info, warning(*), error, fatal, panic) (default: "warning") [$LOG_LEVEL]
+   --dry-run, -x                     do not execute commands, just log
+   --json, -j                        produce log in JSON format: Logstash and Splunk friendly
+   --help, -h                        show help
+   --version, -v                     print the version
+
 ```
 
 ## Deploy with Helm
