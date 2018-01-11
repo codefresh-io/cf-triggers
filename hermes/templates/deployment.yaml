@@ -28,7 +28,7 @@ spec:
           env:
           - name: LOG_LEVEL
             value: {{ .Values.logLevel | quote }}
-          {{- if ne .Values.logeLevel "debug" }}
+          {{- if ne .Values.logLevel "debug" }}
           - name: GIN_MODE
             value: release
           {{- end }}
