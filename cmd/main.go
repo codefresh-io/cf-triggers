@@ -70,7 +70,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		},
 		cli.BoolFlag{
 			Name:  "skip-monitor, m",
-			Usage: "skip monitorring config file for changes",
+			Usage: "skip monitoring config file for changes",
 		},
 		cli.StringFlag{
 			Name:   "log-level, l",

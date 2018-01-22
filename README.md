@@ -90,7 +90,7 @@ GLOBAL OPTIONS:
    --redis-port value, -p value      redis store port (default: 6379) [$STORE_PORT]
    --redis-password value, -s value  redis store password [$STORE_PASSWORD]
    --config value                    type config file (default: "/etc/hermes/type_config.json") [$TYPES_CONFIG]
-   --skip-monitor, -m                skip monitorring config file for changes
+   --skip-monitor, -m                skip monitoring config file for changes
    --log-level value, -l value       set log level (debug, info, warning(*), error, fatal, panic) (default: "warning") [$LOG_LEVEL]
    --dry-run, -x                     do not execute commands, just log
    --json, -j                        produce log in JSON format: Logstash and Splunk friendly
