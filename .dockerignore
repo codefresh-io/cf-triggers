@@ -3,6 +3,7 @@
 .cover
 .vscode
 .bin
+.env
 
 # dep files
 Gopkg.*

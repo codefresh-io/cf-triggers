@@ -24,11 +24,11 @@ package backend
 	|                                                 |
 	| +---------------------+     +-----------------+ |
 	| |                     |     |                 | |
-	| | trigger:{event-uri} +-----> {pipeline-uri}  | |
+	| | trigger:{event-uri} +-----> {pipeline-uid}  | |
 	| |                     |     |                 | |
 	| +---------------------+     | ...             | |
 	|                             |                 | |
-	|                             | {pipeline-uri}  | |
+	|                             | {pipeline-uid}  | |
 	|                             |                 | |
 	|                             +-----------------+ |
 	|                                                 |
@@ -43,7 +43,7 @@ package backend
 	|                                                   |
 	| +-------------------------+      +-------------+  |
 	| |                         |      |             |  |
-	| | pipeline:{pipeline-uri} +------> {event-uri} |  |
+	| | pipeline:{pipeline-uid} +------> {event-uri} |  |
 	| |                         |      |             |  |
 	| +-------------------------+      | ...         |  |
 	|                                  |             |  |
@@ -55,7 +55,7 @@ package backend
 	+---------------------------------------------------+
 
 	* event-uri     - URI unique identifier for event (specified by event provider)
-    * pipeline-uri  - Codefresh pipeline URI {account-name}:{repo-owner}:{repo-name}:{name}
+    * pipeline-uid  - Codefresh pipeline UID
 
 */
 
@@ -195,10 +195,10 @@ func (r *RedisStore) List(filter string) ([]*model.Trigger, error) {
 }
 
 // ListByPipeline get list of defined triggers
-func (r *RedisStore) ListByPipeline(pipelineURI string) ([]*model.Trigger, error) {
+func (r *RedisStore) ListByPipeline(pipelineUID string) ([]*model.Trigger, error) {
 	con := r.redisPool.GetConn()
-	log.WithField("pipeline-uri", pipelineURI).Debug("Getting triggers for pipeline")
-	events, err := redis.Strings(con.Do("ZRANGE", getPipelineKey(pipelineURI), 0, -1))
+	log.WithField("pipeline-uid", pipelineUID).Debug("Getting triggers for pipeline")
+	events, err := redis.Strings(con.Do("ZRANGE", getPipelineKey(pipelineUID), 0, -1))
 	if err != nil {
 		log.WithError(err).Error("Failed to get pipeline")
 		return nil, err
@@ -255,14 +255,8 @@ func (r *RedisStore) Get(eventURI string) (*model.Trigger, error) {
 		trigger.Event = eventURI
 		trigger.Secret = secret
 	}
-	for _, p := range pipelines {
-		pipeline, err := model.PipelineFromURI(p)
-		if err != nil {
-			log.WithField("pipeline-uri", p).WithError(err).Error("Failed to construct pipeline from URI")
-			return nil, err
-		}
-		trigger.Pipelines = append(trigger.Pipelines, *pipeline)
-	}
+	trigger.Pipelines = pipelines
+
 	return trigger, nil
 }
 
@@ -292,29 +286,27 @@ func (r *RedisStore) StoreTrigger(trigger model.Trigger) error {
 	}
 
 	// add pipelines to Triggers (Redis Sorted Set) and trigger to Pipelines (Sorted Set)
-	for _, v := range trigger.Pipelines {
+	for _, puid := range trigger.Pipelines {
 		// check Codefresh pipeline existence
-		err := r.pipelineSvc.CheckPipelineExist(v.Account, v.RepoOwner, v.RepoName, v.Name)
+		_, err := r.pipelineSvc.CheckPipelineExists(puid)
 		if err != nil {
 			return discardOnError(con, err)
 		}
-		// create pipeline URI
-		pipelineURI := model.PipelineToURI(&v)
 		log.WithFields(log.Fields{
 			"event-uri":    trigger.Event,
-			"pipeline-uri": pipelineURI,
+			"pipeline-uid": puid,
 		}).Debug("Adding pipeline to trigger map")
 		// add pipeline to Triggers
-		_, err = con.Do("ZADD", getTriggerKey(trigger.Event), 0, pipelineURI)
+		_, err = con.Do("ZADD", getTriggerKey(trigger.Event), 0, puid)
 		if err != nil {
 			return discardOnError(con, err)
 		}
 		// add trigger to Pipelines
 		log.WithFields(log.Fields{
-			"pipeline-uri": pipelineURI,
+			"pipeline-uid": puid,
 			"event-uri":    trigger.Event,
 		}).Debug("Adding trigger to pipeline map")
-		_, err = con.Do("ZADD", getPipelineKey(pipelineURI), 0, trigger.Event)
+		_, err = con.Do("ZADD", getPipelineKey(puid), 0, trigger.Event)
 		if err != nil {
 			return discardOnError(con, err)
 		}
@@ -394,12 +386,12 @@ func (r *RedisStore) Delete(eventURI string) error {
 	}
 
 	// delete eventURI from Pipelines (Redis Sorted Set)
-	for _, p := range pipelines {
+	for _, puid := range pipelines {
 		log.WithFields(log.Fields{
-			"event-uri": eventURI,
-			"pipeline":  p,
+			"event-uri":    eventURI,
+			"pipeline-uid": puid,
 		}).Debug("Remove trigger from pipeline map")
-		if _, err := con.Do("ZREM", getPipelineKey(p), eventURI); err != nil {
+		if _, err := con.Do("ZREM", getPipelineKey(puid), eventURI); err != nil {
 			return discardOnError(con, err)
 		}
 	}
@@ -430,7 +422,7 @@ func (r *RedisStore) Ping() (string, error) {
 }
 
 // GetPipelines get trigger pipelines by eventURI
-func (r *RedisStore) GetPipelines(eventURI string) ([]model.Pipeline, error) {
+func (r *RedisStore) GetPipelines(eventURI string) ([]string, error) {
 	con := r.redisPool.GetConn()
 	log.WithField("event-uri", eventURI).Debug("Get pipelines for trigger")
 	// get pipelines from Set
@@ -447,20 +439,11 @@ func (r *RedisStore) GetPipelines(eventURI string) ([]model.Pipeline, error) {
 		return nil, model.ErrPipelineNotFound
 	}
 
-	triggerPipelines := make([]model.Pipeline, 0)
-	for _, p := range pipelines {
-		pipeline, err := model.PipelineFromURI(p)
-		if err != nil {
-			log.WithError(err).Error("Failed to construct pipeline from URI")
-			return nil, err
-		}
-		triggerPipelines = append(triggerPipelines, *pipeline)
-	}
-	return triggerPipelines, nil
+	return pipelines, nil
 }
 
 // AddPipelines get trigger pipelines by eventURI
-func (r *RedisStore) AddPipelines(eventURI string, pipelines []model.Pipeline) error {
+func (r *RedisStore) AddPipelines(eventURI string, pipelines []string) error {
 	log.WithFields(log.Fields{
 		"event-uri": eventURI,
 		"pipelines": pipelines,
@@ -480,9 +463,7 @@ func (r *RedisStore) AddPipelines(eventURI string, pipelines []model.Pipeline) e
 	}
 
 	// add pipelines to found/created trigger
-	for _, p := range pipelines {
-		trigger.Pipelines = append(trigger.Pipelines, p)
-	}
+	trigger.Pipelines = util.MergeStrings(trigger.Pipelines, pipelines)
 
 	// add trigger if not found
 	if err == model.ErrTriggerNotFound {
@@ -494,16 +475,16 @@ func (r *RedisStore) AddPipelines(eventURI string, pipelines []model.Pipeline) e
 }
 
 // DeletePipeline remove pipeline from trigger
-func (r *RedisStore) DeletePipeline(eventURI string, pipelineURI string) error {
+func (r *RedisStore) DeletePipeline(eventURI string, pipelineUID string) error {
 	// get Redis connection
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
 		"event-uri":    eventURI,
-		"pipeline-uri": pipelineURI,
+		"pipeline-uid": pipelineUID,
 	}).Debug("Removing pipeline from trigger")
 
 	// try to remove pipeline from set
-	result, err := redis.Int(con.Do("ZREM", getTriggerKey(eventURI), pipelineURI))
+	result, err := redis.Int(con.Do("ZREM", getTriggerKey(eventURI), pipelineUID))
 	if err != nil {
 		log.WithError(err).Error("Failed to remove pipeline from map")
 		return err

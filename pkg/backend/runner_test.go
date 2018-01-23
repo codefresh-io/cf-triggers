@@ -40,7 +40,7 @@ func TestPipelineRunner_Run(t *testing.T) {
 		mock *codefresh.Mock
 	}
 	type args struct {
-		pipelines []model.Pipeline
+		pipelines []string
 		vars      map[string]string
 	}
 	tests := []struct {
@@ -54,12 +54,8 @@ func TestPipelineRunner_Run(t *testing.T) {
 			"run pipeline",
 			fields{codefresh.NewCodefreshMockEndpoint()},
 			args{
-				vars: map[string]string{"V1": "AAA", "V2": "BBB"},
-				pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline1"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoB", Name: "pipeline3"},
-				},
+				vars:      map[string]string{"V1": "AAA", "V2": "BBB"},
+				pipelines: []string{"puid-1", "puid-2", "puid-3"},
 			},
 			[]model.PipelineRun{
 				{ID: "run1", Error: nil},
@@ -72,12 +68,8 @@ func TestPipelineRunner_Run(t *testing.T) {
 			"run pipeline - some missing",
 			fields{codefresh.NewCodefreshMockEndpoint()},
 			args{
-				vars: map[string]string{"V1": "AAA", "V2": "BBB"},
-				pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline1"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoB", Name: "pipeline3"},
-				},
+				vars:      map[string]string{"V1": "AAA", "V2": "BBB"},
+				pipelines: []string{"puid-1", "puid-2", "puid-3"},
 			},
 			[]model.PipelineRun{
 				{ID: "run1", Error: nil},
@@ -93,7 +85,7 @@ func TestPipelineRunner_Run(t *testing.T) {
 				pipelineSvc: tt.fields.mock,
 			}
 			for i, p := range tt.args.pipelines {
-				tt.fields.mock.On("RunPipeline", p.Account, p.RepoOwner, p.RepoName, p.Name, tt.args.vars).Return(tt.want[i].ID, tt.want[i].Error)
+				tt.fields.mock.On("RunPipeline", p, tt.args.vars).Return(tt.want[i].ID, tt.want[i].Error)
 			}
 			got, err := r.Run(tt.args.pipelines, tt.args.vars)
 			if (err != nil) != tt.wantErr {

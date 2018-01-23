@@ -27,12 +27,12 @@ func NewController(svc model.TriggerReaderWriter) *Controller {
 // List triggers
 func (c *Controller) List(ctx *gin.Context) {
 	filter := ctx.Query("filter")
-	pipelineURI := ctx.Query("pipeline")
+	pipelineUID := ctx.Query("pipeline")
 	var triggers []*model.Trigger
 	var err error
-	// get by pipelineURI
-	if pipelineURI != "" {
-		if triggers, err = c.svc.ListByPipeline(pipelineURI); err != nil {
+	// get by pipelineUID
+	if pipelineUID != "" {
+		if triggers, err = c.svc.ListByPipeline(pipelineUID); err != nil {
 			status := http.StatusInternalServerError
 			if err == model.ErrTriggerNotFound {
 				status = http.StatusNotFound
@@ -77,7 +77,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // GetPipelines get trigger pipelines
 func (c *Controller) GetPipelines(ctx *gin.Context) {
 	id := ctx.Params.ByName("id")
-	var pipelines []model.Pipeline
+	var pipelines []string
 	var err error
 	if pipelines, err = c.svc.GetPipelines(id); err != nil {
 		status := http.StatusInternalServerError
@@ -95,7 +95,7 @@ func (c *Controller) AddPipelines(ctx *gin.Context) {
 	// trigger id (event URI)
 	id := ctx.Params.ByName("id")
 	// get pipelines from body
-	var pipelines []model.Pipeline
+	var pipelines []string
 	ctx.Bind(&pipelines)
 	// perform action
 	var err error

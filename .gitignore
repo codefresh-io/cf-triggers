@@ -2,6 +2,7 @@
 .cover
 .vscode
 .bin
+.env
 
 # debug
 **/debug

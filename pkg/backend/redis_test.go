@@ -112,17 +112,15 @@ func TestRedisStore_List(t *testing.T) {
 			"*",
 			[]string{"test:1", "test:2"},
 			[][]string{
-				[]string{"ownerA:repoA:test1", "ownerA:repoA:test2"},
-				[]string{"ownerB:repoB:test", "ownerC:repoC:test"},
+				[]string{"puid-1", "puid-2"},
+				[]string{"puid-3", "puid-4"},
 			},
 			[]*model.Trigger{
-				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "test1"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "test2"},
+				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []string{
+					"puid-1", "puid-2",
 				}},
-				&model.Trigger{Event: "test:2", Secret: "secretB", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerB", RepoName: "repoB", Name: "test"},
-					{Account: "account", RepoOwner: "ownerC", RepoName: "repoC", Name: "test"},
+				&model.Trigger{Event: "test:2", Secret: "secretB", Pipelines: []string{
+					"puid-3", "puid-4",
 				}},
 			},
 			false,
@@ -133,12 +131,10 @@ func TestRedisStore_List(t *testing.T) {
 			"test:*",
 			[]string{"test:1"},
 			[][]string{
-				[]string{"ownerA:repoA:test"},
+				[]string{"puid-1"},
 			},
 			[]*model.Trigger{
-				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "test"},
-				}},
+				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1"}},
 			},
 			false,
 		},
@@ -172,7 +168,7 @@ func TestRedisStore_ListByPipeline(t *testing.T) {
 		redisPool RedisPoolService
 	}
 	type args struct {
-		pipelineURI string
+		pipelineUID string
 	}
 	tests := []struct {
 		name    string
@@ -185,7 +181,7 @@ func TestRedisStore_ListByPipeline(t *testing.T) {
 		{
 			"get empty list",
 			fields{redisPool: &RedisPoolMock{}},
-			args{"codefresh:demo:build"},
+			args{"puid-1"},
 			[]string{},
 			[]*model.Trigger{},
 			false,
@@ -193,17 +189,11 @@ func TestRedisStore_ListByPipeline(t *testing.T) {
 		{
 			"get triggers",
 			fields{redisPool: &RedisPoolMock{}},
-			args{"codefresh:demo:build"},
+			args{"puid-1"},
 			[]string{"test:1", "test:2"},
 			[]*model.Trigger{
-				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "codefresh", RepoName: "demo", Name: "build"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "test2"},
-				}},
-				&model.Trigger{Event: "test:2", Secret: "secretB", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerB", RepoName: "repoB", Name: "test"},
-					{Account: "account", RepoOwner: "codefresh", RepoName: "demo", Name: "build"},
-				}},
+				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"}},
+				&model.Trigger{Event: "test:2", Secret: "secretB", Pipelines: []string{"puid-1", "puid-2"}},
 			},
 			false,
 		},
@@ -215,11 +205,11 @@ func TestRedisStore_ListByPipeline(t *testing.T) {
 				redisPool: tt.fields.redisPool,
 				getFunc:   mock.Get,
 			}
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getPipelineKey(tt.args.pipelineURI), 0, -1).Expect(interfaceSlice(tt.events))
+			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getPipelineKey(tt.args.pipelineUID), 0, -1).Expect(interfaceSlice(tt.events))
 			for i, eventURI := range tt.events {
 				mock.On("Get", eventURI).Return(tt.want[i], nil)
 			}
-			got, err := r.ListByPipeline(tt.args.pipelineURI)
+			got, err := r.ListByPipeline(tt.args.pipelineUID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.ListByPipeline() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -246,28 +236,18 @@ func TestRedisStore_Get(t *testing.T) {
 		{
 			"get trigger by id",
 			fields{redisPool: &RedisPoolMock{}},
-			[]string{
-				"account:ownerA:repoA:test",
-				"account:ownerA:repoA:test2",
-				"account:ownerA:repoB:test",
-			},
+			[]string{"puid-1", "puid-2", "puid-3"},
 			&model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "test"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "test2"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoB", Name: "test"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2", "puid-3"},
 			},
 			false,
 		},
 		{
 			"get trigger GET error",
 			fields{redisPool: &RedisPoolMock{}},
-			[]string{"account:ownerA:repoA:test"},
+			[]string{"puid-1"},
 			&model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "test"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1"},
 			},
 			false,
 		},
@@ -309,10 +289,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 			"store trigger",
 			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			[3]bool{false, false, false},
 		},
@@ -320,10 +297,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 			"store trigger with auto-generated secret",
 			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
-				Event: "test:1", Secret: model.GenerateKeyword, Pipelines: []model.Pipeline{
-					{Account: "account", Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
-				},
+				Event: "test:1", Secret: model.GenerateKeyword, Pipelines: []string{"puid-1", "puid-2"},
 			},
 			[3]bool{false, false, false},
 		},
@@ -331,10 +305,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 			"store trigger SET error",
 			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			[3]bool{true, false, false},
 		},
@@ -342,10 +313,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 			"store trigger non-existing pipeline",
 			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			[3]bool{false, true, false},
 		},
@@ -353,10 +321,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 			"store trigger SADD error",
 			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			[3]bool{false, false, true},
 		},
@@ -383,23 +348,22 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 				}
 				for _, p := range tt.trigger.Pipelines {
 					if tt.wantErr[1] {
-						mock.On("CheckPipelineExist", p.Account, p.RepoOwner, p.RepoName, p.Name).Return(codefresh.ErrPipelineNotFound)
+						mock.On("CheckPipelineExists", p).Return(false, codefresh.ErrPipelineNotFound)
 						// expect transaction discard on error
 						r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
 						break
 					} else {
-						mock.On("CheckPipelineExist", p.Account, p.RepoOwner, p.RepoName, p.Name).Return(nil)
+						mock.On("CheckPipelineExists", p).Return(true, nil)
 					}
-					pipelineURI := model.PipelineToURI(&p)
 					if tt.wantErr[2] {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, pipelineURI).ExpectError(fmt.Errorf("SADD error"))
+						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, p).ExpectError(fmt.Errorf("SADD error"))
 						// expect transaction discard on error
 						r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
 						break
 					} else {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, pipelineURI)
+						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, p)
 					}
-					r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(pipelineURI), 0, tt.trigger.Event)
+					r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(p), 0, tt.trigger.Event)
 					// expect Redis transaction exec
 					r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC").Expect("OK!")
 				}
@@ -430,10 +394,7 @@ func TestRedisStore_Add(t *testing.T) {
 			"add trigger",
 			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			&storeMock{},
 			0,
@@ -443,10 +404,7 @@ func TestRedisStore_Add(t *testing.T) {
 			"try to add existing trigger",
 			fields{redisPool: &RedisPoolMock{}},
 			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", Name: "pipelineA", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "pipelineB", RepoOwner: "ownerA", RepoName: "repoB"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			&storeMock{},
 			10,
@@ -491,12 +449,9 @@ func TestRedisStore_Update(t *testing.T) {
 		{
 			"update trigger",
 			fields{redisPool: &RedisPoolMock{}},
-			[]string{"ownerA:repoA:pipelineA", "ownerA:repoB:pipelineB"},
+			[]string{"puid-1", "puid-2"},
 			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipelineA"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoB", Name: "pipelineB"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			&storeMock{},
 			1,
@@ -505,12 +460,9 @@ func TestRedisStore_Update(t *testing.T) {
 		{
 			"try to update non existing trigger",
 			fields{redisPool: &RedisPoolMock{}},
-			[]string{"ownerA:repoA:pipelineA", "ownerA:repoB:pipelineB"},
+			[]string{"puid-1", "puid-2"},
 			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipelineA"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoB", Name: "pipelineB"},
-				},
+				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			&storeMock{},
 			0,
@@ -682,7 +634,7 @@ func TestRedisStore_GetPipelines(t *testing.T) {
 		fields       fields
 		id           string
 		pipelines    []string
-		want         []model.Pipeline
+		want         []string
 		wantRedisErr bool
 		wantEmptyErr bool
 	}{
@@ -690,12 +642,8 @@ func TestRedisStore_GetPipelines(t *testing.T) {
 			"get trigger pipelines",
 			fields{redisPool: &RedisPoolMock{}},
 			"event:test:uri",
-			[]string{"account:ownerA:repoA:test", "account:ownerA:repoA:testB", "account:ownerB:repoB:testC"},
-			[]model.Pipeline{
-				{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "test"},
-				{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "testB"},
-				{Account: "account", RepoOwner: "ownerB", RepoName: "repoB", Name: "testC"},
-			},
+			[]string{"puid-1", "puid-2", "puid-3"},
+			[]string{"puid-1", "puid-2", "puid-3"},
 			false,
 			false,
 		},
@@ -747,9 +695,8 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 		redisPool RedisPoolService
 	}
 	type args struct {
-		id          string
-		pipelineIDs []string
-		pipelines   []model.Pipeline
+		id        string
+		pipelines []string
 	}
 	tests := []struct {
 		name    string
@@ -763,18 +710,11 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 			"add pipelines to existing trigger",
 			fields{redisPool: &RedisPoolMock{}},
 			args{
-				id: "event:test:uri",
-				pipelines: []model.Pipeline{
-					{Account: "account", Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "testB", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "testC", RepoOwner: "ownerB", RepoName: "repoB"},
-				},
+				id:        "event:test:uri",
+				pipelines: []string{"puid-2", "puid-3"},
 			},
 			model.Trigger{
-				Event: "event:test:uri", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline1"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
-				},
+				Event: "event:test:uri", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			true,
 			false,
@@ -783,15 +723,11 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 			"add pipelines leads to new trigger",
 			fields{redisPool: &RedisPoolMock{}},
 			args{
-				id: "event:test:uri",
-				pipelines: []model.Pipeline{
-					{Account: "account", Name: "test", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "testB", RepoOwner: "ownerA", RepoName: "repoA"},
-					{Account: "account", Name: "testC", RepoOwner: "ownerB", RepoName: "repoB"},
-				},
+				id:        "event:test:uri",
+				pipelines: []string{"puid-1", "puid-2", "puid-3"},
 			},
 			model.Trigger{
-				Event: "event:test:uri", Secret: "!generate", Pipelines: []model.Pipeline{},
+				Event: "event:test:uri", Secret: "!generate", Pipelines: []string{},
 			},
 			false,
 			false,
@@ -808,9 +744,7 @@ func TestRedisStore_AddPipelines(t *testing.T) {
 			}
 			// create new trigger and add pipelines
 			trigger := tt.trigger
-			for _, p := range tt.args.pipelines {
-				trigger.Pipelines = append(trigger.Pipelines, p)
-			}
+			trigger.Pipelines = util.MergeStrings(trigger.Pipelines, tt.args.pipelines)
 
 			// mock redis calls for Get() command
 			if !tt.exists {
@@ -860,12 +794,9 @@ func TestRedisStore_DeletePipeline(t *testing.T) {
 				id:  "event:test:uri",
 				pid: "ownerA:repoA:pipeline1",
 			},
-			[]string{"ownerA:repoA:pipeline1", "ownerA:repoA:pipeline2"},
+			[]string{"puid-1", "puid-2"},
 			&model.Trigger{
-				Event: "event:test:uri", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline1"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
-				},
+				Event: "event:test:uri", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			&storeMock{},
 			expected{1, 2},
@@ -876,14 +807,11 @@ func TestRedisStore_DeletePipeline(t *testing.T) {
 			fields{redisPool: &RedisPoolMock{}},
 			args{
 				id:  "event:test:uri",
-				pid: "ownerA:repoA:pipeline1",
+				pid: "puid-1",
 			},
-			[]string{"ownerA:repoA:pipeline1", "ownerA:repoA:pipeline2"},
+			[]string{"puid-1", "puid-2"},
 			&model.Trigger{
-				Event: "event:test:uri", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline1"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
-				},
+				Event: "event:test:uri", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			&storeMock{},
 			expected{1, 0},
@@ -894,14 +822,11 @@ func TestRedisStore_DeletePipeline(t *testing.T) {
 			fields{redisPool: &RedisPoolMock{}},
 			args{
 				id:  "event:test:uri",
-				pid: "ownerA:repoA:non-existing",
+				pid: "puid-non-existing",
 			},
-			[]string{"ownerA:repoA:pipeline1", "ownerA:repoA:pipeline2"},
+			[]string{"puid-1", "puid-2"},
 			&model.Trigger{
-				Event: "event:test:uri", Secret: "secretA", Pipelines: []model.Pipeline{
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline1"},
-					{Account: "account", RepoOwner: "ownerA", RepoName: "repoA", Name: "pipeline2"},
-				},
+				Event: "event:test:uri", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
 			},
 			&storeMock{},
 			expected{0, 2},

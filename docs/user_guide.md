@@ -53,7 +53,7 @@ NAME:
    hermes trigger add - add trigger
 
 USAGE:
-   hermes trigger add [command options] <event URI> <account name> <pipeline repo-owner> <pipeline repo-name> <pipeline name>
+   hermes trigger add [command options] <event URI> <pipeline UID>
 
 DESCRIPTION:
    Add a new trigger connected to specified pipeline
@@ -80,12 +80,8 @@ content-type: application/json
     "event": "index.docker.io:codefresh:fortune:push",
     "secret": "!generate",
     "pipelines": [
-        {
-            "account": "alexei-led",
-            "repo-owner": "codefresh-io",
-            "repo-name": "trigger-examples",
-            "name": "run_fortune"
-        }
+        "5a439664af73ad0001f3ece0",
+        "89893364af73ad0321f3abce"
     ]
 }
 ```
@@ -110,7 +106,7 @@ DESCRIPTION:
 hermes info event index.docker.io:codefresh:fortune:push
 ```
 
-```
+```text
 # Output
 
 endpoint: https://g.codefresh.io/nomios/dockerhub?secret=icnuv8JJXGwx1CzU

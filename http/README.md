@@ -11,11 +11,13 @@ Add a new REST Client **Environment** with `codefresh-url` and `api-token` (see 
     "$shared": {},
     "production": {
         "codefresh-url": "https://g.codefresh.io",
-        "api-token": "XXXXXXXX"
+        "api-token": "XXXXXXXX",
+        "existing-pipeline-id": "<some existing pipeline id>"
     },
     "staging": {
         "codefresh-url": "https://app-staging.codefresh.io",
-        "api-token": "YYYYYYYY"
+        "api-token": "YYYYYYYY",
+        "existing-pipeline-id": "<some existing pipeline id>"
     }
 }
 ```

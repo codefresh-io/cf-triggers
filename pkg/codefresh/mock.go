@@ -14,15 +14,15 @@ type Mock struct {
 	mock.Mock
 }
 
-// CheckPipelineExist mock
-func (c *Mock) CheckPipelineExist(account, repoOwner string, repoName string, name string) error {
-	args := c.Called(account, repoOwner, repoName, name)
-	return args.Error(0)
+// CheckPipelineExists mock
+func (c *Mock) CheckPipelineExists(pipelineUID string) (bool, error) {
+	args := c.Called(pipelineUID)
+	return args.Bool(0), args.Error(1)
 }
 
 // RunPipeline mock
-func (c *Mock) RunPipeline(account string, repoOwner string, repoName string, name string, vars map[string]string) (string, error) {
-	args := c.Called(account, repoOwner, repoName, name, vars)
+func (c *Mock) RunPipeline(pipelineUID string, vars map[string]string) (string, error) {
+	args := c.Called(pipelineUID, vars)
 	return args.String(0), args.Error(1)
 }
 

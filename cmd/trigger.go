@@ -24,7 +24,7 @@ var triggerCommand = cli.Command{
 				},
 				cli.StringFlag{
 					Name:  "pipeline, p",
-					Usage: "additional filter by pipeline URI (ignored when using '--filter')",
+					Usage: "additional filter by pipeline UID (ignored when using '--filter')",
 				},
 				cli.BoolFlag{
 					Name:  "quiet, q",
@@ -46,7 +46,7 @@ var triggerCommand = cli.Command{
 				},
 			},
 			Usage:       "add trigger",
-			ArgsUsage:   "<event URI> <account name> <pipeline repo-owner> <pipeline repo-name> <pipeline name>",
+			ArgsUsage:   "<event URI> <pipeline UID>",
 			Description: "Add a new trigger connected to specified pipeline",
 			Action:      addTrigger,
 		},
@@ -78,13 +78,13 @@ func getTriggers(c *cli.Context) error {
 	quiet := c.Bool("quiet")
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
 	filter := c.String("filter")
-	pipelineURI := c.String("pipeline")
+	pipelineUID := c.String("pipeline")
 	// Handle 'pipeline'
-	if pipelineURI != "" {
+	if pipelineUID != "" {
 		if filter != "" {
 			return fmt.Errorf("pipeline cannot be used with filter")
 		}
-		triggers, err := triggerReaderWriter.ListByPipeline(pipelineURI)
+		triggers, err := triggerReaderWriter.ListByPipeline(pipelineUID)
 		if err != nil {
 			return err
 		}
@@ -137,24 +137,19 @@ func getTriggers(c *cli.Context) error {
 func addTrigger(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) != 5 {
-		return errors.New("wrong arguments")
+	if len(args) != 2 {
+		return errors.New("wrong number of arguments")
 	}
 	// get codefresh endpoint
-	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
+	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
 	// create trigger model
 	trigger := model.Trigger{}
 	trigger.Event = args.First()
 	trigger.Secret = c.String("secret")
-	trigger.Pipelines = make([]model.Pipeline, 1)
-	trigger.Pipelines[0] = model.Pipeline{
-		Account:   args.Get(1),
-		RepoOwner: args.Get(2),
-		RepoName:  args.Get(3),
-		Name:      args.Get(4),
-	}
+	trigger.Pipelines = make([]string, 1)
+	trigger.Pipelines[0] = args.Get(1)
 	return triggerReaderWriter.Add(trigger)
 }
 
@@ -173,7 +168,7 @@ func deleteTrigger(c *cli.Context) error {
 // run all pipelines connected to specified trigger
 func testTrigger(c *cli.Context) error {
 	// get codefresh endpoint
-	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("cf"), c.GlobalString("t"))
+	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
 	// get pipeline runner

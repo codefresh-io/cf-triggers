@@ -24,11 +24,11 @@
     |                                                 |
     | +---------------------+     +-----------------+ |
     | |                     |     |                 | |
-    | | trigger:{event-uri} +-----> {pipeline-uri}  | |
+    | | trigger:{event-uri} +-----> {pipeline-uid}  | |
     | |                     |     |                 | |
     | +---------------------+     | ...             | |
     |                             |                 | |
-    |                             | {pipeline-uri}  | |
+    |                             | {pipeline-uid}  | |
     |                             |                 | |
     |                             +-----------------+ |
     |                                                 |
@@ -43,7 +43,7 @@
     |                                                   |
     | +-------------------------+      +-------------+  |
     | |                         |      |             |  |
-    | | pipeline:{pipeline-uri} +------> {event-uri} |  |
+    | | pipeline:{pipeline-uid} +------> {event-uri} |  |
     | |                         |      |             |  |
     | +-------------------------+      | ...         |  |
     |                                  |             |  |
@@ -70,11 +70,6 @@
 "cron:30 13 * * *"
 ```
 
-## Pipeline URI
+## Pipeline UID
 
-Codefresh **Pipeline URI** is a unique identifier for Codefresh pipeline.
-
-```sh
-# {account}:{repo-owner}:{repo-name}:{name}
-"codefresh:codefresh-io:trigger-examples:run_pipeline"
-```
+Codefresh **Pipeline UID** is a unique identifier for Codefresh pipeline, as recognized by Codefresh.

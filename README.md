@@ -68,7 +68,7 @@ hermes respects following environment variables:
 Copyright © Codefresh.io
 
 VERSION:
-   0.5.2
+   0.6.0
   git-commit: 6f88d67
   build-date: 2018-01-11_14:43_GMT
   platform: darwin amd64 go1.9.2
