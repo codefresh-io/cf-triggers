@@ -17,7 +17,14 @@ Authorization: {{api-token}}
 
 ###
 # Get DockerHub Event Type: type=registry kind=dockerhub
+# Expected: 200
 GET {{codefresh-url}}/api/hermes/events/types/registry/dockerhub
+Authorization: {{api-token}}
+
+###
+# Get Non-existing Event Type: type=none kind=some
+# Expected: 404
+GET {{codefresh-url}}/api/hermes/events/types/none/some
 Authorization: {{api-token}}
 
 ###
@@ -34,7 +41,15 @@ GET {{codefresh-url}}/api/hermes/triggers/alexei-led:codefresh-io:trigger-exampl
 Authorization: {{api-token}}
 
 ###
-# Add pipeline - alexei codefresh-io/trigger-examples run_fortune
+# Get all triggers for non-existing pipeline 
+#   pipeline: unknown where/no-idea some
+# NOTE: create trigger pipeline before
+# Expected: 404
+GET {{codefresh-url}}/api/hermes/triggers/unknown:where:no-idea:any
+Authorization: {{api-token}}
+
+###
+# Add pipeline - alexei-led codefresh-io/trigger-examples run_fortune
 # to 
 # trigger - codefresh/fortune DockerHub push
 POST {{codefresh-url}}/api/hermes/triggers/index.docker.io:codefresh:fortune:push/pipelines
@@ -46,7 +61,25 @@ Authorization: {{api-token}}
 		"account": "alexei-led",
 		"repo-owner": "codefresh-io", 
 		"repo-name": "trigger-examples",
-		"name": "run_fortunez"
+		"name": "run_fortune"
+	}
+]
+
+###
+# Try adding non-existing pipeline - unknown unknown where/no-idea some
+# to 
+# trigger - codefresh/fortune DockerHub push
+# Expected: 500
+POST {{codefresh-url}}/api/hermes/triggers/index.docker.io:codefresh:fortune:push/pipelines
+Content-Type: application/json
+Authorization: {{api-token}}
+
+[
+	{
+		"account": "unknown",
+		"repo-owner": "where", 
+		"repo-name": "no-idea",
+		"name": "some"
 	}
 ]
 
@@ -55,4 +88,12 @@ Authorization: {{api-token}}
 #   event: codefresh/fortune DockerHub push
 #   pipeline: alexei codefresh-io/trigger-examples run_fortune
 DELETE {{codefresh-url}}/api/hermes/triggers/index.docker.io:codefresh:fortune:push/pipelines/alexei-led:codefresh-io:trigger-examples:run_fortune
+Authorization: {{api-token}}
+
+###
+# Try deleting non-existing pipeline
+#   event: codefresh/fortune DockerHub push
+#   pipeline: unknown unknown where/no-idea some
+# Expected: 500
+DELETE {{codefresh-url}}/api/hermes/triggers/index.docker.io:codefresh:fortune:push/pipelines/unknown:where:no-idea:some
 Authorization: {{api-token}}
