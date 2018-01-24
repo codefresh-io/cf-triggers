@@ -65,10 +65,18 @@ func preprocessVariables(vars map[string]string) map[string]string {
 
 // NewCodefreshEndpoint create new Codefresh API endpoint from url and API token
 func NewCodefreshEndpoint(url, token string) PipelineService {
-	log.WithFields(log.Fields{
-		"url":   url,
-		"token": fmt.Sprint("HIDDEN..", token[len(token)-6:]),
-	}).Debug("initializing cf-api")
+	if len(token) > 6 {
+		log.WithFields(log.Fields{
+			"url":          url,
+			"internal-api": false,
+			"token":        fmt.Sprint("HIDDEN..", token[len(token)-6:]),
+		}).Debug("initializing cf-api")
+	} else {
+		log.WithFields(log.Fields{
+			"url":          url,
+			"internal-api": true,
+		}).Debug("initializing cf-api")
+	}
 	endpoint := sling.New().Base(url).Set("Authorization", token).Set("User-Agent", version.UserAgent)
 	return &APIEndpoint{endpoint, token == ""}
 }
