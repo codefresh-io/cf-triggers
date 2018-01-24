@@ -1,9 +1,9 @@
 dependencies:
 - name: hermes
   repository: http://127.0.0.1:8879/charts
-  version: 0.3.1
+  version: 0.4.0
 - name: nomios
   repository: http://127.0.0.1:8879/charts
   version: 0.2.1
-digest: sha256:c291018143ed8d0e6c7330661df8e1b8d3203cd4e40a216f3b62615d25312b40
-generated: 2018-01-11T17:46:19.136835+02:00
+digest: sha256:627b20e19f49ae7105fd6f9a728ad2f49f1dfbabb0f5bda50207d026156fe7b4
+generated: 2018-01-24T13:56:31.665779+02:00
