@@ -44,7 +44,7 @@ func checkResponse(text string, err error, resp *http.Response) error {
 			details := string(respData)
 			msg = fmt.Sprintf("%s; more details: %s", msg, details)
 		}
-		return fmt.Errorf(msg)
+		return fmt.Error(msg)
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (api *APIEndpoint) ping() error {
 
 // find Codefresh pipeline by name and repo details (owner and name)
 func (api *APIEndpoint) checkPipelineExists(id string) (bool, error) {
-	log.Debugf("getting pipeline %s", id)
+	log.WithField("pipeline", id).Debug("getting pipeline")
 	// GET pipelines for repository
 	type CFPipeline struct {
 		ID string `json:"_id"`
@@ -153,7 +153,7 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 	defer resp.Body.Close()
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("close response body error")
+		log.Error("close response body error")
 		return "", err
 	}
 	runID := string(respData)
