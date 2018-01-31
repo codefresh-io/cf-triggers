@@ -483,15 +483,33 @@ func (r *RedisStore) DeletePipeline(eventURI string, pipelineUID string) error {
 		"pipeline-uid": pipelineUID,
 	}).Debug("Removing pipeline from trigger")
 
+	// start Redis transaction
+	_, err := con.Do("MULTI")
+	if err != nil {
+		log.WithError(err).Error("Failed to start Redis transaction")
+		return err
+	}
+
 	// try to remove pipeline from set
 	result, err := redis.Int(con.Do("ZREM", getTriggerKey(eventURI), pipelineUID))
 	if err != nil {
-		log.WithError(err).Error("Failed to remove pipeline from map")
-		return err
+		return discardOnError(con, err)
 	}
 	// failed to remove
 	if result == 0 {
-		return model.ErrPipelineNotFound
+		return discardOnError(con, model.ErrPipelineNotFound)
+	}
+
+	// try to remove trigger event-uri from pipeline set
+	if _, err = con.Do("ZREM", getPipelineKey(pipelineUID), eventURI); err != nil {
+		return discardOnError(con, err)
+	}
+
+	// submit transaction
+	_, err = con.Do("EXEC")
+	if err != nil {
+		log.WithError(err).Error("Failed to execute Redis transaction")
+		return err
 	}
 
 	// check if there are pipelines left
