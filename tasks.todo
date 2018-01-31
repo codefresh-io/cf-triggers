@@ -28,8 +28,3 @@ CI/CD:
 
 Event Sources:
     ✔ DockerHub @done (12/13/2017, 5:18:19 PM)
-    ☐ GitHub Tag
-    ☐ GitHub Release
-    ☐ Docker Registry Notification
-    ☐ Cron Event
-    ☐ GCR

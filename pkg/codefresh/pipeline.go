@@ -44,7 +44,7 @@ func checkResponse(text string, err error, resp *http.Response) error {
 			details := string(respData)
 			msg = fmt.Sprintf("%s; more details: %s", msg, details)
 		}
-		return fmt.Error(msg)
+		return fmt.Errorf(msg)
 	}
 	return nil
 }
@@ -91,8 +91,12 @@ func (api *APIEndpoint) ping() error {
 func (api *APIEndpoint) checkPipelineExists(id string) (bool, error) {
 	log.WithField("pipeline", id).Debug("getting pipeline")
 	// GET pipelines for repository
-	type CFPipeline struct {
+	type CFAccount struct {
 		ID string `json:"_id"`
+	}
+	type CFPipeline struct {
+		ID      string    `json:"_id"`
+		Account CFAccount `json:"account"`
 	}
 	pipeline := new(CFPipeline)
 	var resp *http.Response
@@ -113,7 +117,10 @@ func (api *APIEndpoint) checkPipelineExists(id string) (bool, error) {
 
 	// scan for pipeline ID
 	if pipeline != nil {
-		log.WithField("pipeline-uid", id).Debug("found pipeline by id")
+		log.WithFields(log.Fields{
+			"pipeline-uid": pipeline.ID,
+			"account-id":   pipeline.Account.ID,
+		}).Debug("found pipeline by id")
 		return true, nil
 	}
 
