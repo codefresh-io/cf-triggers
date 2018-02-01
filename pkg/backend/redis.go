@@ -491,13 +491,8 @@ func (r *RedisStore) DeletePipeline(eventURI string, pipelineUID string) error {
 	}
 
 	// try to remove pipeline from set
-	result, err := redis.Int(con.Do("ZREM", getTriggerKey(eventURI), pipelineUID))
-	if err != nil {
+	if _, err = con.Do("ZREM", getTriggerKey(eventURI), pipelineUID); err != nil {
 		return discardOnError(con, err)
-	}
-	// failed to remove
-	if result == 0 {
-		return discardOnError(con, model.ErrPipelineNotFound)
 	}
 
 	// try to remove trigger event-uri from pipeline set
@@ -506,10 +501,15 @@ func (r *RedisStore) DeletePipeline(eventURI string, pipelineUID string) error {
 	}
 
 	// submit transaction
-	_, err = con.Do("EXEC")
+	results, err := con.Do("EXEC")
 	if err != nil {
 		log.WithError(err).Error("Failed to execute Redis transaction")
 		return err
+	}
+
+	// failed to remove pipeline
+	if results.([2]int64)[0] == 0 {
+		return model.ErrPipelineNotFound
 	}
 
 	// check if there are pipelines left

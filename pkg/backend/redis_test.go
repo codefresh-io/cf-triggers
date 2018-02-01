@@ -868,11 +868,11 @@ func TestRedisStore_DeletePipeline(t *testing.T) {
 			// expect Redis transaction open
 			r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI").Expect("OK!")
 			// remove command from trigger->pipelines
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(tt.args.id), tt.args.pid).Expect(tt.expected.remove)
+			r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(tt.args.id), tt.args.pid).Expect("QUEUED")
 			// remove command from pipeline->triggers
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pid), tt.args.id).Expect(tt.expected.remove)
+			r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pid), tt.args.id).Expect("QUEUED")
 			// exec transaction
-			r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC").Expect("OK!")
+			r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC").Expect([2]int64{tt.expected.remove, tt.expected.remove})
 			// get remaining
 			r.redisPool.GetConn().(*redigomock.Conn).Command("ZCARD", getTriggerKey(tt.args.id)).Expect(tt.expected.remain)
 			// if removed and no remaining -> delete trigger
