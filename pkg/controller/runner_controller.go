@@ -54,7 +54,7 @@ func (c *RunnerController) TriggerEvent(ctx *gin.Context) {
 	}
 	vars["EVENT_PAYLOAD"] = event.Original
 	// get pipelines
-	pipelines, err := c.trigger.GetPipelines(id)
+	pipelines, err := c.trigger.GetPipelines([]string{id})
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrPipelineNotFound || err == model.ErrTriggerNotFound {

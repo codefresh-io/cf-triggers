@@ -11,38 +11,40 @@ import (
 
 var pipelineCommand = cli.Command{
 	Name:  "pipeline",
-	Usage: "configure Codefresh trigger pipelines",
+	Usage: "setup Codefresh triggers, linking trigger events and pipelines",
 	Subcommands: []cli.Command{
 		{
-			Name:        "get",
-			Usage:       "get pipelines connected to trigger",
-			ArgsUsage:   "<event URI>",
-			Description: "Get all pipelines connected to trigger with provided event URI",
-			Action:      getTriggerPipelines,
+			Name: "list",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  "event",
+					Usage: "trigger event filter",
+				},
+			},
+			Usage:       "list pipelines with triggers",
+			Description: "List Codefresh pipelines that have triggers defined",
+			Action:      listPipelines,
 		},
 		{
-			Name:        "add",
-			Usage:       "add pipelines to existing trigger",
-			ArgsUsage:   "<event URI> <pipeline UID>",
-			Description: "Add pipeline to existing trigger with specified event URI",
+			Name:        "link",
+			Usage:       "connect pipelines to the specified trigger event(s)",
+			ArgsUsage:   "<pipeline-uid> <event-uri> [event-uri...]",
+			Description: "Create a new trigger, linking a pipeline to the specified trigger event(s)",
 			Action:      addTriggerPipelines,
 		},
 		{
-			Name:        "delete",
-			Usage:       "delete pipeline from existing trigger",
-			ArgsUsage:   "<event URI> <pipeline UID>",
-			Description: "Delete pipeline from existing trigger (specified by event URI)",
+			Name:        "unlink",
+			Usage:       "disconnect pipeline from the specified trigger event(s)",
+			ArgsUsage:   "<pipeline-uid> <event-uri> [event-uri...]",
+			Description: "Delete pipeline trigger, by removing link between the pipeline and the specified trigger event(s)",
 			Action:      deleteTriggerPipeline,
 		},
 	},
 }
 
-func getTriggerPipelines(c *cli.Context) error {
+func listPipelines(c *cli.Context) error {
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
-	if len(c.Args()) != 1 {
-		return errors.New("wrong arguments: expected event URI")
-	}
-	pipelines, err := triggerReaderWriter.GetPipelines(c.Args().First())
+	pipelines, err := triggerReaderWriter.GetPipelines(c.StringSlice("event"))
 	if err != nil {
 		return err
 	}

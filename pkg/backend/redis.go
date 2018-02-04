@@ -421,25 +421,53 @@ func (r *RedisStore) Ping() (string, error) {
 	return pong, err
 }
 
-// GetPipelines get trigger pipelines by eventURI
-func (r *RedisStore) GetPipelines(eventURI string) ([]string, error) {
+// GetPipelines get pipelines that have trigger defined
+// can be filtered by event-uri(s)
+func (r *RedisStore) GetPipelines(events []string) ([]string, error) {
 	con := r.redisPool.GetConn()
-	log.WithField("event-uri", eventURI).Debug("Get pipelines for trigger")
-	// get pipelines from Set
-	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(eventURI), 0, -1))
-	if err != nil && err != redis.ErrNil {
-		log.WithError(err).Error("Failed to get pipelines")
-		return nil, err
-	} else if err == redis.ErrNil {
-		log.Warning("No pipelines found")
-		return nil, model.ErrTriggerNotFound
-	}
-	if len(pipelines) == 0 {
-		log.Warning("No pipelines found")
-		return nil, model.ErrPipelineNotFound
+
+	// accumulator array
+	var all []string
+
+	// using events filter
+	if len(events) > 0 {
+		for _, event := range events {
+			log.WithField("event-uri", event).Debug("Getting pipelines for trigger filter")
+			// get pipelines from Trigger Set
+			pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(event), 0, -1))
+			if err != nil && err != redis.ErrNil {
+				log.WithError(err).Error("Failed to get pipelines")
+				return nil, err
+			} else if err == redis.ErrNil {
+				log.Warning("No pipelines found")
+				return nil, model.ErrTriggerNotFound
+			}
+			if len(pipelines) == 0 {
+				log.Warning("No pipelines found")
+				return nil, model.ErrPipelineNotFound
+			}
+			// aggregate pipelines
+			all = util.MergeStrings(all, pipelines)
+		}
+	} else { // getting all pipelines
+		log.Debug("Getting all pipelines")
+		// get pipelines from Trigger Set
+		pipelines, err := redis.Strings(con.Do("KEYS", getPipelineKey("")))
+		if err != nil && err != redis.ErrNil {
+			log.WithError(err).Error("Failed to get pipelines")
+			return nil, err
+		} else if err == redis.ErrNil {
+			log.Warning("No pipelines found")
+			return nil, model.ErrTriggerNotFound
+		}
+		if len(pipelines) == 0 {
+			log.Warning("No pipelines found")
+			return nil, model.ErrPipelineNotFound
+		}
+		all = append(all, pipelines...)
 	}
 
-	return pipelines, nil
+	return all, nil
 }
 
 // AddPipelines get trigger pipelines by eventURI

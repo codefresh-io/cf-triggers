@@ -79,7 +79,7 @@ func (c *Controller) GetPipelines(ctx *gin.Context) {
 	id := ctx.Params.ByName("id")
 	var pipelines []string
 	var err error
-	if pipelines, err = c.svc.GetPipelines(id); err != nil {
+	if pipelines, err = c.svc.GetPipelines([]string{id}); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound

@@ -184,7 +184,7 @@ func testTrigger(c *cli.Context) error {
 	}
 
 	// get trigger pipelines
-	pipelines, err := triggerReaderWriter.GetPipelines(c.Args().First())
+	pipelines, err := triggerReaderWriter.GetPipelines([]string{c.Args().First()})
 	if err != nil {
 		return err
 	}

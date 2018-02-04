@@ -33,7 +33,7 @@ type (
 		Add(trigger Trigger) error
 		Delete(eventURI string) error
 		Update(trigger Trigger) error
-		GetPipelines(eventURI string) ([]string, error)
+		GetPipelines(events []string) ([]string, error)
 		AddPipelines(eventURI string, pipelines []string) error
 		DeletePipeline(eventURI string, pipelineUID string) error
 	}
