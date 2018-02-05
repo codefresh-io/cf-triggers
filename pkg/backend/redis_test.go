@@ -85,144 +85,6 @@ func Test_getPrefixKey(t *testing.T) {
 	}
 }
 
-func TestRedisStore_List(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	tests := []struct {
-		name      string
-		fields    fields
-		filter    string
-		keys      []string
-		pipelines [][]string
-		want      []*model.Trigger
-		wantErr   bool
-	}{
-		{
-			"get empty list",
-			fields{redisPool: &RedisPoolMock{}},
-			"",
-			[]string{},
-			[][]string{},
-			[]*model.Trigger{},
-			false,
-		},
-		{
-			"get all",
-			fields{redisPool: &RedisPoolMock{}},
-			"*",
-			[]string{"test:1", "test:2"},
-			[][]string{
-				[]string{"puid-1", "puid-2"},
-				[]string{"puid-3", "puid-4"},
-			},
-			[]*model.Trigger{
-				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []string{
-					"puid-1", "puid-2",
-				}},
-				&model.Trigger{Event: "test:2", Secret: "secretB", Pipelines: []string{
-					"puid-3", "puid-4",
-				}},
-			},
-			false,
-		},
-		{
-			"get one",
-			fields{redisPool: &RedisPoolMock{}},
-			"test:*",
-			[]string{"test:1"},
-			[][]string{
-				[]string{"puid-1"},
-			},
-			[]*model.Trigger{
-				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1"}},
-			},
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := &storeMock{}
-			r := &RedisStore{
-				redisPool: tt.fields.redisPool,
-				getFunc:   mock.Get,
-			}
-			r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getTriggerKey(tt.filter)).Expect(interfaceSlice(tt.keys))
-			for i, k := range tt.keys {
-				mock.On("Get", k).Return(tt.want[i], nil)
-			}
-			got, err := r.List(tt.filter)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.List() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("RedisStore.List() = %v, want %v", got, tt.want)
-			}
-			mock.AssertExpectations(t)
-		})
-	}
-}
-
-func TestRedisStore_ListByPipeline(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	type args struct {
-		pipelineUID string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		events  []string
-		want    []*model.Trigger
-		wantErr bool
-	}{
-		{
-			"get empty list",
-			fields{redisPool: &RedisPoolMock{}},
-			args{"puid-1"},
-			[]string{},
-			[]*model.Trigger{},
-			false,
-		},
-		{
-			"get triggers",
-			fields{redisPool: &RedisPoolMock{}},
-			args{"puid-1"},
-			[]string{"test:1", "test:2"},
-			[]*model.Trigger{
-				&model.Trigger{Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"}},
-				&model.Trigger{Event: "test:2", Secret: "secretB", Pipelines: []string{"puid-1", "puid-2"}},
-			},
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := &storeMock{}
-			r := &RedisStore{
-				redisPool: tt.fields.redisPool,
-				getFunc:   mock.Get,
-			}
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getPipelineKey(tt.args.pipelineUID), 0, -1).Expect(interfaceSlice(tt.events))
-			for i, eventURI := range tt.events {
-				mock.On("Get", eventURI).Return(tt.want[i], nil)
-			}
-			got, err := r.ListByPipeline(tt.args.pipelineUID)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.ListByPipeline() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("RedisStore.ListByPipeline() = %v, want %v", got, tt.want)
-			}
-			mock.AssertExpectations(t)
-		})
-	}
-}
-
 func TestRedisStore_Get(t *testing.T) {
 	type fields struct {
 		redisPool RedisPoolService
@@ -626,7 +488,7 @@ func TestRedisStore_Ping(t *testing.T) {
 	}
 }
 
-func TestRedisStore_GetPipelines(t *testing.T) {
+func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 	type fields struct {
 		redisPool RedisPoolService
 	}
@@ -753,13 +615,13 @@ func TestRedisStore_GetPipelines(t *testing.T) {
 					ids = append(ids, _arg.id)
 				}
 			}
-			got, err := r.GetPipelines(ids)
+			got, err := r.GetPipelinesForTriggers(ids)
 			if (err != nil) != (tt.wantRedisErr || tt.wantEmptyErr) {
-				t.Errorf("RedisStore.GetPipelines() error = %v, wantErr %v", err, (tt.wantRedisErr || tt.wantEmptyErr))
+				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, (tt.wantRedisErr || tt.wantEmptyErr))
 				return
 			}
 			if !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("RedisStore.GetPipelines() = %v, want %v", got, tt.expected)
+				t.Errorf("RedisStore.GetPipelinesForTriggers() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
@@ -1206,6 +1068,290 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 			}
 			// assert mock
 			mock.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRedisStore_ListTriggersForEvents(t *testing.T) {
+	type redisErrors struct {
+		keys   bool
+		zrange bool
+	}
+	type args struct {
+		events []string
+	}
+	type triggers struct {
+		event     string
+		pipelines []string
+	}
+	tests := []struct {
+		name     string
+		args     args
+		triggers []triggers
+		want     []model.TriggerLink
+		errs     redisErrors
+		wantErr  bool
+	}{
+		{
+			name: "list triggers for single event",
+			args: args{
+				events: []string{"event:uri:test"},
+			},
+			triggers: []triggers{
+				triggers{
+					event:     "event:uri:test",
+					pipelines: []string{"pipeline-1", "pipeline-2"},
+				},
+			},
+			want: []model.TriggerLink{
+				model.TriggerLink{Event: "event:uri:test", Pipeline: "pipeline-1"},
+				model.TriggerLink{Event: "event:uri:test", Pipeline: "pipeline-2"},
+			},
+			errs:    redisErrors{false, false},
+			wantErr: false,
+		},
+		{
+			name: "list triggers for multiple event",
+			args: args{
+				events: []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			triggers: []triggers{
+				triggers{
+					event:     "event:uri:test:1",
+					pipelines: []string{"pipeline-1", "pipeline-2"},
+				},
+				triggers{
+					event:     "event:uri:test:2",
+					pipelines: []string{"pipeline-2", "pipeline-3"},
+				},
+			},
+			want: []model.TriggerLink{
+				model.TriggerLink{Event: "event:uri:test:1", Pipeline: "pipeline-1"},
+				model.TriggerLink{Event: "event:uri:test:1", Pipeline: "pipeline-2"},
+				model.TriggerLink{Event: "event:uri:test:2", Pipeline: "pipeline-2"},
+				model.TriggerLink{Event: "event:uri:test:2", Pipeline: "pipeline-3"},
+			},
+			errs:    redisErrors{false, false},
+			wantErr: false,
+		},
+		{
+			name: "fail to find trigger by event",
+			args: args{
+				events: []string{"non-existing-event"},
+			},
+			triggers: nil,
+			want:     nil,
+			errs:     redisErrors{true, false},
+			wantErr:  true,
+		},
+		{
+			name: "fail to find pipelines for event",
+			args: args{
+				events: []string{"event:uri:test"},
+			},
+			triggers: []triggers{
+				triggers{
+					event:     "event:uri:test",
+					pipelines: nil,
+				},
+				triggers{
+					event:     "event:uri:test:other",
+					pipelines: []string{"pipeline-2", "pipeline-3"},
+				},
+			},
+			want:    nil,
+			errs:    redisErrors{false, true},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			// get keys from Triggers Set
+			keys := make([]string, 0)
+			for _, event := range tt.args.events {
+				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getTriggerKey(event))
+				if tt.errs.keys {
+					cmd.ExpectError(errors.New("KEYS error"))
+					goto Invoke
+				} else {
+					for _, t := range tt.triggers {
+						if event == t.event {
+							keys = util.MergeStrings(keys, []string{getTriggerKey(t.event)})
+						}
+					}
+					cmd.Expect(interfaceSlice(keys))
+				}
+			}
+			// get pipelines from Triggers Set
+			for _, k := range keys {
+				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", k, 0, -1)
+				if tt.errs.zrange {
+					cmd.ExpectError(errors.New("ZRANGE error"))
+					goto Invoke
+				} else {
+					for _, t := range tt.triggers {
+						// select pipelines for key
+						if getTriggerKey(t.event) == k {
+							cmd.Expect(interfaceSlice(t.pipelines))
+							break
+						}
+					}
+				}
+			}
+		Invoke:
+			got, err := r.ListTriggersForEvents(tt.args.events)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.ListTriggersForEvents() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.ListTriggersForEvents() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRedisStore_ListTriggersForPipelines(t *testing.T) {
+	type redisErrors struct {
+		keys   bool
+		zrange bool
+	}
+	type pipelines struct {
+		pipeline string
+		events   []string
+	}
+	type args struct {
+		pipelines []string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		pipelines []pipelines
+		want      []model.TriggerLink
+		errs      redisErrors
+		wantErr   bool
+	}{
+		{
+			name: "list triggers for single pipeline",
+			args: args{
+				pipelines: []string{"test-pipeline"},
+			},
+			pipelines: []pipelines{
+				pipelines{
+					pipeline: "test-pipeline",
+					events:   []string{"event-1", "event-2"},
+				},
+			},
+			want: []model.TriggerLink{
+				model.TriggerLink{Event: "event-1", Pipeline: "test-pipeline"},
+				model.TriggerLink{Event: "event-2", Pipeline: "test-pipeline"},
+			},
+			errs:    redisErrors{false, false},
+			wantErr: false,
+		},
+		{
+			name: "list triggers for multiple pipeline",
+			args: args{
+				pipelines: []string{"test-pipeline-1", "test-pipeline-2"},
+			},
+			pipelines: []pipelines{
+				pipelines{
+					pipeline: "test-pipeline-1",
+					events:   []string{"event-1", "event-2"},
+				},
+				pipelines{
+					pipeline: "test-pipeline-2",
+					events:   []string{"event-2", "event-3"},
+				},
+			},
+			want: []model.TriggerLink{
+				model.TriggerLink{Event: "event-1", Pipeline: "test-pipeline-1"},
+				model.TriggerLink{Event: "event-2", Pipeline: "test-pipeline-1"},
+				model.TriggerLink{Event: "event-2", Pipeline: "test-pipeline-2"},
+				model.TriggerLink{Event: "event-3", Pipeline: "test-pipeline-2"},
+			},
+			errs:    redisErrors{false, false},
+			wantErr: false,
+		},
+		{
+			name: "fail to find triggers by pipeline",
+			args: args{
+				pipelines: []string{"non-existing-pipeline"},
+			},
+			pipelines: nil,
+			want:      nil,
+			errs:      redisErrors{true, false},
+			wantErr:   true,
+		},
+		{
+			name: "fail to find events for pipeline",
+			args: args{
+				pipelines: []string{"test-pipeline"},
+			},
+			pipelines: []pipelines{
+				pipelines{
+					pipeline: "test-pipeline",
+					events:   nil,
+				},
+				pipelines{
+					pipeline: "test-pipeline-2",
+					events:   []string{"event-1", "event-2"},
+				},
+			},
+			want:    nil,
+			errs:    redisErrors{false, true},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			// get keys from Pipelines Set
+			keys := make([]string, 0)
+			for _, pipeline := range tt.args.pipelines {
+				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getPipelineKey(pipeline))
+				if tt.errs.keys {
+					cmd.ExpectError(errors.New("KEYS error"))
+					goto Invoke
+				} else {
+					for _, t := range tt.pipelines {
+						if pipeline == t.pipeline {
+							keys = util.MergeStrings(keys, []string{getPipelineKey(t.pipeline)})
+						}
+					}
+					cmd.Expect(interfaceSlice(keys))
+				}
+			}
+			// get events from Pipeline Set
+			for _, k := range keys {
+				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", k, 0, -1)
+				if tt.errs.zrange {
+					cmd.ExpectError(errors.New("ZRANGE error"))
+					goto Invoke
+				} else {
+					for _, t := range tt.pipelines {
+						// select pipelines for key
+						if getPipelineKey(t.pipeline) == k {
+							cmd.Expect(interfaceSlice(t.events))
+							break
+						}
+					}
+				}
+			}
+		Invoke:
+			got, err := r.ListTriggersForPipelines(tt.args.pipelines)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.ListTriggersForPipelines() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.ListTriggersForPipelines() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

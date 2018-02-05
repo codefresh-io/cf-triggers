@@ -74,7 +74,7 @@ func runServer(c *cli.Context) error {
 
 	// manage triggers
 	triggersAPI := router.Group("/triggers", gin.Logger())
-	triggersAPI.Handle("GET", "/", triggerController.List) // pass filter or pipeline as query parameter
+	//triggersAPI.Handle("GET", "/", triggerController.List) // pass filter or pipeline as query parameter
 	triggersAPI.Handle("GET", "/:id", triggerController.Get)
 	triggersAPI.Handle("POST", "/", triggerController.Add)
 	triggersAPI.Handle("PUT", "/:id", triggerController.Update)

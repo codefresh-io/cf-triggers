@@ -44,7 +44,7 @@ var pipelineCommand = cli.Command{
 
 func listPipelines(c *cli.Context) error {
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
-	pipelines, err := triggerReaderWriter.GetPipelines(c.StringSlice("event"))
+	pipelines, err := triggerReaderWriter.GetPipelinesForTriggers(c.StringSlice("event"))
 	if err != nil {
 		return err
 	}

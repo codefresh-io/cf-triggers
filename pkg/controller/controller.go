@@ -24,40 +24,6 @@ func NewController(svc model.TriggerReaderWriter) *Controller {
 	return &Controller{svc}
 }
 
-// List triggers
-func (c *Controller) List(ctx *gin.Context) {
-	filter := ctx.Query("filter")
-	pipelineUID := ctx.Query("pipeline")
-	var triggers []*model.Trigger
-	var err error
-	// get by pipelineUID
-	if pipelineUID != "" {
-		if triggers, err = c.svc.ListByPipeline(pipelineUID); err != nil {
-			status := http.StatusInternalServerError
-			if err == model.ErrTriggerNotFound {
-				status = http.StatusNotFound
-			}
-			ctx.JSON(status, gin.H{"status": status, "message": "failed to list triggers by pipeline", "error": err.Error()})
-			return
-		}
-	} else {
-		// get by filter
-		if triggers, err = c.svc.List(filter); err != nil {
-			status := http.StatusInternalServerError
-			if err == model.ErrTriggerNotFound {
-				status = http.StatusNotFound
-			}
-			ctx.JSON(status, gin.H{"status": status, "message": "failed to list triggers by filter", "error": err.Error()})
-			return
-		}
-	}
-	if len(triggers) <= 0 {
-		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "no triggers found"})
-		return
-	}
-	ctx.JSON(http.StatusOK, triggers)
-}
-
 // Get trigger
 func (c *Controller) Get(ctx *gin.Context) {
 	id := ctx.Params.ByName("id")
@@ -79,7 +45,7 @@ func (c *Controller) ListPipelines(ctx *gin.Context) {
 	event := ctx.Params.ByName("event")
 	var pipelines []string
 	var err error
-	if pipelines, err = c.svc.GetPipelines([]string{event}); err != nil {
+	if pipelines, err = c.svc.GetPipelinesForTriggers([]string{event}); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound

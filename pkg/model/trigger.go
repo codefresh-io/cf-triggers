@@ -33,14 +33,12 @@ type (
 
 	// TriggerReaderWriter interface
 	TriggerReaderWriter interface {
-		List(filter string) ([]*Trigger, error)
-		ListByPipeline(pipelineUID string) ([]*Trigger, error)
 		GetSecret(eventURI string) (string, error)
 		Get(eventURI string) (*Trigger, error)
 		Add(trigger Trigger) error
 		Delete(eventURI string) error
 		Update(trigger Trigger) error
-		GetPipelines(events []string) ([]string, error)
+		GetPipelinesForTriggers(events []string) ([]string, error)
 		CreateTriggersForEvent(event string, pipelines []string) error
 		CreateTriggersForPipeline(pipeline string, events []string) error
 		DeleteTriggersForPipeline(pipeline string, events []string) error

@@ -153,52 +153,72 @@ func NewRedisStore(server string, port int, password string, pipelineSvc codefre
 	return r
 }
 
-// List get list of defined triggers
-func (r *RedisStore) List(filter string) ([]*model.Trigger, error) {
+// ListTriggersForEvents get list of defined triggers for trigger events
+func (r *RedisStore) ListTriggersForEvents(events []string) ([]model.TriggerLink, error) {
 	con := r.redisPool.GetConn()
-	log.Debug("Getting triggers with filter")
-	keys, err := redis.Strings(con.Do("KEYS", getTriggerKey(filter)))
-	if err != nil {
-		log.WithField("filter", filter).WithError(err).Error("Failed to find triggers")
-		return nil, err
-	}
+	log.WithField("events", events).Debug("List triggers for events")
 
-	// Iterate through all trigger keys and get triggers
-	triggers := []*model.Trigger{}
-	for _, k := range keys {
-		// trim trigger: prefix before Get()
-		eventURI := strings.TrimPrefix(k, "trigger:")
-		// get trigger by eventURI
-		trigger, err := r.getFunc(eventURI)
+	keys := make([]string, 0)
+	for _, event := range events {
+		res, err := redis.Strings(con.Do("KEYS", getTriggerKey(event)))
 		if err != nil {
-			log.WithField("event-uri", eventURI).WithError(err).Debug("Failed to get trigger")
+			log.WithField("event", event).WithError(err).Error("Failed to find triggers")
 			return nil, err
 		}
-		triggers = append(triggers, trigger)
+		keys = util.MergeStrings(keys, res)
+	}
+
+	// Iterate through all trigger keys and get pipelines
+	triggers := make([]model.TriggerLink, 0)
+	for _, k := range keys {
+		res, err := redis.Strings(con.Do("ZRANGE", k, 0, -1))
+		if err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to get pipelines")
+			return nil, err
+		}
+		// for all linked pipelines ...
+		for _, pipeline := range res {
+			trigger := model.TriggerLink{
+				Event:    strings.TrimPrefix(k, "trigger:"),
+				Pipeline: pipeline,
+			}
+			triggers = append(triggers, trigger)
+		}
 	}
 	return triggers, nil
 }
 
-// ListByPipeline get list of defined triggers
-func (r *RedisStore) ListByPipeline(pipelineUID string) ([]*model.Trigger, error) {
+// ListTriggersForPipelines get list of defined triggers for specified pipelines
+func (r *RedisStore) ListTriggersForPipelines(pipelines []string) ([]model.TriggerLink, error) {
 	con := r.redisPool.GetConn()
-	log.WithField("pipeline-uid", pipelineUID).Debug("Getting triggers for pipeline")
-	events, err := redis.Strings(con.Do("ZRANGE", getPipelineKey(pipelineUID), 0, -1))
-	if err != nil {
-		log.WithError(err).Error("Failed to get pipeline")
-		return nil, err
-	}
+	log.WithField("pipelines", pipelines).Debug("List triggers for pipelines")
 
-	// Iterate through all events and get triggers
-	triggers := []*model.Trigger{}
-	for _, eventURI := range events {
-		// get trigger by eventURI
-		trigger, err := r.getFunc(eventURI)
+	keys := make([]string, 0)
+	for _, pipeline := range pipelines {
+		res, err := redis.Strings(con.Do("KEYS", getPipelineKey(pipeline)))
 		if err != nil {
-			log.Error(err)
+			log.WithField("pipeline", pipeline).WithError(err).Error("Failed to find triggers for pipeline")
 			return nil, err
 		}
-		triggers = append(triggers, trigger)
+		keys = util.MergeStrings(keys, res)
+	}
+
+	// Iterate through all pipelines keys and get trigger events
+	triggers := make([]model.TriggerLink, 0)
+	for _, k := range keys {
+		res, err := redis.Strings(con.Do("ZRANGE", k, 0, -1))
+		if err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to get trigger events")
+			return nil, err
+		}
+		// for all linked trigger events ...
+		for _, event := range res {
+			trigger := model.TriggerLink{
+				Event:    event,
+				Pipeline: strings.TrimPrefix(k, "pipeline:"),
+			}
+			triggers = append(triggers, trigger)
+		}
 	}
 	return triggers, nil
 }
@@ -552,9 +572,9 @@ func (r *RedisStore) Ping() (string, error) {
 	return pong, err
 }
 
-// GetPipelines get pipelines that have trigger defined
+// GetPipelinesForTriggers get pipelines that have trigger defined
 // can be filtered by event-uri(s)
-func (r *RedisStore) GetPipelines(events []string) ([]string, error) {
+func (r *RedisStore) GetPipelinesForTriggers(events []string) ([]string, error) {
 	con := r.redisPool.GetConn()
 
 	// accumulator array

@@ -22,7 +22,7 @@ func NewRunnerController(runner model.Runner, trigger model.TriggerReaderWriter,
 // TriggerEvent pipelines for trigger
 func (c *RunnerController) TriggerEvent(ctx *gin.Context) {
 	// get trigger id
-	id := ctx.Params.ByName("id")
+	eventURI := ctx.Params.ByName("event")
 	// get event payload
 	var event Event
 	if err := ctx.BindJSON(&event); err != nil {
@@ -30,7 +30,7 @@ func (c *RunnerController) TriggerEvent(ctx *gin.Context) {
 		return
 	}
 	// get trigger
-	trigger, err := c.trigger.Get(id)
+	trigger, err := c.trigger.Get(eventURI)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
@@ -54,7 +54,7 @@ func (c *RunnerController) TriggerEvent(ctx *gin.Context) {
 	}
 	vars["EVENT_PAYLOAD"] = event.Original
 	// get pipelines
-	pipelines, err := c.trigger.GetPipelines([]string{id})
+	pipelines, err := c.trigger.GetPipelinesForTriggers([]string{eventURI})
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrPipelineNotFound || err == model.ErrTriggerNotFound {
