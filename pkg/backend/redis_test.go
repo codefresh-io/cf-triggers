@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -356,7 +357,7 @@ func TestRedisStore_StoreTrigger(t *testing.T) {
 						mock.On("CheckPipelineExists", p).Return(true, nil)
 					}
 					if tt.wantErr[2] {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, p).ExpectError(fmt.Errorf("SADD error"))
+						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, p).ExpectError(fmt.Errorf("ZADD error"))
 						// expect transaction discard on error
 						r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
 						break
@@ -764,205 +765,6 @@ func TestRedisStore_GetPipelines(t *testing.T) {
 	}
 }
 
-func TestRedisStore_AddPipelines(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	type args struct {
-		id        string
-		pipelines []string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		trigger model.Trigger
-		exists  bool
-		wantErr bool
-	}{
-		{
-			"add pipelines to existing trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			args{
-				id:        "event:test:uri",
-				pipelines: []string{"puid-2", "puid-3"},
-			},
-			model.Trigger{
-				Event: "event:test:uri", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			true,
-			false,
-		},
-		{
-			"add pipelines leads to new trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			args{
-				id:        "event:test:uri",
-				pipelines: []string{"puid-1", "puid-2", "puid-3"},
-			},
-			model.Trigger{
-				Event: "event:test:uri", Secret: "!generate", Pipelines: []string{},
-			},
-			false,
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := &storeMock{}
-			r := &RedisStore{
-				redisPool:        tt.fields.redisPool,
-				addFunc:          mock.Add,
-				getFunc:          mock.Get,
-				storeTriggerFunc: mock.StoreTrigger,
-			}
-			// create new trigger and add pipelines
-			trigger := tt.trigger
-			trigger.Pipelines = util.MergeStrings(trigger.Pipelines, tt.args.pipelines)
-
-			// mock redis calls for Get() command
-			if !tt.exists {
-				mock.On("Get", tt.args.id).Return(nil, model.ErrTriggerNotFound)
-				// add trigger
-				mock.On("Add", trigger).Return(nil)
-			} else {
-				mock.On("Get", tt.args.id).Return(&tt.trigger, nil)
-				// update trigger
-				mock.On("StoreTrigger", trigger).Return(nil)
-			}
-			if err := r.AddPipelines(tt.args.id, tt.args.pipelines); (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.AddPipelines() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			// assert expectations
-			mock.AssertExpectations(t)
-		})
-	}
-}
-
-func TestRedisStore_DeletePipeline(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	type args struct {
-		id  string
-		pid string
-	}
-	type expected struct {
-		remove int64
-		remain int64
-	}
-	tests := []struct {
-		name      string
-		fields    fields
-		args      args
-		pipelines []string
-		existing  *model.Trigger
-		mock      *storeMock
-		expected  expected
-		wantErr   bool
-	}{
-		{
-			"delete pipeline from trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			args{
-				id:  "event:test:uri",
-				pid: "ownerA:repoA:pipeline1",
-			},
-			[]string{"puid-1", "puid-2"},
-			&model.Trigger{
-				Event: "event:test:uri", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			&storeMock{},
-			expected{1, 2},
-			false,
-		},
-		{
-			"delete last pipeline from trigger -> delete trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			args{
-				id:  "event:test:uri",
-				pid: "puid-1",
-			},
-			[]string{"puid-1", "puid-2"},
-			&model.Trigger{
-				Event: "event:test:uri", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			&storeMock{},
-			expected{1, 0},
-			false,
-		},
-		{
-			"try to delete non-existing pipeline from trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			args{
-				id:  "event:test:uri",
-				pid: "puid-non-existing",
-			},
-			[]string{"puid-1", "puid-2"},
-			&model.Trigger{
-				Event: "event:test:uri", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			&storeMock{},
-			expected{0, 2},
-			true,
-		},
-		{
-			"try to delete pipeline from non-existing trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			args{
-				id:  "event:test:uri",
-				pid: "ownerA:repoA:pipeline1",
-			},
-			[]string{},
-			nil,
-			&storeMock{},
-			expected{0, 0},
-			true,
-		},
-		{
-			"try to delete bad URI pipeline from trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			args{
-				id:  "event:test:uri",
-				pid: "pipeline1",
-			},
-			[]string{},
-			nil,
-			&storeMock{},
-			expected{0, 2},
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool:  tt.fields.redisPool,
-				deleteFunc: tt.mock.Delete,
-			}
-			// expect Redis transaction open
-			r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI").Expect("OK!")
-			// remove command from trigger->pipelines
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(tt.args.id), tt.args.pid).Expect("QUEUED")
-			// remove command from pipeline->triggers
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pid), tt.args.id).Expect("QUEUED")
-			// exec transaction
-			r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC").Expect([2]int64{tt.expected.remove, tt.expected.remove})
-			// get remaining
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZCARD", getTriggerKey(tt.args.id)).Expect(tt.expected.remain)
-			// if removed and no remaining -> delete trigger
-			if tt.expected.remove > 0 && tt.expected.remain == 0 {
-				tt.mock.On("Delete", tt.args.id).Return(nil)
-			}
-			// perform delete
-			if err := r.DeletePipeline(tt.args.id, tt.args.pid); (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.DeletePipeline() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			// assert expectations
-			tt.mock.AssertExpectations(t)
-		})
-	}
-}
-
 func TestRedisStore_GetSecret(t *testing.T) {
 	type fields struct {
 		redisPool RedisPoolService
@@ -1010,6 +812,400 @@ func TestRedisStore_GetSecret(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("RedisStore.GetSecret() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
+	type redisErrors struct {
+		multi bool
+		zadd1 bool
+		zadd2 bool
+		exec  bool
+	}
+	type args struct {
+		pipeline string
+		events   []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errs    redisErrors
+	}{
+		{
+			"create pipeline triggers for multiple events",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			false,
+			redisErrors{false, false, false, false},
+		},
+		{
+			"create trigger for non-existing pipeline",
+			args{
+				pipeline: "non-existing-pipeline",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{false, false, false, false},
+		},
+		{
+			"fail start transaction",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{true, false, false, false},
+		},
+		{
+			"fail adding pipeline to Triggers map",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{false, true, false, false},
+		},
+		{
+			"fail adding events to Pipelines map",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{false, false, true, false},
+		},
+		{
+			"fail exec transaction",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{false, false, false, true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := codefresh.NewCodefreshMockEndpoint()
+			r := &RedisStore{
+				redisPool:   &RedisPoolMock{},
+				pipelineSvc: mock,
+			}
+			var cmd *redigomock.Cmd
+
+			// mock Codefresh API call
+			if tt.args.pipeline == "non-existing-pipeline" {
+				mock.On("CheckPipelineExists", tt.args.pipeline).Return(false, codefresh.ErrPipelineNotFound)
+				goto Invoke
+			} else {
+				mock.On("CheckPipelineExists", tt.args.pipeline).Return(true, nil)
+			}
+
+			// expect Redis transaction open
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
+			if tt.errs.multi {
+				cmd.ExpectError(errors.New("MULTI error"))
+				goto Invoke
+			} else {
+				cmd.Expect("OK!")
+			}
+			// add pipeline to event(s)
+			for _, event := range tt.args.events {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(event), 0, tt.args.pipeline)
+				if tt.errs.zadd1 {
+					cmd.ExpectError(errors.New("ZADD error"))
+					goto EndTransaction
+				}
+			}
+			// add events to the Pipelines map
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(tt.args.pipeline), 0, tt.args.events)
+			if tt.errs.zadd2 {
+				cmd.ExpectError(errors.New("ZADD error"))
+			}
+
+		EndTransaction:
+			// discard transaction on error
+			if tt.wantErr && !tt.errs.exec {
+				// expect transaction discard on error
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
+			} else {
+				// expect Redis transaction exec
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
+				if tt.errs.exec {
+					cmd.ExpectError(errors.New("EXEC error"))
+				} else {
+					cmd.Expect("OK!")
+				}
+			}
+
+		Invoke:
+			// invoke method
+			if err := r.CreateTriggersForPipeline(tt.args.pipeline, tt.args.events); (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.CreateTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			// assert mock
+			mock.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
+	type redisErrors struct {
+		multi bool
+		zrem1 bool
+		zrem2 bool
+		exec  bool
+	}
+	type args struct {
+		pipeline string
+		events   []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errs    redisErrors
+	}{
+		{
+			"delete triggers for pipeline",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			false,
+			redisErrors{false, false, false, false},
+		},
+		{
+			"delete single event trigger for pipeline",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test"},
+			},
+			false,
+			redisErrors{false, false, false, false},
+		},
+		{
+			"fail start transaction",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{true, false, false, false},
+		},
+		{
+			"fail remove pipeline from Triggers map",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{false, true, false, false},
+		},
+		{
+			"fail remove events from Pipelines map",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{false, false, true, false},
+		},
+		{
+			"fail exec transaction",
+			args{
+				pipeline: "owner:repo:test",
+				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+			},
+			true,
+			redisErrors{false, false, false, true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			// expect Redis transaction open
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
+			if tt.errs.multi {
+				cmd.ExpectError(errors.New("MULTI error"))
+				goto Invoke
+			} else {
+				cmd.Expect("OK!")
+			}
+			// add pipeline to event(s)
+			for _, event := range tt.args.events {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(event), tt.args.pipeline)
+				if tt.errs.zrem1 {
+					cmd.ExpectError(errors.New("ZREM error"))
+					goto EndTransaction
+				}
+			}
+			// add events to the Pipelines map
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pipeline), tt.args.events)
+			if tt.errs.zrem2 {
+				cmd.ExpectError(errors.New("ZREM error"))
+			}
+
+		EndTransaction:
+			// discard transaction on error
+			if tt.wantErr && !tt.errs.exec {
+				// expect transaction discard on error
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
+			} else {
+				// expect Redis transaction exec
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
+				if tt.errs.exec {
+					cmd.ExpectError(errors.New("EXEC error"))
+				} else {
+					cmd.Expect("OK!")
+				}
+			}
+
+			// invoke method
+		Invoke:
+			if err := r.DeleteTriggersForPipeline(tt.args.pipeline, tt.args.events); (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.DeleteTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
+	type redisErrors struct {
+		multi bool
+		zadd1 bool
+		zadd2 bool
+		exec  bool
+	}
+	type args struct {
+		event     string
+		pipelines []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errs    redisErrors
+	}{
+		{
+			"create event trigger for multiple pipelines",
+			args{
+				event:     "event:uri:test",
+				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
+			},
+			false,
+			redisErrors{false, false, false, false},
+		},
+		{
+			"create event trigger for non-existing pipeline",
+			args{
+				event:     "event:uri:test",
+				pipelines: []string{"non-existing-pipeline", "owner:repo:test"},
+			},
+			true,
+			redisErrors{false, false, false, false},
+		},
+		{
+			"fail start transaction",
+			args{
+				event:     "event:uri:test",
+				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
+			},
+			true,
+			redisErrors{true, false, false, false},
+		},
+		{
+			"fail adding pipeline to Triggers map",
+			args{
+				event:     "event:uri:test",
+				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
+			},
+			true,
+			redisErrors{false, true, false, false},
+		},
+		{
+			"fail adding events to Pipelines map",
+			args{
+				event:     "event:uri:test",
+				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
+			},
+			true,
+			redisErrors{false, false, true, false},
+		},
+		{
+			"fail exec transaction",
+			args{
+				event:     "event:uri:test",
+				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
+			},
+			true,
+			redisErrors{false, false, false, true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := codefresh.NewCodefreshMockEndpoint()
+			r := &RedisStore{
+				redisPool:   &RedisPoolMock{},
+				pipelineSvc: mock,
+			}
+			// expect Redis transaction open
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
+			if tt.errs.multi {
+				cmd.ExpectError(errors.New("MULTI error"))
+				goto Invoke
+			} else {
+				cmd.Expect("OK!")
+			}
+			// add pipeline to event(s)
+			for _, pipeline := range tt.args.pipelines {
+				// mock Codefresh API call
+				if pipeline == "non-existing-pipeline" {
+					mock.On("CheckPipelineExists", pipeline).Return(false, codefresh.ErrPipelineNotFound)
+					goto Invoke
+				} else {
+					mock.On("CheckPipelineExists", pipeline).Return(true, nil)
+				}
+				// add events to the Pipelines map
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(pipeline), 0, tt.args.event)
+				if tt.errs.zadd1 {
+					cmd.ExpectError(errors.New("ZADD error"))
+					goto EndTransaction
+				}
+			}
+			// add events to the Pipelines map
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.args.event), 0, tt.args.pipelines)
+			if tt.errs.zadd2 {
+				cmd.ExpectError(errors.New("ZADD error"))
+			}
+
+		EndTransaction:
+			// discard transaction on error
+			if tt.wantErr && !tt.errs.exec {
+				// expect transaction discard on error
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
+			} else {
+				// expect Redis transaction exec
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
+				if tt.errs.exec {
+					cmd.ExpectError(errors.New("EXEC error"))
+				} else {
+					cmd.Expect("OK!")
+				}
+			}
+
+		Invoke:
+			if err := r.CreateTriggersForEvent(tt.args.event, tt.args.pipelines); (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.CreateTriggersForEvent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			// assert mock
+			mock.AssertExpectations(t)
 		})
 	}
 }

@@ -2,21 +2,6 @@ package backend
 
 /*  REDIS Data Model
 
-	Secrets (String)
-
-	+------------------------------------------+
-	|                                          |
-	|                                          |
-	| +--------------------+      +----------+ |
-	| |                    |      |          | |
-	| | secret:{event-uri} +------> {secret} | |
-	| |                    |      |          | |
-	| +--------------------+      +----------+ |
-	|                                          |
-	|                                          |
-	+------------------------------------------+
-
-
 				Triggers (Sorted Set)
 
 	+-------------------------------------------------+
@@ -260,6 +245,152 @@ func (r *RedisStore) Get(eventURI string) (*model.Trigger, error) {
 	return trigger, nil
 }
 
+// CreateTriggersForPipeline create trigger: link multiple events <-> pipeline
+func (r *RedisStore) CreateTriggersForPipeline(pipeline string, events []string) error {
+	con := r.redisPool.GetConn()
+	log.WithFields(log.Fields{
+		"pipeline-uid": pipeline,
+		"event-uri(s)": events,
+	}).Debug("Creating triggers")
+
+	// check Codefresh pipeline existence
+	_, err := r.pipelineSvc.CheckPipelineExists(pipeline)
+	if err != nil {
+		return err
+	}
+
+	// start Redis transaction
+	_, err = con.Do("MULTI")
+	if err != nil {
+		log.WithError(err).Error("Failed to start Redis transaction")
+		return err
+	}
+
+	// add pipeline to Triggers
+	for _, event := range events {
+		log.WithFields(log.Fields{
+			"event-uri":    event,
+			"pipeline-uid": pipeline,
+		}).Debug("Adding pipeline to the Triggers map")
+		_, err = con.Do("ZADD", getTriggerKey(event), 0, pipeline)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+	}
+
+	// add trigger to Pipelines
+	log.WithFields(log.Fields{
+		"pipeline-uid": pipeline,
+		"event-uri(s)": events,
+	}).Debug("Adding trigger to the Pipelines map")
+	_, err = con.Do("ZADD", getPipelineKey(pipeline), 0, events)
+	if err != nil {
+		return discardOnError(con, err)
+	}
+
+	// submit transaction
+	_, err = con.Do("EXEC")
+	if err != nil {
+		log.WithError(err).Error("Failed to execute transaction")
+	}
+	return err
+}
+
+// DeleteTriggersForPipeline delete trigger: unlink multiple events from pipeline
+func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string) error {
+	con := r.redisPool.GetConn()
+	log.WithFields(log.Fields{
+		"pipeline-uid": pipeline,
+		"event-uri(s)": events,
+	}).Debug("Deleting triggers")
+
+	// start Redis transaction
+	_, err := con.Do("MULTI")
+	if err != nil {
+		log.WithError(err).Error("Failed to start Redis transaction")
+		return err
+	}
+
+	// remove pipeline from Triggers
+	for _, event := range events {
+		log.WithFields(log.Fields{
+			"event-uri":    event,
+			"pipeline-uid": pipeline,
+		}).Debug("Removing pipeline from the Triggers map")
+		_, err = con.Do("ZREM", getTriggerKey(event), pipeline)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+	}
+
+	// remove trigger(s) from Pipelines
+	log.WithFields(log.Fields{
+		"pipeline-uid": pipeline,
+		"event-uri(s)": events,
+	}).Debug("Removing triggers from the Pipelines map")
+	_, err = con.Do("ZREM", getPipelineKey(pipeline), events)
+	if err != nil {
+		return discardOnError(con, err)
+	}
+
+	// submit transaction
+	_, err = con.Do("EXEC")
+	if err != nil {
+		log.WithError(err).Error("Failed to execute transaction")
+	}
+	return err
+}
+
+// CreateTriggersForEvent create trigger: link event <-> multiple pipelines
+func (r *RedisStore) CreateTriggersForEvent(event string, pipelines []string) error {
+	con := r.redisPool.GetConn()
+	log.WithFields(log.Fields{
+		"event-uri":       event,
+		"pipeline-uid(s)": pipelines,
+	}).Debug("Creating triggers")
+
+	// start Redis transaction
+	_, err := con.Do("MULTI")
+	if err != nil {
+		log.WithError(err).Error("Failed to start Redis transaction")
+		return err
+	}
+
+	for _, pipeline := range pipelines {
+		// check Codefresh pipeline existence
+		_, err = r.pipelineSvc.CheckPipelineExists(pipeline)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+
+		// add trigger to Pipelines
+		log.WithFields(log.Fields{
+			"pipeline-uid": pipeline,
+			"event-uri":    event,
+		}).Debug("Adding trigger to the Pipelines map")
+		_, err = con.Do("ZADD", getPipelineKey(pipeline), 0, event)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+	}
+	// add pipelines to Triggers
+	log.WithFields(log.Fields{
+		"event-uri":       event,
+		"pipeline-uid(s)": pipelines,
+	}).Debug("Adding pipeline to the Triggers map")
+	_, err = con.Do("ZADD", getTriggerKey(event), 0, pipelines)
+	if err != nil {
+		return discardOnError(con, err)
+	}
+
+	// submit transaction
+	_, err = con.Do("EXEC")
+	if err != nil {
+		log.WithError(err).Error("Failed to execute transaction")
+	}
+	return err
+}
+
 // StoreTrigger (non-interface) common code for RedisStore.Add() and RedisStore.Update()
 func (r *RedisStore) StoreTrigger(trigger model.Trigger) error {
 	con := r.redisPool.GetConn()
@@ -468,88 +599,4 @@ func (r *RedisStore) GetPipelines(events []string) ([]string, error) {
 	}
 
 	return all, nil
-}
-
-// AddPipelines get trigger pipelines by eventURI
-func (r *RedisStore) AddPipelines(eventURI string, pipelines []string) error {
-	log.WithFields(log.Fields{
-		"event-uri": eventURI,
-		"pipelines": pipelines,
-	}).Debug("Adding pipelines to trigger")
-	// get existing trigger
-	trigger, err := r.getFunc(eventURI)
-	if err != nil && err != model.ErrTriggerNotFound {
-		log.WithError(err).Error("Failed to get trigger")
-		return err
-	}
-	// create trigger if not found
-	if err == model.ErrTriggerNotFound {
-		log.Debug("Creating new trigger")
-		trigger = &model.Trigger{}
-		trigger.Event = eventURI
-		trigger.Secret = model.GenerateKeyword
-	}
-
-	// add pipelines to found/created trigger
-	trigger.Pipelines = util.MergeStrings(trigger.Pipelines, pipelines)
-
-	// add trigger if not found
-	if err == model.ErrTriggerNotFound {
-		return r.addFunc(*trigger)
-	}
-
-	// store (update) existing trigger
-	return r.storeTriggerFunc(*trigger)
-}
-
-// DeletePipeline remove pipeline from trigger
-func (r *RedisStore) DeletePipeline(eventURI string, pipelineUID string) error {
-	// get Redis connection
-	con := r.redisPool.GetConn()
-	log.WithFields(log.Fields{
-		"event-uri":    eventURI,
-		"pipeline-uid": pipelineUID,
-	}).Debug("Removing pipeline from trigger")
-
-	// start Redis transaction
-	_, err := con.Do("MULTI")
-	if err != nil {
-		log.WithError(err).Error("Failed to start Redis transaction")
-		return err
-	}
-
-	// try to remove pipeline from set
-	if _, err = con.Do("ZREM", getTriggerKey(eventURI), pipelineUID); err != nil {
-		return discardOnError(con, err)
-	}
-
-	// try to remove trigger event-uri from pipeline set
-	if _, err = con.Do("ZREM", getPipelineKey(pipelineUID), eventURI); err != nil {
-		return discardOnError(con, err)
-	}
-
-	// submit transaction
-	results, err := con.Do("EXEC")
-	if err != nil {
-		log.WithError(err).Error("Failed to execute Redis transaction")
-		return err
-	}
-
-	// failed to remove pipeline
-	if results.([2]int64)[0] == 0 {
-		return model.ErrPipelineNotFound
-	}
-
-	// check if there are pipelines left
-	count, err := redis.Int(con.Do("ZCARD", getTriggerKey(eventURI)))
-	if err != nil && err != redis.ErrNil {
-		log.WithError(err).Error("Failed to get number of pipelines")
-		return err
-	}
-	// no more pipelines -> delete trigger
-	if count == 0 {
-		return r.deleteFunc(eventURI)
-	}
-
-	return nil
 }

@@ -80,10 +80,10 @@ func runServer(c *cli.Context) error {
 	triggersAPI.Handle("PUT", "/:id", triggerController.Update)
 	triggersAPI.Handle("DELETE", "/:id", triggerController.Delete)
 
-	// manage pipelines attached to trigger
-	triggersAPI.Handle("GET", "/:id/pipelines", triggerController.GetPipelines)
-	triggersAPI.Handle("POST", "/:id/pipelines", triggerController.AddPipelines)
-	triggersAPI.Handle("DELETE", "/:id/pipelines/:pid", triggerController.DeletePipeline)
+	// manage pipelines attached to trigger event
+	triggersAPI.Handle("GET", "/:event/pipelines", triggerController.ListPipelines)
+	triggersAPI.Handle("POST", "/:event/pipelines", triggerController.CreateTriggersForEvent)
+	triggersAPI.Handle("DELETE", "/:event/pipelines/:pipeline", triggerController.DeleteTriggersForEvent)
 
 	// invoke trigger with event payload
 	runnerController := controller.NewRunnerController(runner, triggerBackend, secretChecker)

@@ -74,49 +74,49 @@ func (c *Controller) Get(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, trigger)
 }
 
-// GetPipelines get trigger pipelines
-func (c *Controller) GetPipelines(ctx *gin.Context) {
-	id := ctx.Params.ByName("id")
+// ListPipelines get trigger pipelines
+func (c *Controller) ListPipelines(ctx *gin.Context) {
+	event := ctx.Params.ByName("event")
 	var pipelines []string
 	var err error
-	if pipelines, err = c.svc.GetPipelines([]string{id}); err != nil {
+	if pipelines, err = c.svc.GetPipelines([]string{event}); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to get trigger pipelines", "error": err.Error()})
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to get list pipelines", "error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, pipelines)
 }
 
-// AddPipelines add pipelines to trigger
-func (c *Controller) AddPipelines(ctx *gin.Context) {
-	// trigger id (event URI)
-	id := ctx.Params.ByName("id")
+// CreateTriggersForEvent create triggers, adding multiple pipelines to the trigger event
+func (c *Controller) CreateTriggersForEvent(ctx *gin.Context) {
+	// trigger event (event-uri)
+	event := ctx.Params.ByName("event")
 	// get pipelines from body
 	var pipelines []string
 	ctx.Bind(&pipelines)
 	// perform action
 	var err error
-	if err = c.svc.AddPipelines(id, pipelines); err != nil {
+	if err = c.svc.CreateTriggersForEvent(event, pipelines); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to add trigger pipelines", "error": err.Error()})
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to create trigger for pipelines", "error": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, pipelines)
 }
 
-// DeletePipeline delete pipeline from trigger
-func (c *Controller) DeletePipeline(ctx *gin.Context) {
-	// get trigger event URI
-	id := ctx.Params.ByName("id")
-	// get pipeline URI
-	pid := ctx.Params.ByName("pid")
-	if err := c.svc.DeletePipeline(id, pid); err != nil {
+// DeleteTriggersForEvent delete pipeline from trigger
+func (c *Controller) DeleteTriggersForEvent(ctx *gin.Context) {
+	// get trigger event (event-uri)
+	event := ctx.Params.ByName("event")
+	// get pipeline
+	pipeline := ctx.Params.ByName("pipeline")
+	if err := c.svc.DeleteTriggersForPipeline(pipeline, []string{event}); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound

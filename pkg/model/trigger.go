@@ -24,6 +24,13 @@ type (
 		Pipelines []string `json:"pipelines" yaml:"pipelines"`
 	}
 
+	TriggerLink struct {
+		// unique event URI, use ':' instead of '/'
+		Event string `json:"event" yaml:"event"`
+		// pipeline
+		Pipeline string `json:"pipeline" yaml:"pipeline"`
+	}
+
 	// TriggerReaderWriter interface
 	TriggerReaderWriter interface {
 		List(filter string) ([]*Trigger, error)
@@ -34,8 +41,9 @@ type (
 		Delete(eventURI string) error
 		Update(trigger Trigger) error
 		GetPipelines(events []string) ([]string, error)
-		AddPipelines(eventURI string, pipelines []string) error
-		DeletePipeline(eventURI string, pipelineUID string) error
+		CreateTriggersForEvent(event string, pipelines []string) error
+		CreateTriggersForPipeline(pipeline string, events []string) error
+		DeleteTriggersForPipeline(pipeline string, events []string) error
 	}
 
 	// Runner pipeline runner
