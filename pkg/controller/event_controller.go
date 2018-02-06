@@ -11,11 +11,11 @@ import (
 // EventController trigger controller
 type EventController struct {
 	trigger              model.TriggerReaderWriter
-	eventHandlerInformer backend.EventHandlerInformer
+	eventHandlerInformer backend.EventProviderInformer
 }
 
 // NewEventController new trigger controller
-func NewEventController(trigger model.TriggerReaderWriter, eventHandlerInformer backend.EventHandlerInformer) *EventController {
+func NewEventController(trigger model.TriggerReaderWriter, eventHandlerInformer backend.EventProviderInformer) *EventController {
 	return &EventController{trigger, eventHandlerInformer}
 }
 
@@ -41,9 +41,9 @@ func (c *EventController) GetType(ctx *gin.Context) {
 	// get event kind
 	eventKind := ctx.Param("kind")
 
-	typeObject := c.eventHandlerInformer.GetType(eventType, eventKind)
-	if typeObject == nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "failed to find type " + eventType + " of kind " + eventKind})
+	typeObject, err := c.eventHandlerInformer.GetType(eventType, eventKind)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "failed to find type " + eventType + " of kind " + eventKind, "error": err.Error()})
 		return
 	}
 
@@ -67,9 +67,9 @@ func (c *EventController) GetEventInfo(ctx *gin.Context) {
 		return
 	}
 
-	info := c.eventHandlerInformer.GetEventInfo(eventURI, secret)
-	if info == nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "failed to find info for event " + eventURI})
+	info, err := c.eventHandlerInformer.GetEventInfo(eventURI, secret)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "failed to find info for event", "error": err.Error()})
 		return
 	}
 

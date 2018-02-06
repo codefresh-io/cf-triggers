@@ -33,11 +33,14 @@ type (
 
 	// TriggerReaderWriter interface
 	TriggerReaderWriter interface {
+		// trigger events
+		GetEvent(event string) (*Event, error)
+		CreateEvent(eventType string, kind string, secret string, values map[string]string) (*Event, error)
+		DeleteEvent(event string) error
 		GetSecret(eventURI string) (string, error)
-		Get(eventURI string) (*Trigger, error)
-		Add(trigger Trigger) error
-		Delete(eventURI string) error
-		Update(trigger Trigger) error
+		// triggers
+		ListTriggersForEvents(events []string) ([]TriggerLink, error)
+		ListTriggersForPipelines(pipelines []string) ([]TriggerLink, error)
 		GetPipelinesForTriggers(events []string) ([]string, error)
 		CreateTriggersForEvent(event string, pipelines []string) error
 		CreateTriggersForPipeline(pipeline string, events []string) error

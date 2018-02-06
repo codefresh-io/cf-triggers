@@ -2,8 +2,11 @@ package backend
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,31 +17,32 @@ import (
 )
 
 type (
-	// EventHandlerManager is responsible for discovering new Event Handlers
-	EventHandlerManager struct {
+	// EventProviderManager is responsible for discovering new Trigger Event Providers
+	EventProviderManager struct {
 		sync.RWMutex
 		configFile string
 		eventTypes model.EventTypes
 		watcher    *util.FileWatcher
 	}
 
-	// EventHandlerInformer describes installed and configured Event Handlers
-	EventHandlerInformer interface {
+	// EventProviderInformer describes installed and configured Trigger Event Providers
+	EventProviderInformer interface {
 		GetTypes() []model.EventType
-		MatchType(eventURI string) *model.EventType
-		GetType(t string, k string) *model.EventType
-		GetEventInfo(eventURI string, secret string) *model.EventInfo
+		MatchType(eventURI string) (*model.EventType, error)
+		GetType(t string, k string) (*model.EventType, error)
+		GetEventInfo(eventURI string, secret string) (*model.EventInfo, error)
+		ConstructEventURI(t string, k string, values map[string]string) (string, error)
 	}
 )
 
 var (
-	instance *EventHandlerManager
+	instance *EventProviderManager
 	once     sync.Once
 )
 
 // non singleton - for test only
-func newTestEventHandlerManager(configFile string) *EventHandlerManager {
-	instance = new(EventHandlerManager)
+func newTestEventProviderManager(configFile string) *EventProviderManager {
+	instance = new(EventProviderManager)
 	instance.configFile = configFile
 	// start monitoring
 	instance.eventTypes, _ = loadEventHandlerTypes(configFile)
@@ -47,11 +51,11 @@ func newTestEventHandlerManager(configFile string) *EventHandlerManager {
 	return instance
 }
 
-// NewEventHandlerManager return new Event Handler Manager (singleton)
+// NewEventProviderManager return new Event Handler Manager (singleton)
 // Event Handler Manager discoveres all registered Event Handlers and can describe them
-func NewEventHandlerManager(configFile string, skipMonitor bool) *EventHandlerManager {
+func NewEventProviderManager(configFile string, skipMonitor bool) *EventProviderManager {
 	once.Do(func() {
-		instance = new(EventHandlerManager)
+		instance = new(EventProviderManager)
 		instance.configFile = configFile
 		// load config file
 		log.WithFields(log.Fields{
@@ -91,7 +95,7 @@ func loadEventHandlerTypes(configFile string) (model.EventTypes, error) {
 }
 
 // Close - free file watcher resources
-func (m *EventHandlerManager) Close() {
+func (m *EventProviderManager) Close() {
 	if m.watcher != nil {
 		log.Debug("Close file watcher")
 		m.watcher.Close()
@@ -100,7 +104,7 @@ func (m *EventHandlerManager) Close() {
 
 // NOTE: should be called only once
 // monitor configuration directory to discover new/updated/deleted Event Handlers
-func (m *EventHandlerManager) monitorConfigFile() *util.FileWatcher {
+func (m *EventProviderManager) monitorConfigFile() *util.FileWatcher {
 	// Watch the file for modification and update the config manager with the new config when it's available
 	watcher, err := util.WatchFile(m.configFile, time.Second, func() {
 		log.Debug("Config types file updated")
@@ -120,7 +124,7 @@ func (m *EventHandlerManager) monitorConfigFile() *util.FileWatcher {
 }
 
 // GetTypes get discovered event handler types
-func (m *EventHandlerManager) GetTypes() []model.EventType {
+func (m *EventProviderManager) GetTypes() []model.EventType {
 	m.Lock()
 	defer m.Unlock()
 	if len(m.eventTypes.Types) != 0 {
@@ -132,25 +136,27 @@ func (m *EventHandlerManager) GetTypes() []model.EventType {
 }
 
 // GetType get individual event handler type (by type and kind)
-func (m *EventHandlerManager) GetType(eventType string, eventKind string) *model.EventType {
+func (m *EventProviderManager) GetType(eventType string, eventKind string) (*model.EventType, error) {
+	log.WithFields(log.Fields{
+		"type": eventType,
+		"kind": eventKind,
+	}).Debug("get event type")
+
 	m.Lock()
 	defer m.Unlock()
 
 	for _, e := range m.eventTypes.Types {
 		if e.Type == eventType && e.Kind == eventKind {
-			return &e
+			return &e, nil
 		}
 	}
-
-	log.WithFields(log.Fields{
-		"type": eventType,
-		"kind": eventKind,
-	}).Error("fail to find event type")
-	return nil
+	return nil, errors.New("failed to find event type")
 }
 
 // MatchType match event type by uri
-func (m *EventHandlerManager) MatchType(eventURI string) *model.EventType {
+func (m *EventProviderManager) MatchType(eventURI string) (*model.EventType, error) {
+	log.WithField("event-uri", eventURI).Debug("Matching event type")
+
 	m.Lock()
 	defer m.Unlock()
 
@@ -164,29 +170,76 @@ func (m *EventHandlerManager) MatchType(eventURI string) *model.EventType {
 			continue // skip
 		}
 		if r.MatchString(eventURI) {
-			return &e
+			return &e, nil
 		}
 	}
 
-	log.WithField("event-uri", eventURI).Errorf("Failed to find event type")
-	return nil
+	return nil, errors.New("failed to match event type")
 }
 
 // GetEventInfo get individual event handler type (by type and kind)
-func (m *EventHandlerManager) GetEventInfo(eventURI string, secret string) *model.EventInfo {
-	log.WithField("event-uri", eventURI).Debug("Getting detailed event info")
-	et := m.MatchType(eventURI)
-	if et == nil {
-		return nil
+func (m *EventProviderManager) GetEventInfo(eventURI string, secret string) (*model.EventInfo, error) {
+	log.WithField("event-uri", eventURI).Debug("Getting event info from event provider")
+	et, err := m.MatchType(eventURI)
+	if err != nil {
+		return nil, err
 	}
 
 	// call Event Handler service to get event info
-	handler := model.NewEventHandlerEndpoint(et.ServiceURL)
+	handler := model.NewEventProviderEndpoint(et.ServiceURL)
 	info, err := handler.GetEventInfo(eventURI, secret)
 	if err != nil {
 		log.WithError(err).Error("Failed to get event info")
-		return nil
+		return nil, err
 	}
 
-	return info
+	return info, nil
+}
+
+// ConstructEventURI construct event URI from type/kind and values map
+func (m *EventProviderManager) ConstructEventURI(t string, k string, values map[string]string) (string, error) {
+	log.WithFields(log.Fields{
+		"type":   t,
+		"kind":   k,
+		"values": values,
+	}).Debug("constructing event URI")
+
+	// get event type
+	eventType, err := m.GetType(t, k)
+	if err != nil {
+		return "", err
+	}
+
+	// event URI is set to URI template initially
+	eventURI := eventType.URITemplate
+
+	// scan through all config fields
+	for _, field := range eventType.Config {
+		// get value for config field name
+		val := values[field.Name]
+		// validate value
+		log.WithFields(log.Fields{
+			"field": field.Name,
+			"regex": field.Validator,
+		}).Debug("validating field")
+		r, err := regexp.Compile(field.Validator)
+		if err != nil {
+			return "", err
+		}
+		if !r.MatchString(val) {
+			return "", errors.New("field validation failed")
+		}
+		// substitute value for template string in URI template
+		eventURI = strings.Replace(eventURI, fmt.Sprintf("{{%s}}", field.Name), val, -1)
+	}
+
+	// do a final validation
+	r, err := regexp.Compile(eventType.URIPattern)
+	if err != nil {
+		return "", err
+	}
+	if r.MatchString(eventURI) {
+		return eventURI, nil
+	}
+	return "", errors.New("event URI does not match URI pattern")
 }

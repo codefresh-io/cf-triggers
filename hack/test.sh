@@ -27,7 +27,14 @@ generate_cover_data() {
   [ -d "${COVER}" ] && rm -rf "${COVER:?}/*"
   [ -d "${COVER}" ] || mkdir -p "${COVER}"
 
-  IFS=$'\n' read -r -a pkgs <<< "$(go list -f '{{if .TestGoFiles}}{{ .ImportPath }}{{end}}' ./... | grep -v vendor)"
+  # Save current IFS
+  SAVEIFS=$IFS
+  # Change IFS to new line. 
+  IFS=$'\n'
+  pkgs=($(go list -f '{{if .TestGoFiles}}{{ .ImportPath }}{{end}}' ./... | grep -v vendor))
+  # Restore IFS
+  # Restore IFS
+  IFS=$SAVEIFS
 
   for pkg in "${pkgs[@]}"; do
     f="${COVER}/$(echo $pkg | tr / -).cover"

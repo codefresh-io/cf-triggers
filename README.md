@@ -29,22 +29,6 @@ It's responsibility of *Event Provider* to get interesting events (or generate; 
 - `variables` - list of *selected* event properties, extracted from event payload
 - `original` - original event payload (JSON or FORM), `base64` encoded
 
-### Event unique URI
-
-> **Claim** every event has an URI, that can be easily constructed!
-
-Based on above **claim**, we can construct unique URI for any event coming from external system.
-
-#### Examples
-
-| External System         | Event Description                                             | Event URI                              |
-| ----------------------- | ------------------------------------------------------------- | -------------------------------------- |
-| DockerHub               | push `cfapi` docker image with new tag                        | `index.docker.io:codefresh:cfapi:push` |
-| GitHub                  | publish new GitHub release for `pumba`                        | `github.io:gaiaadm:pumba:release`      |
-| TravisCI                | completed TravisCI build for `alexei-led/alpine-plus`         | `travis-ci.org:alexei-led:alpine-plus` |
-| Cron                    | once a Day, at 1:30pm: `30 13 * * *`                          | `cron:30 13 * * *`                     |
-| Private Docker Registry | push `demo\demochat` to private Docker registry `myhost:5000` | `registry:myhost:5000:demo:demochat`   |
-
 ## Trigger Manager
 
 Hermes trigger manager is a single binary file `hermes`. This file includes both configuration CLI and trigger manager server.

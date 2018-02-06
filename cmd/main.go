@@ -31,7 +31,8 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		serverCommand,
 		triggerCommand,
 		pipelineCommand,
-		infoCommand,
+		triggerEventCommand,
+		triggerTypeCommand,
 	}
 	app.Flags = []cli.Flag{
 		cli.StringFlag{

@@ -48,23 +48,14 @@ Adding trigger for `codefresh/fortune` Docker Hub `push` event, that should trig
 
 #### command line
 
+TODO: show command
 ```sh
-NAME:
-   hermes trigger add - add trigger
 
-USAGE:
-   hermes trigger add [command options] <event URI> <pipeline UID>
-
-DESCRIPTION:
-   Add a new trigger connected to specified pipeline
-
-OPTIONS:
-   --secret value, -s value  trigger secret (auto-generated if skipped) (default: "!generate")
 ```
 
 ```sh
 # add new trigger (and generate secret)
-hermes trigger add --secret="!generate" index.docker.io:codefresh:fortune:push alexei-led codefresh-io trigger-examples run_fortune
+TODO: example
 ```
 
 #### REST API
@@ -73,6 +64,7 @@ hermes trigger add --secret="!generate" index.docker.io:codefresh:fortune:push a
 
 ###
 # Add trigger
+TODO: update
 POST http://localhost:8080/triggers
 content-type: application/json
 

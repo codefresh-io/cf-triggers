@@ -41,11 +41,11 @@ func runServer(c *cli.Context) error {
 	log.WithField("cfapi", c.GlobalString("codefresh")).Debug("Using Codefresh API")
 
 	// get event handler informer
-	eventHandlerInformer := backend.NewEventHandlerManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	eventHandlerInformer := backend.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 	log.WithField("config", c.GlobalString("config")).Debug("Monitoring types config file")
 
 	// get trigger backend service
-	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
 	log.WithFields(log.Fields{
 		"redis server": c.GlobalString("redis"),
 		"redis port":   c.GlobalInt("redis-port"),
@@ -75,10 +75,9 @@ func runServer(c *cli.Context) error {
 	// manage triggers
 	triggersAPI := router.Group("/triggers", gin.Logger())
 	//triggersAPI.Handle("GET", "/", triggerController.List) // pass filter or pipeline as query parameter
-	triggersAPI.Handle("GET", "/:id", triggerController.Get)
-	triggersAPI.Handle("POST", "/", triggerController.Add)
-	triggersAPI.Handle("PUT", "/:id", triggerController.Update)
-	triggersAPI.Handle("DELETE", "/:id", triggerController.Delete)
+	triggersAPI.Handle("GET", "/:event", triggerController.GetEvent)
+	triggersAPI.Handle("POST", "/", triggerController.CreateEvent)
+	triggersAPI.Handle("DELETE", "/:event", triggerController.DeleteEvent)
 
 	// manage pipelines attached to trigger event
 	triggersAPI.Handle("GET", "/:event/pipelines", triggerController.ListPipelines)

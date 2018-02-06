@@ -12,7 +12,6 @@ import (
 	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
-	"github.com/stretchr/testify/mock"
 )
 
 type RedisPoolMock struct {
@@ -24,35 +23,6 @@ func (r *RedisPoolMock) GetConn() redis.Conn {
 		r.conn = redigomock.NewConn()
 	}
 	return r.conn
-}
-
-// Mock some RedisStore methods
-
-type storeMock struct {
-	mock.Mock
-}
-
-func (c *storeMock) StoreTrigger(t model.Trigger) error {
-	args := c.Called(t)
-	return args.Error(0)
-}
-
-func (c *storeMock) Delete(e string) error {
-	args := c.Called(e)
-	return args.Error(0)
-}
-
-func (c *storeMock) Add(t model.Trigger) error {
-	args := c.Called(t)
-	return args.Error(0)
-}
-
-func (c *storeMock) Get(e string) (*model.Trigger, error) {
-	args := c.Called(e)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.Trigger), args.Error(1)
 }
 
 // helper function to convert []string to []interface{}
@@ -85,383 +55,24 @@ func Test_getPrefixKey(t *testing.T) {
 	}
 }
 
-func TestRedisStore_Get(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	tests := []struct {
-		name     string
-		fields   fields
-		expected []string
-		want     *model.Trigger
-		wantErr  bool
-	}{
-		{
-			"get trigger by id",
-			fields{redisPool: &RedisPoolMock{}},
-			[]string{"puid-1", "puid-2", "puid-3"},
-			&model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2", "puid-3"},
-			},
-			false,
-		},
-		{
-			"get trigger GET error",
-			fields{redisPool: &RedisPoolMock{}},
-			[]string{"puid-1"},
-			&model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1"},
-			},
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool: tt.fields.redisPool,
-			}
-			if tt.wantErr {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.want.Event)).ExpectError(fmt.Errorf("GET error"))
-			} else {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.want.Event)).Expect(tt.want.Secret)
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.want.Event), 0, -1).Expect(interfaceSlice(tt.expected))
-			}
-			got, err := r.Get(tt.want.Event)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RedisStore.Get() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("RedisStore.Get() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestRedisStore_StoreTrigger(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		trigger model.Trigger
-		wantErr [3]bool
-	}{
-		{
-			"store trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			[3]bool{false, false, false},
-		},
-		{
-			"store trigger with auto-generated secret",
-			fields{redisPool: &RedisPoolMock{}},
-			model.Trigger{
-				Event: "test:1", Secret: model.GenerateKeyword, Pipelines: []string{"puid-1", "puid-2"},
-			},
-			[3]bool{false, false, false},
-		},
-		{
-			"store trigger SET error",
-			fields{redisPool: &RedisPoolMock{}},
-			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			[3]bool{true, false, false},
-		},
-		{
-			"store trigger non-existing pipeline",
-			fields{redisPool: &RedisPoolMock{}},
-			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			[3]bool{false, true, false},
-		},
-		{
-			"store trigger SADD error",
-			fields{redisPool: &RedisPoolMock{}},
-			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			[3]bool{false, false, true},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mock := codefresh.NewCodefreshMockEndpoint()
-			r := &RedisStore{
-				redisPool:   tt.fields.redisPool,
-				pipelineSvc: mock,
-			}
-			// expect Redis transaction open
-			r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI").Expect("OK!")
-			// error cases
-			if tt.wantErr[0] {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("SET", getSecretKey(tt.trigger.Event), tt.trigger.Secret).ExpectError(fmt.Errorf("SET error"))
-				// expect transaction discard on error
-				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
-			} else {
-				if tt.trigger.Secret == model.GenerateKeyword {
-					r.redisPool.GetConn().(*redigomock.Conn).Command("SET", getSecretKey(tt.trigger.Event), util.TestRandomString).Expect("OK!")
-				} else {
-					r.redisPool.GetConn().(*redigomock.Conn).Command("SET", getSecretKey(tt.trigger.Event), tt.trigger.Secret).Expect("OK!")
-				}
-				for _, p := range tt.trigger.Pipelines {
-					if tt.wantErr[1] {
-						mock.On("CheckPipelineExists", p).Return(false, codefresh.ErrPipelineNotFound)
-						// expect transaction discard on error
-						r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
-						break
-					} else {
-						mock.On("CheckPipelineExists", p).Return(true, nil)
-					}
-					if tt.wantErr[2] {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, p).ExpectError(fmt.Errorf("ZADD error"))
-						// expect transaction discard on error
-						r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
-						break
-					} else {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.trigger.Event), 0, p)
-					}
-					r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(p), 0, tt.trigger.Event)
-					// expect Redis transaction exec
-					r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC").Expect("OK!")
-				}
-			}
-			// perform function call
-			if err := r.StoreTrigger(tt.trigger); (err != nil) != (tt.wantErr[0] || tt.wantErr[1] || tt.wantErr[2]) {
-				t.Errorf("RedisStore.storeTrigger() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			// assert expectation
-			mock.AssertExpectations(t)
-		})
-	}
-}
-
-func TestRedisStore_Add(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		trigger model.Trigger
-		mock    *storeMock
-		count   int64 // number of existing pipelines for trigger
-		wantErr error
-	}{
-		{
-			"add trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			&storeMock{},
-			0,
-			nil,
-		},
-		{
-			"try to add existing trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			&storeMock{},
-			10,
-			model.ErrTriggerAlreadyExists,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool:        tt.fields.redisPool,
-				storeTriggerFunc: tt.mock.StoreTrigger,
-			}
-			// mock redis
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZCARD", getTriggerKey(tt.trigger.Event)).Expect(int64(tt.count))
-			// mock store call
-			if tt.count == 0 {
-				tt.mock.On("StoreTrigger", tt.trigger).Return(nil)
-			}
-			// if tt.count == 0 { // following commands run only if there is no existing trigger with pipelines
-			if err := r.Add(tt.trigger); err != nil && err != tt.wantErr {
-				t.Errorf("RedisStore.Add() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			// assert expectation
-			tt.mock.AssertExpectations(t)
-		})
-	}
-}
-
-func TestRedisStore_Update(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	tests := []struct {
-		name      string
-		fields    fields
-		pipelines []string
-		trigger   model.Trigger
-		mock      *storeMock
-		count     int64
-		wantErr   error
-	}{
-		{
-			"update trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			[]string{"puid-1", "puid-2"},
-			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			&storeMock{},
-			1,
-			nil,
-		},
-		{
-			"try to update non existing trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			[]string{"puid-1", "puid-2"},
-			model.Trigger{
-				Event: "test:1", Secret: "secretA", Pipelines: []string{"puid-1", "puid-2"},
-			},
-			&storeMock{},
-			0,
-			model.ErrTriggerNotFound,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool:        tt.fields.redisPool,
-				storeTriggerFunc: tt.mock.StoreTrigger,
-			}
-			// mock redis
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZCARD", getTriggerKey(tt.trigger.Event)).Expect(tt.count)
-			if tt.wantErr != nil {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.trigger.Event), 0, -1).Expect(nil)
-			} else {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.trigger.Event), 0, -1).Expect(interfaceSlice(tt.pipelines))
-				// mock store call
-				tt.mock.On("StoreTrigger", tt.trigger).Return(nil)
-			}
-			// if tt.count == 0 { // following commands run only if there is no existing trigger with pipelines
-			if err := r.Update(tt.trigger); err != nil && err != tt.wantErr {
-				t.Errorf("RedisStore.Update() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			// assert expectation
-			tt.mock.AssertExpectations(t)
-		})
-	}
-}
-
-func TestRedisStore_Delete(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
-	type args struct {
-		id        string
-		pipelines []string
-	}
-	tests := []struct {
-		name              string
-		fields            fields
-		args              args
-		wantDelSecretErr  bool
-		wantDelTriggerErr bool
-	}{
-		{
-			"delete trigger",
-			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test", pipelines: []string{"p1", "p2"}},
-			false,
-			false,
-		},
-		{
-			"delete trigger from single pipeline",
-			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test", pipelines: []string{"p1"}},
-			false,
-			false,
-		},
-		{
-			"delete trigger DEL secret error",
-			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test"},
-			true,
-			false,
-		},
-		{
-			"delete trigger DEL trigger error",
-			fields{redisPool: &RedisPoolMock{}},
-			args{id: "test"},
-			false,
-			true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RedisStore{
-				redisPool: tt.fields.redisPool,
-			}
-			// get pipelines
-			r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.id), 0, -1).Expect(interfaceSlice(tt.args.pipelines))
-			// expect Redis transaction open
-			r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI").Expect("OK!")
-			// delete secret
-			if tt.wantDelSecretErr {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getSecretKey(tt.args.id)).ExpectError(fmt.Errorf("DEL STRING error"))
-				// expect transaction discard on error
-				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
-			} else {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getSecretKey(tt.args.id)).Expect("OK!")
-			}
-			// delete trigger from pipelines
-			for _, p := range tt.args.pipelines {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(p), tt.args.id)
-			}
-			// delete trigger
-			if tt.wantDelTriggerErr {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getTriggerKey(tt.args.id)).ExpectError(fmt.Errorf("DEL SET error"))
-				// expect transaction discard on error
-				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
-			} else {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getTriggerKey(tt.args.id)).Expect("OK!")
-				r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC").Expect("OK!")
-			}
-			if err := r.Delete(tt.args.id); (err != nil) != (tt.wantDelSecretErr || tt.wantDelTriggerErr) {
-				t.Errorf("RedisStore.Delete() error = %v", err)
-			}
-		})
-	}
-}
-
 func TestMain(m *testing.M) {
 	util.TestMode = true
 	os.Exit(m.Run())
 }
 
 func TestRedisStore_Ping(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
 	tests := []struct {
 		name    string
-		fields  fields
 		want    string
 		wantErr bool
 	}{
 		{
 			"happy ping",
-			fields{redisPool: &RedisPoolMock{}},
 			"PONG",
 			false,
 		},
 		{
 			"failed ping - no Redis",
-			fields{redisPool: &RedisPoolMock{}},
 			"",
 			true,
 		},
@@ -469,7 +80,7 @@ func TestRedisStore_Ping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &RedisStore{
-				redisPool: tt.fields.redisPool,
+				redisPool: &RedisPoolMock{},
 			}
 			if tt.wantErr {
 				r.redisPool.GetConn().(*redigomock.Conn).Command("PING").ExpectError(fmt.Errorf("PING error"))
@@ -489,24 +100,19 @@ func TestRedisStore_Ping(t *testing.T) {
 }
 
 func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
 	type args struct {
 		id        string
 		pipelines []string
 	}
 	tests := []struct {
 		name         string
-		fields       fields
 		args         []args
 		expected     []string
-		wantRedisErr bool
+		wantRedisErr error
 		wantEmptyErr bool
 	}{
 		{
 			"get single trigger pipelines",
-			fields{redisPool: &RedisPoolMock{}},
 			[]args{
 				{
 					id:        "event:test:uri",
@@ -514,12 +120,11 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 				},
 			},
 			[]string{"puid-1", "puid-2", "puid-3"},
-			false,
+			nil,
 			false,
 		},
 		{
 			"get multi trigger pipelines",
-			fields{redisPool: &RedisPoolMock{}},
 			[]args{
 				{
 					id:        "event:test-1:uri",
@@ -531,12 +136,11 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 				},
 			},
 			[]string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
-			false,
+			nil,
 			false,
 		},
 		{
 			"get multi trigger pipelines (duplicate)",
-			fields{redisPool: &RedisPoolMock{}},
 			[]args{
 				{
 					id:        "event:test-1:uri",
@@ -548,12 +152,11 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 				},
 			},
 			[]string{"puid-1", "puid-2", "puid-3", "puid-4"},
-			false,
+			nil,
 			false,
 		},
 		{
 			"get all pipelines",
-			fields{redisPool: &RedisPoolMock{}},
 			[]args{
 				{
 					id:        "",
@@ -561,12 +164,47 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 				},
 			},
 			[]string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
+			nil,
 			false,
+		},
+		{
+			"get all pipelines with redis error",
+			[]args{
+				{
+					id:        "",
+					pipelines: []string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
+				},
+			},
+			nil,
+			errors.New("REDIS error"),
 			false,
+		},
+		{
+			"get all pipelines with redis ErrNil",
+			[]args{
+				{
+					id:        "",
+					pipelines: []string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
+				},
+			},
+			nil,
+			redis.ErrNil,
+			false,
+		},
+		{
+			"get all pipelines with empty result",
+			[]args{
+				{
+					id:        "",
+					pipelines: []string{},
+				},
+			},
+			[]string{},
+			nil,
+			true,
 		},
 		{
 			"get trigger pipelines ZRANGE error",
-			fields{redisPool: &RedisPoolMock{}},
 			[]args{
 				{
 					id:        "event:test:uri",
@@ -574,12 +212,23 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 				},
 			},
 			nil,
+			errors.New("REDIS error"),
 			true,
-			false,
+		},
+		{
+			"get trigger pipelines ZRANGE error",
+			[]args{
+				{
+					id:        "event:test:uri",
+					pipelines: nil,
+				},
+			},
+			nil,
+			redis.ErrNil,
+			true,
 		},
 		{
 			"get trigger pipelines EMPTY error",
-			fields{redisPool: &RedisPoolMock{}},
 			[]args{
 				{
 					id:        "event:test:uri",
@@ -587,25 +236,29 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 				},
 			},
 			nil,
-			false,
+			nil,
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &RedisStore{
-				redisPool: tt.fields.redisPool,
+				redisPool: &RedisPoolMock{},
 			}
-			if tt.wantRedisErr {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args[0].id), 0, -1).ExpectError(fmt.Errorf("ZRANGE error"))
-			} else if tt.wantEmptyErr {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args[0].id), 0, -1).Expect(interfaceSlice(tt.args[0].pipelines))
-			} else {
-				for _, _arg := range tt.args {
-					if _arg.id == "" {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getPipelineKey(_arg.id)).Expect(interfaceSlice(_arg.pipelines))
+			for _, _arg := range tt.args {
+				if _arg.id == "" {
+					cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getPipelineKey(_arg.id))
+					if tt.wantRedisErr != nil {
+						cmd.ExpectError(tt.wantRedisErr)
 					} else {
-						r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(_arg.id), 0, -1).Expect(interfaceSlice(_arg.pipelines))
+						cmd.Expect(interfaceSlice(_arg.pipelines))
+					}
+				} else {
+					cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(_arg.id), 0, -1)
+					if tt.wantRedisErr != nil {
+						cmd.ExpectError(tt.wantRedisErr)
+					} else {
+						cmd.Expect(interfaceSlice(_arg.pipelines))
 					}
 				}
 			}
@@ -616,11 +269,11 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 				}
 			}
 			got, err := r.GetPipelinesForTriggers(ids)
-			if (err != nil) != (tt.wantRedisErr || tt.wantEmptyErr) {
-				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, (tt.wantRedisErr || tt.wantEmptyErr))
+			if (err != nil) != (tt.wantRedisErr != nil || tt.wantEmptyErr) {
+				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, (tt.wantRedisErr != nil || tt.wantEmptyErr))
 				return
 			}
-			if !reflect.DeepEqual(got, tt.expected) {
+			if (len(got) > 0 || len(tt.expected) > 0) && !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("RedisStore.GetPipelinesForTriggers() = %v, want %v", got, tt.expected)
 			}
 		})
@@ -628,29 +281,23 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 }
 
 func TestRedisStore_GetSecret(t *testing.T) {
-	type fields struct {
-		redisPool RedisPoolService
-	}
 	type args struct {
 		eventURI string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    string
 		wantErr bool
 	}{
 		{
 			name:    "get secret",
-			fields:  fields{redisPool: &RedisPoolMock{}},
 			args:    args{eventURI: "event:test"},
 			want:    "123456789",
 			wantErr: false,
 		},
 		{
 			name:    "get secret missing",
-			fields:  fields{redisPool: &RedisPoolMock{}},
 			args:    args{eventURI: "event:test"},
 			want:    "",
 			wantErr: true,
@@ -659,12 +306,12 @@ func TestRedisStore_GetSecret(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &RedisStore{
-				redisPool: tt.fields.redisPool,
+				redisPool: &RedisPoolMock{},
 			}
 			if tt.wantErr {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.eventURI)).ExpectError(fmt.Errorf("GET error"))
+				r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", getEventKey(tt.args.eventURI), "secret").ExpectError(fmt.Errorf("HGET error"))
 			} else {
-				r.redisPool.GetConn().(*redigomock.Conn).Command("GET", getSecretKey(tt.args.eventURI)).Expect(tt.want)
+				r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", getEventKey(tt.args.eventURI), "secret").Expect(tt.want)
 			}
 			got, err := r.GetSecret(tt.args.eventURI)
 			if (err != nil) != tt.wantErr {
@@ -1352,6 +999,377 @@ func TestRedisStore_ListTriggersForPipelines(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("RedisStore.ListTriggersForPipelines() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestRedisStore_GetEvent(t *testing.T) {
+	type args struct {
+		event string
+	}
+	type expect struct {
+		fields map[string]string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		expect  expect
+		want    *model.Event
+		wantErr error
+	}{
+		{
+			name: "get existing event",
+			args: args{event: "event:uri:test"},
+			expect: expect{
+				fields: map[string]string{
+					"type":        "test-type",
+					"kind":        "test-kind",
+					"secret":      "test-secret",
+					"endpoint":    "http://endpoint",
+					"description": "test-desc",
+					"status":      "test",
+					"help":        "test-help",
+				},
+			},
+			want: &model.Event{
+				URI:    "event:uri:test",
+				Type:   "test-type",
+				Kind:   "test-kind",
+				Secret: "test-secret",
+				EventInfo: model.EventInfo{
+					Endpoint:    "http://endpoint",
+					Description: "test-desc",
+					Status:      "test",
+					Help:        "test-help",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "get non-existing event",
+			args: args{event: "non-existing:event:uri:test"},
+			expect: expect{
+				fields: nil,
+			},
+			want:    nil,
+			wantErr: errors.New("HGETALL error"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getEventKey(tt.args.event))
+			if tt.wantErr != nil {
+				cmd.ExpectError(tt.wantErr)
+			} else {
+				cmd.ExpectMap(tt.expect.fields)
+			}
+			got, err := r.GetEvent(tt.args.event)
+			if err != tt.wantErr {
+				t.Errorf("RedisStore.GetEvent() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.GetEvent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRedisStore_DeleteEvent(t *testing.T) {
+	type args struct {
+		event string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name:    "delete existing trigger event",
+			args:    args{event: "event:uri:test"},
+			wantErr: nil,
+		},
+		{
+			name:    "delete trigger event REDIS error",
+			args:    args{event: "event:uri:test"},
+			wantErr: errors.New("REDIS error"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getEventKey(tt.args.event))
+			if tt.wantErr != nil {
+				cmd.ExpectError(tt.wantErr)
+			} else {
+				cmd.Expect("OK!")
+			}
+			if err := r.DeleteEvent(tt.args.event); err != tt.wantErr {
+				t.Errorf("RedisStore.DeleteEvent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRedisStore_CreateEvent(t *testing.T) {
+	type redisErrors struct {
+		multi          bool
+		hsetnxType     bool
+		hsetnxKind     bool
+		hsetnxSecret   bool
+		hsetnxDesc     bool
+		hsetnxEndpoint bool
+		hsetnxHelp     bool
+		hsetnxStatus   bool
+		exec           bool
+	}
+	type expected struct {
+		eventURI string
+		info     *model.EventInfo
+	}
+	type args struct {
+		eventType string
+		kind      string
+		secret    string
+		values    map[string]string
+	}
+	tests := []struct {
+		name             string
+		args             args
+		expected         expected
+		want             *model.Event
+		wantErr          bool
+		wantEventURIErr  bool
+		wantEventInfoErr bool
+		errs             redisErrors
+	}{
+		{
+			name: "create event",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			want: &model.Event{
+				URI:       "type:kind:test",
+				Type:      "type",
+				Kind:      "kind",
+				Secret:    "XXX",
+				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
+			errs: redisErrors{},
+		},
+		{
+			name:            "fail to construct URI",
+			args:            args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected:        expected{eventURI: ""},
+			wantEventURIErr: true,
+			errs:            redisErrors{},
+		},
+		{
+			name:             "fail to get event info",
+			args:             args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected:         expected{eventURI: "type:kind:test"},
+			wantEventInfoErr: true,
+			errs:             redisErrors{},
+		},
+		{
+			name: "fail start transaction",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{multi: true},
+		},
+		{
+			name: "fail update type",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{hsetnxType: true},
+		},
+		{
+			name: "fail update kind",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{hsetnxKind: true},
+		},
+		{
+			name: "fail update secret",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{hsetnxSecret: true},
+		},
+		{
+			name: "fail update description",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{hsetnxDesc: true},
+		},
+		{
+			name: "fail update endpoint",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{hsetnxEndpoint: true},
+		},
+		{
+			name: "fail update help",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{hsetnxHelp: true},
+		},
+		{
+			name: "fail update status",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{hsetnxStatus: true},
+		},
+		{
+			name: "fail exec transaction",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{exec: true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cmd *redigomock.Cmd
+			mock := NewEventProviderInformerMock()
+			r := &RedisStore{
+				redisPool:             &RedisPoolMock{},
+				eventProviderInformer: mock,
+			}
+			// mock EventProviderInformer calls
+			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, tt.args.values)
+			if tt.wantEventURIErr {
+				call.Return("", errors.New("test error"))
+				goto Invoke
+			} else {
+				call.Return(tt.expected.eventURI, nil)
+			}
+			call = mock.On("GetEventInfo", tt.expected.eventURI, tt.args.secret)
+			if tt.wantEventInfoErr {
+				call.Return(nil, errors.New("test error"))
+				goto Invoke
+			} else {
+				call.Return(tt.expected.info, nil)
+			}
+			// mock Redis
+			// expect Redis transaction open
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
+			if tt.errs.multi {
+				cmd.ExpectError(errors.New("MULTI error"))
+				goto Invoke
+			} else {
+				cmd.Expect("OK!")
+			}
+			// store Event type
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "type", tt.args.eventType)
+			if tt.errs.hsetnxType {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
+			// store Event kind
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "kind", tt.args.kind)
+			if tt.errs.hsetnxKind {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
+			// store Event secret
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "secret", tt.args.secret)
+			if tt.errs.hsetnxSecret {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
+			// store Event description
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "description", tt.expected.info.Description)
+			if tt.errs.hsetnxDesc {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
+			// store Event endpoint
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "endpoint", tt.expected.info.Endpoint)
+			if tt.errs.hsetnxEndpoint {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
+			// store Event help
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "help", tt.expected.info.Help)
+			if tt.errs.hsetnxHelp {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
+			// store Event status
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "status", tt.expected.info.Status)
+			if tt.errs.hsetnxStatus {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
+
+		EndTransaction:
+			// discard transaction on error
+			if tt.wantErr && !tt.errs.exec {
+				// expect transaction discard on error
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
+			} else {
+				// expect Redis transaction exec
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
+				if tt.errs.exec {
+					cmd.ExpectError(errors.New("EXEC error"))
+				} else {
+					cmd.Expect("OK!")
+				}
+			}
+
+		Invoke:
+			// invoke method under test
+			got, err := r.CreateEvent(tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.values)
+			if (err != nil) != (tt.wantErr || tt.wantEventURIErr || tt.wantEventInfoErr) {
+				t.Errorf("RedisStore.CreateEvent() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.CreateEvent() = %v, want %v", got, tt.want)
+			}
+			// assert mock
+			mock.AssertExpectations(t)
 		})
 	}
 }

@@ -40,7 +40,7 @@ var triggerCommand = cli.Command{
 				},
 			},
 			Usage:       "execute trigger",
-			ArgsUsage:   "<event>",
+			ArgsUsage:   "<event-uri>",
 			Description: "Execute trigger for trigger event. Pass multiple variable pairs (key=value), using --var flags.",
 			Action:      runTrigger,
 		},
@@ -49,7 +49,7 @@ var triggerCommand = cli.Command{
 
 // get triggers by name(s), filter or ALL
 func listTriggers(c *cli.Context) error {
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
 	// get events or pipelines
 	events := c.StringSlice("event")
 	pipelines := c.StringSlice("pipeline")
@@ -92,7 +92,7 @@ func runTrigger(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
 	// get pipeline runner
 	runner := backend.NewRunner(codefreshService)
 	// convert command line 'var' variables (key=value) to map

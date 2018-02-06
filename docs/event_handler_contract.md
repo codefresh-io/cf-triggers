@@ -1,6 +1,6 @@
-# Event Handler Contract
+# Event Provider Contract
 
-Any **Event Handler** should follow simple contract that consists from 2 sections: configuration and REST API.
+Any Trigger **Event Provider** should follow simple contract that consists from 2 sections: configuration and REST API.
 
 ## Configuration Contract
 
@@ -11,19 +11,19 @@ Any **Event Handler** should follow simple contract that consists from 2 section
   "type": "registry",
   "kind": "dockerhub",
   "service-url": "http://nomios:8080",
-  "uri-template": "index.docker.io:{{repo-owner}}:{{repo-name}}:push",
-  "uri-regex": "^index\\.docker\\.io:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+  "uri-template": "registry:dockerhub:{{namespace}}:{{name}}:push",
+  "uri-regex": "^registry:dockerhub:[a-z0-9_-]+:[a-z0-9_-]+:push$",
   "config": [
     {
-      "name": "repo-owner",
+      "name": "namespace",
       "type": "string",
-      "validator": "^[A-z0-9]+$",
+      "validator": "^[a-z0-9_-]+$",
       "required": true
     },
     {
-      "name": "repo-name",
+      "name": "name",
       "type": "string",
-      "validator": "^[A-z0-9]+$",
+      "validator": "^[a-z0-9_-]+$",
       "required": true
     }
   ]
@@ -37,16 +37,16 @@ Any **Event Handler** should follow simple contract that consists from 2 section
 type: registry
 kind: dockerhub
 service-url: http://nomios:8080
-uri-template: index.docker.io:{{repo-owner}}:{{repo-name}}:push
-uri-regex: "^index\\.docker\\.io:[a-z0-9_-]+:[a-z0-9_-]+:push$"
+uri-template: registry:dockerhub:{{namespace}}:{{name}}:push
+uri-regex: "^registry:dockerhub:[a-z0-9_-]+:[a-z0-9_-]+:push$"
 config:
-- name: repo-owner
+- name: namespace
   type: string
-  validator: "^[A-z0-9]+$"
+  validator: "^[a-z0-9_-]+$"
   required: true
-- name: repo-name
+- name: name
   type: string
-  validator: "^[A-z0-9]+$"
+  validator: "^[a-z0-9_-]+$"
   required: true
 
 ```
@@ -68,14 +68,15 @@ An **Event Handler** configuration contract is discovered automatically on Kuber
 
 It's recommended (not must) to add additional labels:
 
-- `type: <Event Handler Type>`
-- `kind: <Event Handler Kind>`
+- `app: trigger-event-provider`
+- `type: <Event Provider Type>`
+- `kind: <Event Provider Kind>`
 
 ## REST API
 
-### Get Event Information
+### Get Trigger Event Information
 
-  Returns extended event information, given `event-uri`.
+  Returns extended trigger event information, given `event-uri`.
 
 #### URL
 

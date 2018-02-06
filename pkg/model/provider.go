@@ -9,25 +9,25 @@ import (
 )
 
 type (
-	// EventHandlerService Codefresh Service
-	EventHandlerService interface {
+	// EventProviderService Codefresh Service
+	EventProviderService interface {
 		GetEventInfo(eventURI string, secret string) (*EventInfo, error)
 	}
 
-	// APIEndpoint EventHandler API endpoint
+	// APIEndpoint Event Provider API endpoint
 	APIEndpoint struct {
 		endpoint *sling.Sling
 	}
 )
 
-// NewEventHandlerEndpoint create new Event Handler API endpoint from url and API token
-func NewEventHandlerEndpoint(url string) EventHandlerService {
-	log.WithField("url", url).Debug("Initializing event-handler api")
+// NewEventProviderEndpoint create new Event Provider API endpoint from url and API token
+func NewEventProviderEndpoint(url string) EventProviderService {
+	log.WithField("url", url).Debug("Initializing event-provider api")
 	endpoint := sling.New().Base(url)
 	return &APIEndpoint{endpoint}
 }
 
-// GetEventInfo get EventInfo from Event Handler passing eventURI
+// GetEventInfo get EventInfo from Event Provider passing eventURI
 func (api *APIEndpoint) GetEventInfo(eventURI string, secret string) (*EventInfo, error) {
 	var info EventInfo
 	resp, err := api.endpoint.New().Get(fmt.Sprint("/event-info/", eventURI, "/", secret)).ReceiveSuccess(&info)

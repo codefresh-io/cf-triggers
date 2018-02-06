@@ -21,16 +21,21 @@ func NewRunnerController(runner model.Runner, trigger model.TriggerReaderWriter,
 
 // TriggerEvent pipelines for trigger
 func (c *RunnerController) TriggerEvent(ctx *gin.Context) {
+	type RunEvent struct {
+		Secret    string            `form:"secret" json:"secret" binding:"required"`
+		Original  string            `form:"original" json:"original"`
+		Variables map[string]string `form:"variables" json:"variables"`
+	}
 	// get trigger id
 	eventURI := ctx.Params.ByName("event")
 	// get event payload
-	var event Event
-	if err := ctx.BindJSON(&event); err != nil {
+	var runEvent RunEvent
+	if err := ctx.BindJSON(&runEvent); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "message": "error in JSON body", "error": err.Error()})
 		return
 	}
 	// get trigger
-	trigger, err := c.trigger.Get(eventURI)
+	trigger, err := c.trigger.GetEvent(eventURI)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
@@ -39,7 +44,7 @@ func (c *RunnerController) TriggerEvent(ctx *gin.Context) {
 		ctx.JSON(status, gin.H{"status": status, "message": "failed secret validation", "error": err.Error()})
 		return
 	}
-	if err := c.checker.Validate(event.Original, event.Secret, trigger.Secret); err != nil {
+	if err := c.checker.Validate(runEvent.Original, runEvent.Secret, trigger.Secret); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
@@ -49,10 +54,10 @@ func (c *RunnerController) TriggerEvent(ctx *gin.Context) {
 	}
 	// add original payload to variables
 	vars := make(map[string]string)
-	for k, v := range event.Variables {
+	for k, v := range runEvent.Variables {
 		vars[k] = v
 	}
-	vars["EVENT_PAYLOAD"] = event.Original
+	vars["EVENT_PAYLOAD"] = runEvent.Original
 	// get pipelines
 	pipelines, err := c.trigger.GetPipelinesForTriggers([]string{eventURI})
 	if err != nil {

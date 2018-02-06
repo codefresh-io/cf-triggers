@@ -7,13 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Event binding from JSON
-type Event struct {
-	Secret    string            `form:"secret" json:"secret" binding:"required"`
-	Original  string            `form:"original" json:"original"`
-	Variables map[string]string `form:"variables" json:"variables"`
-}
-
 // Controller trigger controller
 type Controller struct {
 	svc model.TriggerReaderWriter
@@ -24,12 +17,12 @@ func NewController(svc model.TriggerReaderWriter) *Controller {
 	return &Controller{svc}
 }
 
-// Get trigger
-func (c *Controller) Get(ctx *gin.Context) {
-	id := ctx.Params.ByName("id")
-	var trigger *model.Trigger
+// GetEvent get trigger event
+func (c *Controller) GetEvent(ctx *gin.Context) {
+	event := ctx.Params.ByName("event")
+	var triggerEvent *model.Event
 	var err error
-	if trigger, err = c.svc.Get(id); err != nil {
+	if triggerEvent, err = c.svc.GetEvent(event); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
@@ -37,7 +30,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		ctx.JSON(status, gin.H{"status": status, "message": "failed to get trigger", "error": err.Error()})
 		return
 	}
-	ctx.JSON(http.StatusOK, trigger)
+	ctx.JSON(http.StatusOK, triggerEvent)
 }
 
 // ListPipelines get trigger pipelines
@@ -93,56 +86,34 @@ func (c *Controller) DeleteTriggersForEvent(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-// Add trigger
-func (c *Controller) Add(ctx *gin.Context) {
-	var trigger model.Trigger
-	ctx.Bind(&trigger)
+// CreateEvent create trigger event
+func (c *Controller) CreateEvent(ctx *gin.Context) {
+	type createReq struct {
+		Type   string            `json:"type"`
+		Kind   string            `json:"kind"`
+		Secret string            `json:"secret,omitempty"`
+		Values map[string]string `json:"values"`
+	}
+	var req createReq
+	ctx.Bind(&req)
 
-	if trigger.Event != "" && len(trigger.Pipelines) != 0 {
-		// add trigger
-		if err := c.svc.Add(trigger); err != nil {
-			status := http.StatusInternalServerError
-			if err == model.ErrTriggerAlreadyExists {
-				status = http.StatusBadRequest
-			}
-			ctx.JSON(status, gin.H{"status": status, "message": "failed to add trigger", "error": err.Error()})
-			return
+	// create trigger event
+	if event, err := c.svc.CreateEvent(req.Type, req.Kind, req.Secret, req.Values); err != nil {
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerAlreadyExists {
+			status = http.StatusBadRequest
 		}
-		// report OK
-		ctx.Status(http.StatusOK)
+		ctx.JSON(status, gin.H{"status": status, "message": "failed to add trigger", "error": err.Error()})
 	} else {
-		// Display error
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"status": http.StatusUnprocessableEntity, "message": "required fields are empty"})
+		// report OK and event URI
+		ctx.JSON(http.StatusOK, event.URI)
 	}
 }
 
-// Update trigger
-func (c *Controller) Update(ctx *gin.Context) {
-	var trigger model.Trigger
-	ctx.Bind(&trigger)
-
-	if trigger.Event != "" && len(trigger.Pipelines) != 0 {
-		// update trigger
-		if err := c.svc.Update(trigger); err != nil {
-			status := http.StatusInternalServerError
-			if err == model.ErrTriggerNotFound {
-				status = http.StatusNotFound
-			}
-			ctx.JSON(status, gin.H{"status": status, "message": "failed to update trigger", "error": err.Error()})
-			return
-		}
-		// report OK
-		ctx.Status(http.StatusOK)
-	} else {
-		// Display error
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"status": http.StatusUnprocessableEntity, "message": "required fields are empty"})
-	}
-}
-
-// Delete trigger
-func (c *Controller) Delete(ctx *gin.Context) {
-	id := ctx.Params.ByName("id")
-	if err := c.svc.Delete(id); err != nil {
+// DeleteEvent delete trigger event
+func (c *Controller) DeleteEvent(ctx *gin.Context) {
+	event := ctx.Params.ByName("event")
+	if err := c.svc.DeleteEvent(event); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
