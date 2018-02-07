@@ -1,9 +1,10 @@
-package model
+package provider
 
 import (
 	"fmt"
 	"net/http"
 
+	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/dghubble/sling"
 	log "github.com/sirupsen/logrus"
 )
@@ -11,7 +12,7 @@ import (
 type (
 	// EventProviderService Codefresh Service
 	EventProviderService interface {
-		GetEventInfo(eventURI string, secret string) (*EventInfo, error)
+		GetEventInfo(eventURI string, secret string) (*model.EventInfo, error)
 	}
 
 	// APIEndpoint Event Provider API endpoint
@@ -28,8 +29,8 @@ func NewEventProviderEndpoint(url string) EventProviderService {
 }
 
 // GetEventInfo get EventInfo from Event Provider passing eventURI
-func (api *APIEndpoint) GetEventInfo(eventURI string, secret string) (*EventInfo, error) {
-	var info EventInfo
+func (api *APIEndpoint) GetEventInfo(eventURI string, secret string) (*model.EventInfo, error) {
+	var info model.EventInfo
 	resp, err := api.endpoint.New().Get(fmt.Sprint("/event-info/", eventURI, "/", secret)).ReceiveSuccess(&info)
 	if err != nil {
 		return nil, err

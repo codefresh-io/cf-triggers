@@ -186,7 +186,7 @@ func (m *EventProviderManager) GetEventInfo(eventURI string, secret string) (*mo
 	}
 
 	// call Event Handler service to get event info
-	handler := model.NewEventProviderEndpoint(et.ServiceURL)
+	handler := NewEventProviderEndpoint(et.ServiceURL)
 	info, err := handler.GetEventInfo(eventURI, secret)
 	if err != nil {
 		log.WithError(err).Error("Failed to get event info")
