@@ -506,10 +506,18 @@ func (r *RedisStore) CreateEvent(eventType, kind, secret, credentials string, va
 		secret = util.RandomString(16)
 	}
 
-	// get event details from event provider
+	// try subscribing to event - create event in remote system through event provider
 	eventInfo, err := r.eventProvider.SubscribeToEvent(eventURI, secret, credentials)
 	if err != nil {
-		return nil, err
+		if err == provider.ErrNotImplemented {
+			// try to get event info (required method)
+			eventInfo, err = r.eventProvider.GetEventInfo(eventURI, secret)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	event := model.Event{

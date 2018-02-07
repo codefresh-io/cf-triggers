@@ -1502,6 +1502,11 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		hsetnxStatus   bool
 		exec           bool
 	}
+	type eventErrors struct {
+		uri       error
+		subscribe error
+		info      error
+	}
 	type expected struct {
 		eventURI string
 		info     *model.EventInfo
@@ -1514,14 +1519,13 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		values      map[string]string
 	}
 	tests := []struct {
-		name             string
-		args             args
-		expected         expected
-		want             *model.Event
-		wantErr          bool
-		wantEventURIErr  bool
-		wantEventInfoErr bool
-		errs             redisErrors
+		name         string
+		args         args
+		expected     expected
+		want         *model.Event
+		wantErr      bool
+		wantEventErr eventErrors
+		errs         redisErrors
 	}{
 		{
 			name: "create event",
@@ -1539,18 +1543,41 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			errs: redisErrors{},
 		},
 		{
-			name:            "fail to construct URI",
-			args:            args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
-			expected:        expected{eventURI: ""},
-			wantEventURIErr: true,
-			errs:            redisErrors{},
+			name:         "fail to construct URI",
+			args:         args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			expected:     expected{eventURI: ""},
+			wantEventErr: eventErrors{uri: errors.New("URI error")},
+			errs:         redisErrors{},
 		},
 		{
-			name:             "fail to subscribe to event",
-			args:             args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
-			expected:         expected{eventURI: "type:kind:test"},
-			wantEventInfoErr: true,
-			errs:             redisErrors{},
+			name:         "fail to subscribe to event",
+			args:         args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			expected:     expected{eventURI: "type:kind:test"},
+			wantEventErr: eventErrors{subscribe: errors.New("Subscribe error")},
+			errs:         redisErrors{},
+		},
+		{
+			name: "fail to subscribe to event (not implemented)",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			want: &model.Event{
+				URI:       "type:kind:test",
+				Type:      "type",
+				Kind:      "kind",
+				Secret:    "XXX",
+				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
+			wantEventErr: eventErrors{subscribe: provider.ErrNotImplemented},
+			errs:         redisErrors{},
+		},
+		{
+			name:         "fail to subscribe to event and get info fallback fails too",
+			args:         args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			expected:     expected{eventURI: "type:kind:test"},
+			wantEventErr: eventErrors{subscribe: provider.ErrNotImplemented, info: errors.New("Info error")},
+			errs:         redisErrors{},
 		},
 		{
 			name: "fail start transaction",
@@ -1653,16 +1680,26 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			}
 			// mock EventProvider calls
 			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, tt.args.values)
-			if tt.wantEventURIErr {
-				call.Return("", errors.New("test error"))
+			if tt.wantEventErr.uri != nil {
+				call.Return("", tt.wantEventErr.uri)
 				goto Invoke
 			} else {
 				call.Return(tt.expected.eventURI, nil)
 			}
 			call = mock.On("SubscribeToEvent", tt.expected.eventURI, tt.args.secret, tt.args.credentials)
-			if tt.wantEventInfoErr {
-				call.Return(nil, errors.New("test error"))
-				goto Invoke
+			if tt.wantEventErr.subscribe != nil {
+				call.Return(nil, tt.wantEventErr.subscribe)
+				if tt.wantEventErr.subscribe == provider.ErrNotImplemented {
+					call = mock.On("GetEventInfo", tt.expected.eventURI, tt.args.secret)
+					if tt.wantEventErr.info != nil {
+						call.Return(nil, tt.wantEventErr.info)
+						goto Invoke
+					} else {
+						call.Return(tt.expected.info, nil)
+					}
+				} else {
+					goto Invoke
+				}
 			} else {
 				call.Return(tt.expected.info, nil)
 			}
@@ -1736,7 +1773,11 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		Invoke:
 			// invoke method under test
 			got, err := r.CreateEvent(tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.credentials, tt.args.values)
-			if (err != nil) != (tt.wantErr || tt.wantEventURIErr || tt.wantEventInfoErr) {
+			if (err != nil) != (tt.wantErr ||
+				tt.wantEventErr.info != nil ||
+				(tt.wantEventErr.subscribe != nil &&
+					tt.wantEventErr.subscribe != provider.ErrNotImplemented) ||
+				tt.wantEventErr.uri != nil) {
 				t.Errorf("RedisStore.CreateEvent() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}

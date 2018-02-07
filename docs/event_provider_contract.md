@@ -78,6 +78,8 @@ It's recommended (not must) to add additional labels:
 
 ### Get Event Information
 
+> This is required
+
   Returns extended trigger event information, given `event-uri`.
 
 #### URL
@@ -127,6 +129,8 @@ uri=[string]
 ---
 
 ### Subscribe to Event
+
+> This is optional method. Return 501 if not supported.
 
   Subscribe to event in external system (using available API, for example). Returns extended trigger event information for *subscribed* event.
 
@@ -178,10 +182,13 @@ credentials=[base64(string)]
 - **Code:** `403 Forbidden` when no sufficient permissions
 - **Code:** `404 Not Found` when event source is not found
 - **Code:** `500 Internal Server Error` for any other error
+- **Code:** `501 Not Implemented` method not implemented
 
 ---
 
 ### Unsubscribe from Event
+
+> This is optional method. Return 501 if not supported.
 
   Unsubscribe from event in external system (using available API, for example).
 
@@ -218,3 +225,4 @@ credentials=[base64(string)]
 - **Code:** `403 Forbidden` when no sufficient permissions
 - **Code:** `404 Not Found` when event source is not found
 - **Code:** `500 Internal Server Error` for any other error
+- **Code:** `501 Not Implemented` method not implemented

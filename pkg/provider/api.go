@@ -2,6 +2,7 @@ package provider
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -23,6 +24,9 @@ type (
 		endpoint *sling.Sling
 	}
 )
+
+// ErrNotImplemented error
+var ErrNotImplemented = errors.New("method not implemented")
 
 // NewEventProviderEndpoint create new Event Provider API endpoint from url and API token
 func NewEventProviderEndpoint(url string) EventProviderService {
@@ -55,6 +59,9 @@ func (api *APIEndpoint) SubscribeToEvent(event, secret, credentials string) (*mo
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		return nil, ErrNotImplemented
+	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
 		return nil, fmt.Errorf("event-provider api error %s", http.StatusText(resp.StatusCode))
 	}
@@ -70,6 +77,9 @@ func (api *APIEndpoint) UnsubscribeFromEvent(event, credentials string) error {
 	resp, err := api.endpoint.New().Delete(fmt.Sprint("/event/", event, "/", encoded)).Receive(nil, nil)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode == http.StatusNotImplemented {
+		return ErrNotImplemented
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
 		return fmt.Errorf("event-provider api error %s", http.StatusText(resp.StatusCode))
