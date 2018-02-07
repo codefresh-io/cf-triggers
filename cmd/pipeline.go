@@ -58,7 +58,7 @@ func listPipelines(c *cli.Context) error {
 func linkPipeline(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return errors.New("wrong number of arguments")
 	}
 	// get codefresh endpoint
@@ -72,7 +72,7 @@ func linkPipeline(c *cli.Context) error {
 func unlinkPipeline(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return errors.New("wrong number of arguments")
 	}
 	// get trigger service

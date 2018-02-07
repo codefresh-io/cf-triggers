@@ -41,9 +41,11 @@ type (
 		GetSecret(eventURI string) (string, error)
 		// triggers
 		ListTriggersForEvents(events []string) ([]TriggerLink, error)
+		CreateTriggersForEvent(event string, pipelines []string) error
+		DeleteTriggersForEvent(event string, pipelines []string) error
+		// pipelines
 		ListTriggersForPipelines(pipelines []string) ([]TriggerLink, error)
 		GetPipelinesForTriggers(events []string) ([]string, error)
-		CreateTriggersForEvent(event string, pipelines []string) error
 		CreateTriggersForPipeline(pipeline string, events []string) error
 		DeleteTriggersForPipeline(pipeline string, events []string) error
 	}

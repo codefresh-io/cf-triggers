@@ -271,7 +271,7 @@ func (r *RedisStore) CreateTriggersForPipeline(pipeline string, events []string)
 		log.WithFields(log.Fields{
 			"event-uri":    event,
 			"pipeline-uid": pipeline,
-		}).Debug("Adding pipeline to the Triggers map")
+		}).Debug("Adding pipeline to the Triggers")
 		_, err = con.Do("ZADD", getTriggerKey(event), 0, pipeline)
 		if err != nil {
 			return discardOnError(con, err)
@@ -282,7 +282,7 @@ func (r *RedisStore) CreateTriggersForPipeline(pipeline string, events []string)
 	log.WithFields(log.Fields{
 		"pipeline-uid": pipeline,
 		"event-uri(s)": events,
-	}).Debug("Adding trigger to the Pipelines map")
+	}).Debug("Adding trigger to the Pipelines")
 	_, err = con.Do("ZADD", getPipelineKey(pipeline), 0, events)
 	if err != nil {
 		return discardOnError(con, err)
@@ -302,7 +302,7 @@ func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string)
 	log.WithFields(log.Fields{
 		"pipeline-uid": pipeline,
 		"event-uri(s)": events,
-	}).Debug("Deleting triggers")
+	}).Debug("Deleting triggers for pipeline")
 
 	// start Redis transaction
 	_, err := con.Do("MULTI")
@@ -316,7 +316,7 @@ func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string)
 		log.WithFields(log.Fields{
 			"event-uri":    event,
 			"pipeline-uid": pipeline,
-		}).Debug("Removing pipeline from the Triggers map")
+		}).Debug("Removing pipeline from the Triggers")
 		_, err = con.Do("ZREM", getTriggerKey(event), pipeline)
 		if err != nil {
 			return discardOnError(con, err)
@@ -327,8 +327,53 @@ func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string)
 	log.WithFields(log.Fields{
 		"pipeline-uid": pipeline,
 		"event-uri(s)": events,
-	}).Debug("Removing triggers from the Pipelines map")
+	}).Debug("Removing triggers from the Pipelines")
 	_, err = con.Do("ZREM", getPipelineKey(pipeline), events)
+	if err != nil {
+		return discardOnError(con, err)
+	}
+
+	// submit transaction
+	_, err = con.Do("EXEC")
+	if err != nil {
+		log.WithError(err).Error("Failed to execute transaction")
+	}
+	return err
+}
+
+// DeleteTriggersForEvent delete trigger: unlink multiple pipelines from event
+func (r *RedisStore) DeleteTriggersForEvent(event string, pipelines []string) error {
+	con := r.redisPool.GetConn()
+	log.WithFields(log.Fields{
+		"event-uri":   event,
+		"pipeline(s)": pipelines,
+	}).Debug("Deleting triggers for event")
+
+	// start Redis transaction
+	_, err := con.Do("MULTI")
+	if err != nil {
+		log.WithError(err).Error("Failed to start Redis transaction")
+		return err
+	}
+
+	// remove event from Pipelines
+	for _, pipeline := range pipelines {
+		log.WithFields(log.Fields{
+			"event-uri":    event,
+			"pipeline-uid": pipeline,
+		}).Debug("Removing event from the Pipelines")
+		_, err = con.Do("ZREM", getPipelineKey(pipeline), event)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+	}
+
+	// remove trigger(s) from Triggers
+	log.WithFields(log.Fields{
+		"event-uri":    event,
+		"pipelines(s)": pipelines,
+	}).Debug("Removing triggers from the Triggers")
+	_, err = con.Do("ZREM", getTriggerKey(event), pipelines)
 	if err != nil {
 		return discardOnError(con, err)
 	}
@@ -439,8 +484,6 @@ func (r *RedisStore) GetPipelinesForTriggers(events []string) ([]string, error) 
 
 	return all, nil
 }
-
-//-------------------------- EventReaderWriter Interface -------------------------
 
 // CreateEvent new trigger event
 func (r *RedisStore) CreateEvent(eventType string, kind string, secret string, values map[string]string) (*model.Event, error) {

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
+	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/urfave/cli"
 )
 
@@ -157,9 +159,27 @@ func deleteEvent(c *cli.Context) error {
 }
 
 func linkEvent(c *cli.Context) error {
-	return nil
+	// get trigger name and pipeline
+	args := c.Args()
+	if len(args) < 2 {
+		return errors.New("wrong number of arguments")
+	}
+	// get codefresh endpoint
+	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
+	// get trigger service
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
+	// create triggers for event linking it to passed pipeline(s)
+	return triggerReaderWriter.CreateTriggersForEvent(c.Args().First(), c.Args().Tail())
 }
 
 func unlinkEvent(c *cli.Context) error {
-	return nil
+	// get trigger name and pipeline
+	args := c.Args()
+	if len(args) != 2 {
+		return errors.New("wrong number of arguments")
+	}
+	// get trigger service
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	// delete pipelines
+	return triggerReaderWriter.DeleteTriggersForEvent(args.First(), args.Tail())
 }

@@ -547,7 +547,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 			} else {
 				cmd.Expect("OK!")
 			}
-			// add pipeline to event(s)
+			// remove pipeline from Triggers
 			for _, event := range tt.args.events {
 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(event), tt.args.pipeline)
 				if tt.errs.zrem1 {
@@ -555,7 +555,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 					goto EndTransaction
 				}
 			}
-			// add events to the Pipelines map
+			// remove events from Pipelines
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pipeline), tt.args.events)
 			if tt.errs.zrem2 {
 				cmd.ExpectError(errors.New("ZREM error"))
@@ -579,6 +579,129 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 			// invoke method
 		Invoke:
 			if err := r.DeleteTriggersForPipeline(tt.args.pipeline, tt.args.events); (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.DeleteTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRedisStore_DeleteTriggersForEvent(t *testing.T) {
+	type redisErrors struct {
+		multi bool
+		zrem1 bool
+		zrem2 bool
+		exec  bool
+	}
+	type args struct {
+		event     string
+		pipelines []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errs    redisErrors
+	}{
+		{
+			"delete triggers for event",
+			args{
+				event:     "uri",
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			false,
+			redisErrors{false, false, false, false},
+		},
+		{
+			"delete single pipeline trigger",
+			args{
+				event:     "uri",
+				pipelines: []string{"pipeline"},
+			},
+			false,
+			redisErrors{false, false, false, false},
+		},
+		{
+			"fail start transaction",
+			args{
+				event:     "uri",
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			true,
+			redisErrors{true, false, false, false},
+		},
+		{
+			"fail remove pipeline from Pipelines",
+			args{
+				event:     "uri",
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			true,
+			redisErrors{false, true, false, false},
+		},
+		{
+			"fail remove events from Triggers",
+			args{
+				event:     "uri",
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			true,
+			redisErrors{false, false, true, false},
+		},
+		{
+			"fail exec transaction",
+			args{
+				event:     "uri",
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			true,
+			redisErrors{false, false, false, true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			// expect Redis transaction open
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
+			if tt.errs.multi {
+				cmd.ExpectError(errors.New("MULTI error"))
+				goto Invoke
+			} else {
+				cmd.Expect("OK!")
+			}
+			// remove event from Pipelines
+			for _, pipeline := range tt.args.pipelines {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(pipeline), tt.args.event)
+				if tt.errs.zrem1 {
+					cmd.ExpectError(errors.New("ZREM error"))
+					goto EndTransaction
+				}
+			}
+			// remove pipelines from Triggers
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(tt.args.event), tt.args.pipelines)
+			if tt.errs.zrem2 {
+				cmd.ExpectError(errors.New("ZREM error"))
+			}
+
+		EndTransaction:
+			// discard transaction on error
+			if tt.wantErr && !tt.errs.exec {
+				// expect transaction discard on error
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
+			} else {
+				// expect Redis transaction exec
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
+				if tt.errs.exec {
+					cmd.ExpectError(errors.New("EXEC error"))
+				} else {
+					cmd.Expect("OK!")
+				}
+			}
+
+			// invoke method
+		Invoke:
+			if err := r.DeleteTriggersForEvent(tt.args.event, tt.args.pipelines); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.DeleteTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
