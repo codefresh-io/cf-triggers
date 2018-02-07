@@ -42,8 +42,8 @@ func (c *Mock) GetType(t string, k string) (*model.EventType, error) {
 	return args.Get(0).(*model.EventType), args.Error(1)
 }
 
-// GetEventInfo mock
-func (c *Mock) GetEventInfo(eventURI string, secret string) (*model.EventInfo, error) {
+// GetEvent mock
+func (c *Mock) GetEvent(eventURI string, secret string) (*model.EventInfo, error) {
 	args := c.Called(eventURI, secret)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

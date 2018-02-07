@@ -10,18 +10,18 @@ import (
 
 // EventController trigger controller
 type EventController struct {
-	trigger              model.TriggerReaderWriter
-	eventHandlerInformer provider.EventProviderInformer
+	trigger       model.TriggerReaderWriter
+	eventProvider provider.EventProviderInformer
 }
 
 // NewEventController new trigger controller
-func NewEventController(trigger model.TriggerReaderWriter, eventHandlerInformer provider.EventProviderInformer) *EventController {
-	return &EventController{trigger, eventHandlerInformer}
+func NewEventController(trigger model.TriggerReaderWriter, eventProvider provider.EventProviderInformer) *EventController {
+	return &EventController{trigger, eventProvider}
 }
 
 // ListTypes get registered trigger types
 func (c *EventController) ListTypes(ctx *gin.Context) {
-	types := c.eventHandlerInformer.GetTypes()
+	types := c.eventProvider.GetTypes()
 	if types == nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "no types found"})
 		return
@@ -41,7 +41,7 @@ func (c *EventController) GetType(ctx *gin.Context) {
 	// get event kind
 	eventKind := ctx.Param("kind")
 
-	typeObject, err := c.eventHandlerInformer.GetType(eventType, eventKind)
+	typeObject, err := c.eventProvider.GetType(eventType, eventKind)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "failed to find type " + eventType + " of kind " + eventKind, "error": err.Error()})
 		return
@@ -51,8 +51,8 @@ func (c *EventController) GetType(ctx *gin.Context) {
 
 }
 
-// GetEventInfo get human readable text for event (ask Event Provider)
-func (c *EventController) GetEventInfo(ctx *gin.Context) {
+// GetEvent get human readable text for event (ask Event Provider)
+func (c *EventController) GetEvent(ctx *gin.Context) {
 	// get event URI
 	eventURI := ctx.Param("id")
 	if eventURI == "" {
@@ -67,7 +67,7 @@ func (c *EventController) GetEventInfo(ctx *gin.Context) {
 		return
 	}
 
-	info, err := c.eventHandlerInformer.GetEventInfo(eventURI, secret)
+	info, err := c.eventProvider.GetEvent(eventURI, secret)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"status": http.StatusNotFound, "message": "failed to find info for event", "error": err.Error()})
 		return

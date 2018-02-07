@@ -117,9 +117,9 @@ func (rp *RedisPool) GetConn() redis.Conn {
 
 // RedisStore in memory trigger map store
 type RedisStore struct {
-	redisPool             RedisPoolService
-	pipelineSvc           codefresh.PipelineService
-	eventProviderInformer provider.EventProviderInformer
+	redisPool     RedisPoolService
+	pipelineSvc   codefresh.PipelineService
+	eventProvider provider.EventProviderInformer
 }
 
 // helper function - discard Redis transaction and return error
@@ -165,11 +165,11 @@ func getEventKey(id string) string {
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
-func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService, eventProviderInformer provider.EventProviderInformer) *RedisStore {
+func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService, eventProvider provider.EventProviderInformer) *RedisStore {
 	r := new(RedisStore)
 	r.redisPool = &RedisPool{newPool(server, port, password)}
 	r.pipelineSvc = pipelineSvc
-	r.eventProviderInformer = eventProviderInformer
+	r.eventProvider = eventProvider
 	// return RedisStore
 	return r
 }
@@ -495,7 +495,7 @@ func (r *RedisStore) CreateEvent(eventType string, kind string, secret string, v
 	}).Debug("Creating a new trigger event")
 
 	// construct event URI
-	eventURI, err := r.eventProviderInformer.ConstructEventURI(eventType, kind, values)
+	eventURI, err := r.eventProvider.ConstructEventURI(eventType, kind, values)
 	if err != nil {
 		return nil, err
 	}
@@ -507,7 +507,7 @@ func (r *RedisStore) CreateEvent(eventType string, kind string, secret string, v
 	}
 
 	// get event details from event provider
-	eventInfo, err := r.eventProviderInformer.GetEventInfo(eventURI, secret)
+	eventInfo, err := r.eventProvider.GetEvent(eventURI, secret)
 	if err != nil {
 		return nil, err
 	}

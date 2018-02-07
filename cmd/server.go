@@ -42,8 +42,8 @@ func runServer(c *cli.Context) error {
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("codefresh"), c.GlobalString("token"))
 	log.WithField("cfapi", c.GlobalString("codefresh")).Debug("Using Codefresh API")
 
-	// get event handler informer
-	eventHandlerInformer := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	// get event provider manager
+	eventProvider := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 	log.WithField("config", c.GlobalString("config")).Debug("Monitoring types config file")
 
 	// get trigger backend service
@@ -69,8 +69,8 @@ func runServer(c *cli.Context) error {
 
 	// get supported events
 	eventsAPI := router.Group("/events", gin.Logger())
-	eventController := controller.NewEventController(triggerBackend, eventHandlerInformer)
-	eventsAPI.Handle("GET", "/info/:id", eventController.GetEventInfo)
+	eventController := controller.NewEventController(triggerBackend, eventProvider)
+	eventsAPI.Handle("GET", "/info/:id", eventController.GetEvent)
 	eventsAPI.Handle("GET", "/types", eventController.ListTypes)
 	eventsAPI.Handle("GET", "/types/:type/:kind", eventController.GetType)
 

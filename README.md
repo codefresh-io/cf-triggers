@@ -64,7 +64,7 @@ COMMANDS:
      server    start trigger manager server
      trigger   configure Codefresh triggers
      pipeline  configure Codefresh trigger pipelines
-     info      get information about installed event handlers and events
+     info      get information about installed event providers and events
      help, h   Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:

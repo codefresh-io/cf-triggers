@@ -53,7 +53,7 @@ config:
 
 - `type` - event type; e.g. `registry`, `cron`, `git`
 - `kind` - (optional) event kind; e.g. `dockerhub`, `ecr`, `gcr`
-- `service-url` - event handler service url (including protocol and port); `hermes` invokes `REST API`
+- `service-url` - event provider service url (including protocol and port); `hermes` invokes `REST API`
 - `uri-template` - *mustache template* for `event URI`
 - `uri-regex` - `event URI` regex; used for validation and matching
 - `config` - configuration of template parameters (`array`)
@@ -64,11 +64,11 @@ config:
 
 ### Configuration Contract Discovery
 
-An **Event Handler** configuration contract is discovered automatically on Kubernetes cluster. To support configuration discovery an **Event Handler** should save *configuration contract* as *ConfigMap* and label this config map with `config: event-handler` *Label*.
+An **Event Handler** configuration contract is discovered automatically on Kubernetes cluster. To support configuration discovery an **Event Handler** should save *configuration contract* as *ConfigMap* and label this config map with `config: event-provider` *Label*.
 
 It's recommended (not must) to add additional labels:
 
-- `app: trigger-event-provider`
+- `config: event-provider`
 - `type: <Event Provider Type>`
 - `kind: <Event Provider Kind>`
 
@@ -114,7 +114,7 @@ uri=[string]
 
 - `endpoint` - public address (or IP) of endpoint API; usually used as a webhook endpoint
 - `description` - human-readable "translation" of `event-uri`
-- `status` - event handler status, usually `active` or `non-active` (can be other)
+- `status` - event status from event provider, usually `active` or `non-active` (can be other)
 
 ##### Error Response
 

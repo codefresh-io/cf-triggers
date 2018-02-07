@@ -12,7 +12,7 @@ type (
 		Endpoint string `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
 		// Description human readable text
 		Description string `json:"description,omitempty" yaml:"description,omitempty"`
-		// Status current event handler status (active, error, not active)
+		// Status of current event for event provider (active, error, not active)
 		Status string `json:"status,omitempty" yaml:"status,omitempty"`
 		// Help text
 		Help string `json:"help,omitempty" yaml:"help,omitempty"`

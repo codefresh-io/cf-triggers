@@ -12,7 +12,7 @@ import (
 type (
 	// EventProviderService Codefresh Service
 	EventProviderService interface {
-		GetEventInfo(eventURI string, secret string) (*model.EventInfo, error)
+		GetEvent(event string, secret string) (*model.EventInfo, error)
 	}
 
 	// APIEndpoint Event Provider API endpoint
@@ -28,15 +28,15 @@ func NewEventProviderEndpoint(url string) EventProviderService {
 	return &APIEndpoint{endpoint}
 }
 
-// GetEventInfo get EventInfo from Event Provider passing eventURI
-func (api *APIEndpoint) GetEventInfo(eventURI string, secret string) (*model.EventInfo, error) {
+// GetEvent get EventInfo from Event Provider passing event URI
+func (api *APIEndpoint) GetEvent(event string, secret string) (*model.EventInfo, error) {
 	var info model.EventInfo
-	resp, err := api.endpoint.New().Get(fmt.Sprint("/event-info/", eventURI, "/", secret)).ReceiveSuccess(&info)
+	resp, err := api.endpoint.New().Get(fmt.Sprint("/event/", event, "/", secret)).ReceiveSuccess(&info)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("event-handler api error %s", http.StatusText(resp.StatusCode))
+		return nil, fmt.Errorf("event-provider api error %s", http.StatusText(resp.StatusCode))
 	}
 
 	return &info, err

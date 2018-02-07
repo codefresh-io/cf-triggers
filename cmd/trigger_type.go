@@ -31,9 +31,9 @@ var triggerTypeCommand = cli.Command{
 
 func listTypes(c *cli.Context) error {
 	// get event provider informer
-	eventProviderInformer := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	eventProvider := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 
-	types := eventProviderInformer.GetTypes()
+	types := eventProvider.GetTypes()
 	if types == nil {
 		return errors.New("no types found")
 	}
@@ -58,9 +58,9 @@ func getType(c *cli.Context) error {
 	}
 
 	// get event provider informer
-	eventProviderInformer := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	eventProvider := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 
-	t, err := eventProviderInformer.GetType(eventType, eventKind)
+	t, err := eventProvider.GetType(eventType, eventKind)
 	if err != nil {
 		return err
 	}

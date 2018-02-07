@@ -133,9 +133,9 @@ func getEvent(c *cli.Context) error {
 
 func createEvent(c *cli.Context) error {
 	// get event provider informer
-	eventProviderInformer := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	eventProvider := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 	// get trigger backend
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, eventProviderInformer)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, eventProvider)
 	// create new event
 	event, err := triggerReaderWriter.CreateEvent(c.String("type"), c.String("kind"), c.String("secret"), nil)
 	if err != nil {

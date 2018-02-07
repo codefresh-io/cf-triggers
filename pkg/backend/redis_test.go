@@ -1647,8 +1647,8 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			var cmd *redigomock.Cmd
 			mock := provider.NewEventProviderInformerMock()
 			r := &RedisStore{
-				redisPool:             &RedisPoolMock{},
-				eventProviderInformer: mock,
+				redisPool:     &RedisPoolMock{},
+				eventProvider: mock,
 			}
 			// mock EventProviderInformer calls
 			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, tt.args.values)
@@ -1658,7 +1658,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			} else {
 				call.Return(tt.expected.eventURI, nil)
 			}
-			call = mock.On("GetEventInfo", tt.expected.eventURI, tt.args.secret)
+			call = mock.On("GetEvent", tt.expected.eventURI, tt.args.secret)
 			if tt.wantEventInfoErr {
 				call.Return(nil, errors.New("test error"))
 				goto Invoke

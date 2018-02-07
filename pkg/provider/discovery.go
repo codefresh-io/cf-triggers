@@ -30,7 +30,7 @@ type (
 		GetTypes() []model.EventType
 		MatchType(eventURI string) (*model.EventType, error)
 		GetType(t string, k string) (*model.EventType, error)
-		GetEventInfo(eventURI string, secret string) (*model.EventInfo, error)
+		GetEvent(eventURI string, secret string) (*model.EventInfo, error)
 		ConstructEventURI(t string, k string, values map[string]string) (string, error)
 	}
 )
@@ -123,7 +123,7 @@ func (m *EventProviderManager) monitorConfigFile() *util.FileWatcher {
 	return watcher
 }
 
-// GetTypes get discovered event handler types
+// GetTypes get discovered event provider types
 func (m *EventProviderManager) GetTypes() []model.EventType {
 	m.Lock()
 	defer m.Unlock()
@@ -135,7 +135,7 @@ func (m *EventProviderManager) GetTypes() []model.EventType {
 	return nil
 }
 
-// GetType get individual event handler type (by type and kind)
+// GetType get individual event provider type (by type and kind)
 func (m *EventProviderManager) GetType(eventType string, eventKind string) (*model.EventType, error) {
 	log.WithFields(log.Fields{
 		"type": eventType,
@@ -177,17 +177,17 @@ func (m *EventProviderManager) MatchType(eventURI string) (*model.EventType, err
 	return nil, errors.New("failed to match event type")
 }
 
-// GetEventInfo get individual event handler type (by type and kind)
-func (m *EventProviderManager) GetEventInfo(eventURI string, secret string) (*model.EventInfo, error) {
-	log.WithField("event-uri", eventURI).Debug("Getting event info from event provider")
-	et, err := m.MatchType(eventURI)
+// GetEvent get event info from event provider
+func (m *EventProviderManager) GetEvent(event string, secret string) (*model.EventInfo, error) {
+	log.WithField("event-uri", event).Debug("Getting event info from event provider")
+	et, err := m.MatchType(event)
 	if err != nil {
 		return nil, err
 	}
 
-	// call Event Handler service to get event info
-	handler := NewEventProviderEndpoint(et.ServiceURL)
-	info, err := handler.GetEventInfo(eventURI, secret)
+	// call Event Provider service to get event info
+	provider := NewEventProviderEndpoint(et.ServiceURL)
+	info, err := provider.GetEvent(event, secret)
 	if err != nil {
 		log.WithError(err).Error("Failed to get event info")
 		return nil, err
