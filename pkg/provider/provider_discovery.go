@@ -1,4 +1,4 @@
-package backend
+package provider
 
 import (
 	"encoding/json"

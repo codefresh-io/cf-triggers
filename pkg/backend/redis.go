@@ -71,6 +71,7 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
 	log "github.com/sirupsen/logrus"
@@ -118,7 +119,7 @@ func (rp *RedisPool) GetConn() redis.Conn {
 type RedisStore struct {
 	redisPool             RedisPoolService
 	pipelineSvc           codefresh.PipelineService
-	eventProviderInformer EventProviderInformer
+	eventProviderInformer provider.EventProviderInformer
 }
 
 // helper function - discard Redis transaction and return error
@@ -164,7 +165,7 @@ func getEventKey(id string) string {
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
-func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService, eventProviderInformer EventProviderInformer) *RedisStore {
+func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService, eventProviderInformer provider.EventProviderInformer) *RedisStore {
 	r := new(RedisStore)
 	r.redisPool = &RedisPool{newPool(server, port, password)}
 	r.pipelineSvc = pipelineSvc

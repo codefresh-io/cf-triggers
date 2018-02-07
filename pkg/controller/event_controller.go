@@ -3,19 +3,19 @@ package controller
 import (
 	"net/http"
 
-	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/gin-gonic/gin"
 )
 
 // EventController trigger controller
 type EventController struct {
 	trigger              model.TriggerReaderWriter
-	eventHandlerInformer backend.EventProviderInformer
+	eventHandlerInformer provider.EventProviderInformer
 }
 
 // NewEventController new trigger controller
-func NewEventController(trigger model.TriggerReaderWriter, eventHandlerInformer backend.EventProviderInformer) *EventController {
+func NewEventController(trigger model.TriggerReaderWriter, eventHandlerInformer provider.EventProviderInformer) *EventController {
 	return &EventController{trigger, eventHandlerInformer}
 }
 

@@ -6,6 +6,8 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
+	"github.com/codefresh-io/hermes/pkg/provider"
+
 	"github.com/urfave/cli"
 )
 
@@ -131,7 +133,7 @@ func getEvent(c *cli.Context) error {
 
 func createEvent(c *cli.Context) error {
 	// get event provider informer
-	eventProviderInformer := backend.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	eventProviderInformer := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 	// get trigger backend
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, eventProviderInformer)
 	// create new event

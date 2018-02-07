@@ -9,6 +9,7 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
@@ -1644,7 +1645,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var cmd *redigomock.Cmd
-			mock := NewEventProviderInformerMock()
+			mock := provider.NewEventProviderInformerMock()
 			r := &RedisStore{
 				redisPool:             &RedisPoolMock{},
 				eventProviderInformer: mock,

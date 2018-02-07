@@ -1,4 +1,4 @@
-package backend
+package provider
 
 import (
 	"github.com/codefresh-io/hermes/pkg/model"

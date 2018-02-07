@@ -7,7 +7,9 @@ import (
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/controller"
+	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/codefresh-io/hermes/pkg/version"
+
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -41,7 +43,7 @@ func runServer(c *cli.Context) error {
 	log.WithField("cfapi", c.GlobalString("codefresh")).Debug("Using Codefresh API")
 
 	// get event handler informer
-	eventHandlerInformer := backend.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	eventHandlerInformer := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 	log.WithField("config", c.GlobalString("config")).Debug("Monitoring types config file")
 
 	// get trigger backend service

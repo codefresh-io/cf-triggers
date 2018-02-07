@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/codefresh-io/hermes/pkg/backend"
+	"github.com/codefresh-io/hermes/pkg/provider"
+
 	"github.com/urfave/cli"
 )
 
@@ -30,7 +31,7 @@ var triggerTypeCommand = cli.Command{
 
 func listTypes(c *cli.Context) error {
 	// get event provider informer
-	eventProviderInformer := backend.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	eventProviderInformer := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 
 	types := eventProviderInformer.GetTypes()
 	if types == nil {
@@ -57,7 +58,7 @@ func getType(c *cli.Context) error {
 	}
 
 	// get event provider informer
-	eventProviderInformer := backend.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
+	eventProviderInformer := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 
 	t, err := eventProviderInformer.GetType(eventType, eventKind)
 	if err != nil {
