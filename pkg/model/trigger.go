@@ -35,7 +35,8 @@ type (
 	TriggerReaderWriter interface {
 		// trigger events
 		GetEvent(event string) (*Event, error)
-		CreateEvent(eventType string, kind string, secret string, values map[string]string) (*Event, error)
+		GetEvents(eventType, kind, filter string) ([]Event, error)
+		CreateEvent(eventType, kind, secret string, values map[string]string) (*Event, error)
 		DeleteEvent(event string) error
 		GetSecret(eventURI string) (string, error)
 		// triggers
@@ -62,6 +63,9 @@ type (
 		Validate(message string, secret string, key string) error
 	}
 )
+
+// ErrNotSingleKey error when key is a pattern and not a single key
+var ErrNotSingleKey = errors.New("key is a pattern and not a single key")
 
 // ErrTriggerNotFound error when trigger not found
 var ErrTriggerNotFound = errors.New("trigger not found")

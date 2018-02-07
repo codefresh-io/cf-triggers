@@ -102,11 +102,28 @@ var triggerEventCommand = cli.Command{
 }
 
 func listEvents(c *cli.Context) error {
-
+	// get trigger backend
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	// get trigger events
+	events, err := triggerReaderWriter.GetEvents(c.String("type"), c.String("kind"), c.String("filter"))
+	if err != nil {
+		return err
+	}
+	for _, event := range events {
+		fmt.Println(event)
+	}
 	return nil
 }
 
 func getEvent(c *cli.Context) error {
+	// get trigger backend
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	// get trigger events
+	event, err := triggerReaderWriter.GetEvent(c.String("event"))
+	if err != nil {
+		return err
+	}
+	fmt.Println(event)
 	return nil
 }
 
@@ -121,12 +138,21 @@ func createEvent(c *cli.Context) error {
 		return err
 	}
 	// print it out
-	fmt.Println(*event)
+	fmt.Println("New trigger event successfully created.")
+	fmt.Println(event.URI)
 
 	return nil
 }
 
 func deleteEvent(c *cli.Context) error {
+	// get trigger backend
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	// get trigger events
+	err := triggerReaderWriter.DeleteEvent(c.String("event"))
+	if err != nil {
+		return err
+	}
+	fmt.Println("Trigger event successfully deleted.")
 	return nil
 }
 

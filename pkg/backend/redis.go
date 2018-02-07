@@ -131,6 +131,14 @@ func discardOnError(con redis.Conn, err error) error {
 	return err
 }
 
+// helper function - check if string is a key and not empty or contain *
+func checkSingleKey(key string) error {
+	if key == "" || strings.ContainsAny(key, "?*[]^") {
+		return model.ErrNotSingleKey
+	}
+	return nil
+}
+
 // construct prefixes - for trigger, secret and pipeline
 func getPrefixKey(prefix, id string) string {
 	// set * for empty id
@@ -526,26 +534,103 @@ func (r *RedisStore) GetSecret(eventURI string) (string, error) {
 func (r *RedisStore) GetEvent(event string) (*model.Event, error) {
 	con := r.redisPool.GetConn()
 	log.WithField("event-uri", event).Debug("Getting trigger event")
+	// check event URI
+	if err := checkSingleKey(event); err != nil {
+		return nil, err
+	}
 	// get hash values
 	fields, err := redis.StringMap(con.Do("HGETALL", getEventKey(event)))
-	if err != nil && err != redis.ErrNil {
+	if err != nil {
 		log.WithError(err).Error("Failed to get trigger event fields")
 		return nil, err
 	}
 	return model.StringsMapToEvent(event, fields), nil
 }
 
+// GetEvents get events by event type, kind and filter (can be URI or part of URI)
+func (r *RedisStore) GetEvents(eventType, kind, filter string) ([]model.Event, error) {
+	con := r.redisPool.GetConn()
+	log.WithFields(log.Fields{
+		"type":   eventType,
+		"kind":   kind,
+		"filter": filter,
+	}).Debug("Getting trigger events")
+	// get all events URIs
+	uris, err := redis.Strings(con.Do("KEYS", getEventKey(filter)))
+	if err != nil {
+		log.WithError(err).Error("Failed to get trigger events")
+		return nil, err
+	}
+	// scan through all events and select matching to non-empty type and kind
+	events := make([]model.Event, 0)
+	for _, uri := range uris {
+		event, err := r.GetEvent(uri)
+		if err != nil {
+			return nil, err
+		}
+		if (eventType == "" || event.Type == eventType) &&
+			(kind == "" || event.Kind == kind) {
+			events = append(events, *event)
+		}
+	}
+	return events, nil
+}
+
 // DeleteEvent delete trigger event
 func (r *RedisStore) DeleteEvent(event string) error {
 	con := r.redisPool.GetConn()
 	log.WithField("event-uri", event).Debug("Deleting trigger event")
-	// delete hash for key
-	_, err := con.Do("DEL", getEventKey(event))
-	if err != nil {
-		log.WithError(err).Error("Failed to delete trigger event")
+	// check event URI
+	if err := checkSingleKey(event); err != nil {
 		return err
 	}
-	return nil
+	// get pipelines linked to the trigger event
+	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(event), 0, -1))
+	if err != nil {
+		log.WithError(err).Error("Failed to get pipelines for the trigger event")
+		return err
+	}
+
+	// start Redis transaction
+	_, err = con.Do("MULTI")
+	if err != nil {
+		log.WithError(err).Error("Failed to start Redis transaction")
+		return err
+	}
+
+	// delete event hash for key
+	_, err = con.Do("DEL", getEventKey(event))
+	if err != nil {
+		log.WithError(err).Error("Failed to delete trigger event")
+		return discardOnError(con, err)
+	}
+
+	// delete trigger event from Triggers
+	log.Debug("Removing trigger event from Triggers")
+	_, err = con.Do("DEL", getTriggerKey(event))
+	if err != nil {
+		return discardOnError(con, err)
+	}
+
+	// remove trigger event from linked Pipelines
+	for _, pipeline := range pipelines {
+		log.WithFields(log.Fields{
+			"pipeline-uid": pipeline,
+			"event-uri":    event,
+		}).Debug("Removing trigger event from the Pipelines map")
+		_, err = con.Do("ZREM", getPipelineKey(pipeline), event)
+		if err != nil {
+			return discardOnError(con, err)
+		}
+	}
+
+	// submit transaction
+	_, err = con.Do("EXEC")
+	if err != nil {
+		log.WithError(err).Error("Failed to execute transaction")
+	}
+
+	return err
 }
 
 //-------------------------- Pinger Interface -------------------------

@@ -754,8 +754,7 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 				model.TriggerLink{Event: "event:uri:test", Pipeline: "pipeline-1"},
 				model.TriggerLink{Event: "event:uri:test", Pipeline: "pipeline-2"},
 			},
-			errs:    redisErrors{false, false},
-			wantErr: false,
+			errs: redisErrors{false, false},
 		},
 		{
 			name: "list triggers for multiple event",
@@ -778,18 +777,15 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 				model.TriggerLink{Event: "event:uri:test:2", Pipeline: "pipeline-2"},
 				model.TriggerLink{Event: "event:uri:test:2", Pipeline: "pipeline-3"},
 			},
-			errs:    redisErrors{false, false},
-			wantErr: false,
+			errs: redisErrors{false, false},
 		},
 		{
 			name: "fail to find trigger by event",
 			args: args{
 				events: []string{"non-existing-event"},
 			},
-			triggers: nil,
-			want:     nil,
-			errs:     redisErrors{true, false},
-			wantErr:  true,
+			errs:    redisErrors{true, false},
+			wantErr: true,
 		},
 		{
 			name: "fail to find pipelines for event",
@@ -798,15 +794,13 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 			},
 			triggers: []triggers{
 				triggers{
-					event:     "event:uri:test",
-					pipelines: nil,
+					event: "event:uri:test",
 				},
 				triggers{
 					event:     "event:uri:test:other",
 					pipelines: []string{"pipeline-2", "pipeline-3"},
 				},
 			},
-			want:    nil,
 			errs:    redisErrors{false, true},
 			wantErr: true,
 		},
@@ -1016,6 +1010,7 @@ func TestRedisStore_GetEvent(t *testing.T) {
 		expect  expect
 		want    *model.Event
 		wantErr error
+		keyErr  bool
 	}{
 		{
 			name: "get existing event",
@@ -1043,16 +1038,18 @@ func TestRedisStore_GetEvent(t *testing.T) {
 					Help:        "test-help",
 				},
 			},
-			wantErr: nil,
 		},
 		{
-			name: "get non-existing event",
-			args: args{event: "non-existing:event:uri:test"},
-			expect: expect{
-				fields: nil,
-			},
-			want:    nil,
+			name:    "get non-existing event",
+			args:    args{event: "non-existing:event:uri:test"},
+			expect:  expect{},
 			wantErr: errors.New("HGETALL error"),
+		},
+		{
+			name:    "try getting event with invalid key",
+			args:    args{event: "event:uri:*"},
+			expect:  expect{},
+			wantErr: model.ErrNotSingleKey,
 		},
 	}
 	for _, tt := range tests {
@@ -1078,24 +1075,103 @@ func TestRedisStore_GetEvent(t *testing.T) {
 	}
 }
 
-func TestRedisStore_DeleteEvent(t *testing.T) {
+func TestRedisStore_GetEvents(t *testing.T) {
+	type expect struct {
+		keys   []string
+		fields []map[string]string
+	}
 	type args struct {
-		event string
+		eventType string
+		kind      string
+		filter    string
 	}
 	tests := []struct {
 		name    string
 		args    args
-		wantErr error
+		expect  expect
+		want    []model.Event
+		wantErr bool
 	}{
 		{
-			name:    "delete existing trigger event",
-			args:    args{event: "event:uri:test"},
-			wantErr: nil,
+			name: "get all trigger events",
+			args: args{},
+			expect: expect{
+				keys: []string{"uri:1", "uri:2", "uri:3"},
+				fields: []map[string]string{
+					{"type": "t1", "kind": "k1", "secret": "s1"},
+					{"type": "t2", "kind": "k2", "secret": "s2"},
+					{"type": "t3", "kind": "k3", "secret": "s3"},
+				},
+			},
+			want: []model.Event{
+				{URI: "uri:1", Type: "t1", Kind: "k1", Secret: "s1"},
+				{URI: "uri:2", Type: "t2", Kind: "k2", Secret: "s2"},
+				{URI: "uri:3", Type: "t3", Kind: "k3", Secret: "s3"},
+			},
 		},
 		{
-			name:    "delete trigger event REDIS error",
-			args:    args{event: "event:uri:test"},
-			wantErr: errors.New("REDIS error"),
+			name: "get trigger events by type",
+			args: args{eventType: "T"},
+			expect: expect{
+				keys: []string{"uri:1", "uri:2", "uri:3"},
+				fields: []map[string]string{
+					{"type": "t1", "kind": "k1", "secret": "s1"},
+					{"type": "T", "kind": "k2", "secret": "s2"},
+					{"type": "T", "kind": "k3", "secret": "s3"},
+				},
+			},
+			want: []model.Event{
+				{URI: "uri:2", Type: "T", Kind: "k2", Secret: "s2"},
+				{URI: "uri:3", Type: "T", Kind: "k3", Secret: "s3"},
+			},
+		},
+		{
+			name: "get trigger events by filter",
+			args: args{filter: "uri:2*"},
+			expect: expect{
+				keys: []string{"uri:21", "uri:22"},
+				fields: []map[string]string{
+					{"type": "t2", "kind": "k2", "secret": "s2"},
+					{"type": "t3", "kind": "k3", "secret": "s3"},
+				},
+			},
+			want: []model.Event{
+				{URI: "uri:21", Type: "t2", Kind: "k2", Secret: "s2"},
+				{URI: "uri:22", Type: "t3", Kind: "k3", Secret: "s3"},
+			},
+		},
+		{
+			name: "get trigger events by type and kind",
+			args: args{eventType: "T", kind: "K"},
+			expect: expect{
+				keys: []string{"uri:1", "uri:2", "uri:3"},
+				fields: []map[string]string{
+					{"type": "t1", "kind": "k1", "secret": "s1"},
+					{"type": "T", "kind": "K", "secret": "s2"},
+					{"type": "T", "kind": "k3", "secret": "s3"},
+				},
+			},
+			want: []model.Event{
+				{URI: "uri:2", Type: "T", Kind: "K", Secret: "s2"},
+			},
+		},
+		{
+			name: "get no trigger events by type and kind",
+			args: args{eventType: "T", kind: "K"},
+			expect: expect{
+				keys: []string{"uri:1", "uri:2", "uri:3"},
+				fields: []map[string]string{
+					{"type": "t1", "kind": "k1", "secret": "s1"},
+					{"type": "t2", "kind": "k2", "secret": "s2"},
+					{"type": "t3", "kind": "k3", "secret": "s3"},
+				},
+			},
+		},
+		{
+			name:    "keys error",
+			args:    args{},
+			expect:  expect{},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
@@ -1103,12 +1179,186 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			r := &RedisStore{
 				redisPool: &RedisPoolMock{},
 			}
-			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getEventKey(tt.args.event))
-			if tt.wantErr != nil {
+			// mock getting trigger event keys
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getEventKey(tt.args.filter))
+			if tt.wantErr {
+				cmd.ExpectError(errors.New("KEYS error"))
+				goto Invoke
+			} else {
+				cmd.Expect(interfaceSlice(tt.expect.keys))
+			}
+			// mock scanning trough all trigger events
+			for i, k := range tt.expect.keys {
+				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getEventKey(k))
+				cmd.ExpectMap(tt.expect.fields[i])
+			}
+
+			// invoke
+		Invoke:
+			got, err := r.GetEvents(tt.args.eventType, tt.args.kind, tt.args.filter)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.GetEvents() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if (len(got) != 0 || len(tt.want) != 0) && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.GetEvents() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRedisStore_DeleteEvent(t *testing.T) {
+	type redisErrors struct {
+		multi      bool
+		zrange     bool
+		delEvent   bool
+		delTrigger bool
+		zrem       bool
+		exec       bool
+	}
+	type expected struct {
+		pipelines []string
+	}
+	type args struct {
+		event string
+	}
+	tests := []struct {
+		name     string
+		args     args
+		expected expected
+		errs     redisErrors
+		wantErr  error
+	}{
+		{
+			name: "delete existing trigger event",
+			args: args{event: "event:uri:test"},
+			expected: expected{
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+		},
+		{
+			name:    "try deleting event with invalid key",
+			args:    args{event: "event:uri:*"},
+			wantErr: model.ErrNotSingleKey,
+		},
+		{
+			name:    "zrange error",
+			args:    args{event: "event:uri:test"},
+			wantErr: errors.New("REDIS error"),
+			errs:    redisErrors{zrange: true},
+		},
+		{
+			name: "multi error",
+			args: args{event: "event:uri:test"},
+			expected: expected{
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			wantErr: errors.New("REDIS error"),
+			errs:    redisErrors{multi: true},
+		},
+		{
+			name: "del event error",
+			args: args{event: "event:uri:test"},
+			expected: expected{
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			wantErr: errors.New("REDIS error"),
+			errs:    redisErrors{delEvent: true},
+		},
+		{
+			name: "del trigger error",
+			args: args{event: "event:uri:test"},
+			expected: expected{
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			wantErr: errors.New("REDIS error"),
+			errs:    redisErrors{delTrigger: true},
+		},
+		{
+			name: "zrem trigger error",
+			args: args{event: "event:uri:test"},
+			expected: expected{
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			wantErr: errors.New("REDIS error"),
+			errs:    redisErrors{zrem: true},
+		},
+		{
+			name: "exec error",
+			args: args{event: "event:uri:test"},
+			expected: expected{
+				pipelines: []string{"p1", "p2", "p3"},
+			},
+			wantErr: errors.New("REDIS error"),
+			errs:    redisErrors{exec: true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			// mock Redis
+			// expect Redis transaction open
+			var cmd *redigomock.Cmd
+			// get trigger event pipelines
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.event), 0, -1)
+			if tt.errs.zrange {
 				cmd.ExpectError(tt.wantErr)
+				goto Invoke
+			} else {
+				cmd.Expect(interfaceSlice(tt.expected.pipelines))
+			}
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
+			if tt.errs.multi {
+				cmd.ExpectError(tt.wantErr)
+				goto Invoke
 			} else {
 				cmd.Expect("OK!")
 			}
+			// delete event
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getEventKey(tt.args.event))
+			if tt.errs.delEvent {
+				cmd.ExpectError(tt.wantErr)
+				goto EndTransaction
+			} else {
+				cmd.Expect("QUEUED")
+			}
+			// delete trigger
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getTriggerKey(tt.args.event))
+			if tt.errs.delTrigger {
+				cmd.ExpectError(tt.wantErr)
+				goto EndTransaction
+			} else {
+				cmd.Expect("QUEUED")
+			}
+			// delete trigger
+			for _, pipeline := range tt.expected.pipelines {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(pipeline), tt.args.event)
+				if tt.errs.zrem {
+					cmd.ExpectError(tt.wantErr)
+					goto EndTransaction
+				} else {
+					cmd.Expect("QUEUED")
+				}
+			}
+
+		EndTransaction:
+			// discard transaction on error
+			if (tt.errs.delEvent || tt.errs.delTrigger || tt.errs.zrem) && !tt.errs.exec {
+				// expect transaction discard on error
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
+			} else {
+				// expect Redis transaction exec
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
+				if tt.errs.exec {
+					cmd.ExpectError(tt.wantErr)
+				} else {
+					cmd.Expect("OK!")
+				}
+			}
+
+		Invoke:
 			if err := r.DeleteEvent(tt.args.event); err != tt.wantErr {
 				t.Errorf("RedisStore.DeleteEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -1370,6 +1620,46 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			}
 			// assert mock
 			mock.AssertExpectations(t)
+		})
+	}
+}
+
+func Test_checkSingleKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		key     string
+		wantErr bool
+	}{
+		{
+			name: "valid key",
+			key:  "registry:dockerhub:12345",
+		},
+		{
+			name:    "empty key",
+			key:     "",
+			wantErr: true,
+		},
+		{
+			name:    "invalid key star",
+			key:     "registry:*",
+			wantErr: true,
+		},
+		{
+			name:    "invalid key options",
+			key:     "registry:[dockerhub,cfcr]",
+			wantErr: true,
+		},
+		{
+			name:    "invalid key q mark",
+			key:     "registry:?hub",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := checkSingleKey(tt.key); (err != nil) != tt.wantErr {
+				t.Errorf("checkSingleKey() error = %v, wantErr %v", err, tt.wantErr)
+			}
 		})
 	}
 }
