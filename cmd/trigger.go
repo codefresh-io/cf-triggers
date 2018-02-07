@@ -56,7 +56,7 @@ func listTriggers(c *cli.Context) error {
 
 	// triggers slice
 	var err error
-	var triggers []model.TriggerLink
+	var triggers []model.Trigger
 
 	// Handle 'pipelines'
 	if pipelines != nil {

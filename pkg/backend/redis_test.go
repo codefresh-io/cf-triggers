@@ -858,7 +858,7 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 		name     string
 		args     args
 		triggers []triggers
-		want     []model.TriggerLink
+		want     []model.Trigger
 		errs     redisErrors
 		wantErr  bool
 	}{
@@ -873,9 +873,9 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 					pipelines: []string{"pipeline-1", "pipeline-2"},
 				},
 			},
-			want: []model.TriggerLink{
-				model.TriggerLink{Event: "event:uri:test", Pipeline: "pipeline-1"},
-				model.TriggerLink{Event: "event:uri:test", Pipeline: "pipeline-2"},
+			want: []model.Trigger{
+				model.Trigger{Event: "event:uri:test", Pipeline: "pipeline-1"},
+				model.Trigger{Event: "event:uri:test", Pipeline: "pipeline-2"},
 			},
 			errs: redisErrors{false, false},
 		},
@@ -894,11 +894,11 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 					pipelines: []string{"pipeline-2", "pipeline-3"},
 				},
 			},
-			want: []model.TriggerLink{
-				model.TriggerLink{Event: "event:uri:test:1", Pipeline: "pipeline-1"},
-				model.TriggerLink{Event: "event:uri:test:1", Pipeline: "pipeline-2"},
-				model.TriggerLink{Event: "event:uri:test:2", Pipeline: "pipeline-2"},
-				model.TriggerLink{Event: "event:uri:test:2", Pipeline: "pipeline-3"},
+			want: []model.Trigger{
+				model.Trigger{Event: "event:uri:test:1", Pipeline: "pipeline-1"},
+				model.Trigger{Event: "event:uri:test:1", Pipeline: "pipeline-2"},
+				model.Trigger{Event: "event:uri:test:2", Pipeline: "pipeline-2"},
+				model.Trigger{Event: "event:uri:test:2", Pipeline: "pipeline-3"},
 			},
 			errs: redisErrors{false, false},
 		},
@@ -994,7 +994,7 @@ func TestRedisStore_ListTriggersForPipelines(t *testing.T) {
 		name      string
 		args      args
 		pipelines []pipelines
-		want      []model.TriggerLink
+		want      []model.Trigger
 		errs      redisErrors
 		wantErr   bool
 	}{
@@ -1009,9 +1009,9 @@ func TestRedisStore_ListTriggersForPipelines(t *testing.T) {
 					events:   []string{"event-1", "event-2"},
 				},
 			},
-			want: []model.TriggerLink{
-				model.TriggerLink{Event: "event-1", Pipeline: "test-pipeline"},
-				model.TriggerLink{Event: "event-2", Pipeline: "test-pipeline"},
+			want: []model.Trigger{
+				model.Trigger{Event: "event-1", Pipeline: "test-pipeline"},
+				model.Trigger{Event: "event-2", Pipeline: "test-pipeline"},
 			},
 			errs:    redisErrors{false, false},
 			wantErr: false,
@@ -1031,11 +1031,11 @@ func TestRedisStore_ListTriggersForPipelines(t *testing.T) {
 					events:   []string{"event-2", "event-3"},
 				},
 			},
-			want: []model.TriggerLink{
-				model.TriggerLink{Event: "event-1", Pipeline: "test-pipeline-1"},
-				model.TriggerLink{Event: "event-2", Pipeline: "test-pipeline-1"},
-				model.TriggerLink{Event: "event-2", Pipeline: "test-pipeline-2"},
-				model.TriggerLink{Event: "event-3", Pipeline: "test-pipeline-2"},
+			want: []model.Trigger{
+				model.Trigger{Event: "event-1", Pipeline: "test-pipeline-1"},
+				model.Trigger{Event: "event-2", Pipeline: "test-pipeline-1"},
+				model.Trigger{Event: "event-2", Pipeline: "test-pipeline-2"},
+				model.Trigger{Event: "event-3", Pipeline: "test-pipeline-2"},
 			},
 			errs:    redisErrors{false, false},
 			wantErr: false,

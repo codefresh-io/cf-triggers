@@ -14,17 +14,8 @@ type (
 		Error error  `json:"error, omitempty" yaml:"error,omitempty"`
 	}
 
-	// Trigger describes a trigger type
+	// Trigger a single link between event and pipeline
 	Trigger struct {
-		// unique event URI, use ':' instead of '/'
-		Event string `json:"event" yaml:"event"`
-		// trigger secret
-		Secret string `json:"secret" yaml:"secret"`
-		// pipelines
-		Pipelines []string `json:"pipelines" yaml:"pipelines"`
-	}
-
-	TriggerLink struct {
 		// unique event URI, use ':' instead of '/'
 		Event string `json:"event" yaml:"event"`
 		// pipeline
@@ -40,11 +31,11 @@ type (
 		DeleteEvent(event string) error
 		GetSecret(eventURI string) (string, error)
 		// triggers
-		ListTriggersForEvents(events []string) ([]TriggerLink, error)
+		ListTriggersForEvents(events []string) ([]Trigger, error)
 		CreateTriggersForEvent(event string, pipelines []string) error
 		DeleteTriggersForEvent(event string, pipelines []string) error
 		// pipelines
-		ListTriggersForPipelines(pipelines []string) ([]TriggerLink, error)
+		ListTriggersForPipelines(pipelines []string) ([]Trigger, error)
 		GetPipelinesForTriggers(events []string) ([]string, error)
 		CreateTriggersForPipeline(pipeline string, events []string) error
 		DeleteTriggersForPipeline(pipeline string, events []string) error

@@ -176,7 +176,7 @@ func NewRedisStore(server string, port int, password string, pipelineSvc codefre
 //-------------------------- TriggerReaderWriter Interface -------------------------
 
 // ListTriggersForEvents get list of defined triggers for trigger events
-func (r *RedisStore) ListTriggersForEvents(events []string) ([]model.TriggerLink, error) {
+func (r *RedisStore) ListTriggersForEvents(events []string) ([]model.Trigger, error) {
 	con := r.redisPool.GetConn()
 	log.WithField("events", events).Debug("List triggers for events")
 
@@ -191,7 +191,7 @@ func (r *RedisStore) ListTriggersForEvents(events []string) ([]model.TriggerLink
 	}
 
 	// Iterate through all trigger keys and get pipelines
-	triggers := make([]model.TriggerLink, 0)
+	triggers := make([]model.Trigger, 0)
 	for _, k := range keys {
 		res, err := redis.Strings(con.Do("ZRANGE", k, 0, -1))
 		if err != nil {
@@ -200,7 +200,7 @@ func (r *RedisStore) ListTriggersForEvents(events []string) ([]model.TriggerLink
 		}
 		// for all linked pipelines ...
 		for _, pipeline := range res {
-			trigger := model.TriggerLink{
+			trigger := model.Trigger{
 				Event:    strings.TrimPrefix(k, "trigger:"),
 				Pipeline: pipeline,
 			}
@@ -211,7 +211,7 @@ func (r *RedisStore) ListTriggersForEvents(events []string) ([]model.TriggerLink
 }
 
 // ListTriggersForPipelines get list of defined triggers for specified pipelines
-func (r *RedisStore) ListTriggersForPipelines(pipelines []string) ([]model.TriggerLink, error) {
+func (r *RedisStore) ListTriggersForPipelines(pipelines []string) ([]model.Trigger, error) {
 	con := r.redisPool.GetConn()
 	log.WithField("pipelines", pipelines).Debug("List triggers for pipelines")
 
@@ -226,7 +226,7 @@ func (r *RedisStore) ListTriggersForPipelines(pipelines []string) ([]model.Trigg
 	}
 
 	// Iterate through all pipelines keys and get trigger events
-	triggers := make([]model.TriggerLink, 0)
+	triggers := make([]model.Trigger, 0)
 	for _, k := range keys {
 		res, err := redis.Strings(con.Do("ZRANGE", k, 0, -1))
 		if err != nil {
@@ -235,7 +235,7 @@ func (r *RedisStore) ListTriggersForPipelines(pipelines []string) ([]model.Trigg
 		}
 		// for all linked trigger events ...
 		for _, event := range res {
-			trigger := model.TriggerLink{
+			trigger := model.Trigger{
 				Event:    event,
 				Pipeline: strings.TrimPrefix(k, "pipeline:"),
 			}
