@@ -97,7 +97,7 @@ GET
 ```text
 uri=[string]
 
-# example: `/event-info/index.docker.io:codefresh:fortune:push
+# example: `/event-info/registry:dockerhub:codefresh:fortune:push
 ```
 
 ##### Success Response

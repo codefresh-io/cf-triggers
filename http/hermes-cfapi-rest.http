@@ -33,7 +33,7 @@ Authorization: {{api-token}}
 ###
 # Get Event Info details for DockerHub codefresh/fortune push event
 # NOTE: create trigger pipeline before
-GET {{codefresh-url}}/api/hermes/events/info/index.docker.io:codefresh:fortune:push
+GET {{codefresh-url}}/api/hermes/events/info/registry:dockerhub:codefresh:fortune:push
 Authorization: {{api-token}}
 
 ###
@@ -54,7 +54,7 @@ Authorization: {{api-token}}
 # Add pipeline - some existing pipeline
 # to 
 # trigger - codefresh/fortune DockerHub push
-POST {{codefresh-url}}/api/hermes/triggers/index.docker.io:codefresh:fortune:push/pipelines
+POST {{codefresh-url}}/api/hermes/triggers/registry:dockerhub:codefresh:fortune:push/pipelines
 Content-Type: application/json
 Authorization: {{api-token}}
 
@@ -65,7 +65,7 @@ Authorization: {{api-token}}
 # to 
 # trigger - codefresh/fortune DockerHub push
 # Expected: 500
-POST {{codefresh-url}}/api/hermes/triggers/index.docker.io:codefresh:fortune:push/pipelines
+POST {{codefresh-url}}/api/hermes/triggers/registry:dockerhub:codefresh:fortune:push/pipelines
 Content-Type: application/json
 Authorization: {{api-token}}
 
@@ -75,7 +75,7 @@ Authorization: {{api-token}}
 # Delete pipeline
 #   event: codefresh/fortune DockerHub push
 #   pipeline: existing pipeline id
-DELETE {{codefresh-url}}/api/hermes/triggers/index.docker.io:codefresh:fortune:push/pipelines/{{existing-pipeline-id}}
+DELETE {{codefresh-url}}/api/hermes/triggers/registry:dockerhub:codefresh:fortune:push/pipelines/{{existing-pipeline-id}}
 Authorization: {{api-token}}
 
 ###
@@ -83,5 +83,5 @@ Authorization: {{api-token}}
 #   event: codefresh/fortune DockerHub push
 #   pipeline: non-existing pipeline id
 # Expected: 500
-DELETE {{codefresh-url}}/api/hermes/triggers/index.docker.io:codefresh:fortune:push/pipelines/{{non-existing-pipeline-id}}
+DELETE {{codefresh-url}}/api/hermes/triggers/registry:dockerhub:codefresh:fortune:push/pipelines/{{non-existing-pipeline-id}}
 Authorization: {{api-token}}

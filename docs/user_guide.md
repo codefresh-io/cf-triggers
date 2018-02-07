@@ -33,13 +33,13 @@ Select Docker Hub repository, that will trigger Codefresh pipeline and **constru
 
 ```sh
 # Pattern
-# index.docker.io:{{Docker Hub Account}}:{{Docker Hub Repo}}:push
+# registry:dockerhub:{{Namespace}}:{{Image Name}}:push
 ```
 
 Regex:
 
 ```regexp
-^index\.docker\.io:[a-z0-9_-]+:[a-z0-9_-]+:push$
+^registry:dockerhub:[a-z0-9_-]+:[a-z0-9_-]+:push$
 ```
 
 #### Example
@@ -69,7 +69,7 @@ POST http://localhost:8080/triggers
 content-type: application/json
 
 {
-    "event": "index.docker.io:codefresh:fortune:push",
+    "event": "registry:dockerhub:codefresh:fortune:push",
     "secret": "!generate",
     "pipelines": [
         "5a439664af73ad0001f3ece0",
@@ -95,7 +95,7 @@ DESCRIPTION:
 ```
 
 ```sh
-hermes info event index.docker.io:codefresh:fortune:push
+hermes info event registry:dockerhub:codefresh:fortune:push
 ```
 
 ```text
@@ -122,7 +122,7 @@ Follow the above guide and set Docker Hub webhook.
 # DEBUG kubectl port-forward <hermes-pod> 8080 &
 # Get Event Info details for DockerHub codefresh/fortune push event
 # NOTE: create trigger pipeline before
-GET http://localhost:8080/events/info/index.docker.io:codefresh:fortune:push
+GET http://localhost:8080/events/info/registry:dockerhub:codefresh:fortune:push
 ```
 
 You should see output similar to one from command line tool, but in `JSON` format.

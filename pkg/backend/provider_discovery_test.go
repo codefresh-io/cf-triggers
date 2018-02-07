@@ -224,7 +224,7 @@ func TestEventProviderManager_MatchTypeNil(t *testing.T) {
 	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// match type
-	_, err := manager.MatchType("index.docker.io:not-valid:push")
+	_, err := manager.MatchType("registry:dockerhub:not-valid:push")
 	if err == nil {
 		t.Error("non-nil type for invalid uri")
 	}

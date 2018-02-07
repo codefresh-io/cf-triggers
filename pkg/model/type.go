@@ -26,7 +26,7 @@ type (
 		ServiceURL string `json:"service-url" yaml:"service-url"`
 		//Event kind name; e.g. dockerhub|ecr|gcr (registry), github|bitbucket|gitlab (git)
 		Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-		// URI template; e.g. index.docker.io:{{namespace}}:{{name}}:push
+		// URI template; e.g. registry:dockerhub:{{namespace}}:{{name}}:push
 		URITemplate string `json:"uri-template,omitempty" yaml:"uri-template,omitempty"`
 		// URI pattern; event uri match pattern - helps to detect type and kind from uri
 		URIPattern string `json:"uri-regex" yaml:"uri-regex"`
