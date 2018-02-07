@@ -11,11 +11,11 @@ import (
 // EventController trigger controller
 type EventController struct {
 	trigger       model.TriggerReaderWriter
-	eventProvider provider.EventProviderInformer
+	eventProvider provider.EventProvider
 }
 
 // NewEventController new trigger controller
-func NewEventController(trigger model.TriggerReaderWriter, eventProvider provider.EventProviderInformer) *EventController {
+func NewEventController(trigger model.TriggerReaderWriter, eventProvider provider.EventProvider) *EventController {
 	return &EventController{trigger, eventProvider}
 }
 

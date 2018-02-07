@@ -1507,10 +1507,11 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		info     *model.EventInfo
 	}
 	type args struct {
-		eventType string
-		kind      string
-		secret    string
-		values    map[string]string
+		eventType   string
+		kind        string
+		secret      string
+		credentials string
+		values      map[string]string
 	}
 	tests := []struct {
 		name             string
@@ -1524,7 +1525,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 	}{
 		{
 			name: "create event",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1539,14 +1540,14 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name:            "fail to construct URI",
-			args:            args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args:            args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
 			expected:        expected{eventURI: ""},
 			wantEventURIErr: true,
 			errs:            redisErrors{},
 		},
 		{
-			name:             "fail to get event info",
-			args:             args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			name:             "fail to subscribe to event",
+			args:             args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
 			expected:         expected{eventURI: "type:kind:test"},
 			wantEventInfoErr: true,
 			errs:             redisErrors{},
@@ -1645,12 +1646,12 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var cmd *redigomock.Cmd
-			mock := provider.NewEventProviderInformerMock()
+			mock := provider.NewEventProviderMock()
 			r := &RedisStore{
 				redisPool:     &RedisPoolMock{},
 				eventProvider: mock,
 			}
-			// mock EventProviderInformer calls
+			// mock EventProvider calls
 			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, tt.args.values)
 			if tt.wantEventURIErr {
 				call.Return("", errors.New("test error"))
@@ -1658,7 +1659,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			} else {
 				call.Return(tt.expected.eventURI, nil)
 			}
-			call = mock.On("GetEvent", tt.expected.eventURI, tt.args.secret)
+			call = mock.On("SubscribeToEvent", tt.expected.eventURI, tt.args.secret, tt.args.credentials)
 			if tt.wantEventInfoErr {
 				call.Return(nil, errors.New("test error"))
 				goto Invoke
@@ -1734,7 +1735,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 
 		Invoke:
 			// invoke method under test
-			got, err := r.CreateEvent(tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.values)
+			got, err := r.CreateEvent(tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.credentials, tt.args.values)
 			if (err != nil) != (tt.wantErr || tt.wantEventURIErr || tt.wantEventInfoErr) {
 				t.Errorf("RedisStore.CreateEvent() error = %v, wantErr %v", err, tt.wantErr)
 				return

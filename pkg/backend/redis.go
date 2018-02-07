@@ -119,7 +119,7 @@ func (rp *RedisPool) GetConn() redis.Conn {
 type RedisStore struct {
 	redisPool     RedisPoolService
 	pipelineSvc   codefresh.PipelineService
-	eventProvider provider.EventProviderInformer
+	eventProvider provider.EventProvider
 }
 
 // helper function - discard Redis transaction and return error
@@ -165,7 +165,7 @@ func getEventKey(id string) string {
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
-func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService, eventProvider provider.EventProviderInformer) *RedisStore {
+func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService, eventProvider provider.EventProvider) *RedisStore {
 	r := new(RedisStore)
 	r.redisPool = &RedisPool{newPool(server, port, password)}
 	r.pipelineSvc = pipelineSvc
@@ -487,7 +487,7 @@ func (r *RedisStore) GetPipelinesForTriggers(events []string) ([]string, error) 
 }
 
 // CreateEvent new trigger event
-func (r *RedisStore) CreateEvent(eventType string, kind string, secret string, values map[string]string) (*model.Event, error) {
+func (r *RedisStore) CreateEvent(eventType, kind, secret, credentials string, values map[string]string) (*model.Event, error) {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
 		"type": eventType,
@@ -507,7 +507,7 @@ func (r *RedisStore) CreateEvent(eventType string, kind string, secret string, v
 	}
 
 	// get event details from event provider
-	eventInfo, err := r.eventProvider.GetEvent(eventURI, secret)
+	eventInfo, err := r.eventProvider.SubscribeToEvent(eventURI, secret, credentials)
 	if err != nil {
 		return nil, err
 	}

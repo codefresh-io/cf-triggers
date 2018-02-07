@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
@@ -136,8 +137,18 @@ func createEvent(c *cli.Context) error {
 	eventProvider := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 	// get trigger backend
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, eventProvider)
+	// construct values map
+	values := make(map[string]string)
+	valueFlag := c.StringSlice("value")
+	for _, v := range valueFlag {
+		kv := strings.Split(v, "=")
+		if len(kv) != 2 {
+			return errors.New("Invalid value format, must be in form '--value key=val'")
+		}
+		values[kv[0]] = kv[1]
+	}
 	// create new event
-	event, err := triggerReaderWriter.CreateEvent(c.String("type"), c.String("kind"), c.String("secret"), nil)
+	event, err := triggerReaderWriter.CreateEvent(c.String("type"), c.String("kind"), c.String("secret"), c.String("credentials"), values)
 	if err != nil {
 		return err
 	}

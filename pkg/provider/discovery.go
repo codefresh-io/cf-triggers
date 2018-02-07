@@ -25,12 +25,14 @@ type (
 		watcher    *util.FileWatcher
 	}
 
-	// EventProviderInformer describes installed and configured Trigger Event Providers
-	EventProviderInformer interface {
+	// EventProvider describes installed and configured Trigger Event Providers
+	EventProvider interface {
 		GetTypes() []model.EventType
 		MatchType(eventURI string) (*model.EventType, error)
 		GetType(t string, k string) (*model.EventType, error)
-		GetEvent(eventURI string, secret string) (*model.EventInfo, error)
+		GetEventInfo(eventURI string, secret string) (*model.EventInfo, error)
+		SubscribeToEvent(event, secret, credentials string) (*model.EventInfo, error)
+		UnsubscribeFromEvent(event, credentials string) error
 		ConstructEventURI(t string, k string, values map[string]string) (string, error)
 	}
 )
@@ -177,8 +179,8 @@ func (m *EventProviderManager) MatchType(eventURI string) (*model.EventType, err
 	return nil, errors.New("failed to match event type")
 }
 
-// GetEvent get event info from event provider
-func (m *EventProviderManager) GetEvent(event string, secret string) (*model.EventInfo, error) {
+// GetEventInfo get event info from event provider
+func (m *EventProviderManager) GetEventInfo(event string, secret string) (*model.EventInfo, error) {
 	log.WithField("event-uri", event).Debug("Getting event info from event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
@@ -187,7 +189,7 @@ func (m *EventProviderManager) GetEvent(event string, secret string) (*model.Eve
 
 	// call Event Provider service to get event info
 	provider := NewEventProviderEndpoint(et.ServiceURL)
-	info, err := provider.GetEvent(event, secret)
+	info, err := provider.GetEventInfo(event, secret)
 	if err != nil {
 		log.WithError(err).Error("Failed to get event info")
 		return nil, err

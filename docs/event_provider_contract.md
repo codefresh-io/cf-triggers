@@ -74,14 +74,16 @@ It's recommended (not must) to add additional labels:
 
 ## REST API
 
-### Get Trigger Event Information
+---
+
+### Get Event Information
 
   Returns extended trigger event information, given `event-uri`.
 
 #### URL
 
 ```text
-/event-info/:uri
+/event/:uri/:secret
 ```
 
 #### Method
@@ -97,7 +99,7 @@ GET
 ```text
 uri=[string]
 
-# example: `/event-info/registry:dockerhub:codefresh:fortune:push
+# example: `/event/registry:dockerhub:codefresh:fortune:push/64zy952f3
 ```
 
 ##### Success Response
@@ -108,14 +110,111 @@ uri=[string]
     {
         "endpoint": "https://g.codefresh.io/dockerhub?secret=64zy952f3",
         "description": "DockerHub codefresh/fortune push event",
+        "help": "Very long and helpful text (Markdown-formatted)",
         "status": "active"
     }
     ```
 
 - `endpoint` - public address (or IP) of endpoint API; usually used as a webhook endpoint
 - `description` - human-readable "translation" of `event-uri`
+- `help` - very long and helpful text (markdown-formatted)
 - `status` - event status from event provider, usually `active` or `non-active` (can be other)
 
 ##### Error Response
 
 - **Code:** `404 NOT FOUND`
+
+---
+
+### Subscribe to Event
+
+  Subscribe to event in external system (using available API, for example). Returns extended trigger event information for *subscribed* event.
+
+#### URL
+
+```text
+/event/:uri/:secret/:credentials
+```
+
+#### Method
+
+```text
+POST
+```
+
+#### URL Params
+
+**Required:**
+
+```text
+uri=[string]
+secret=[string]
+credentials=[base64(string)]
+
+# example: `/event/registry:dockerhub:codefresh:fortune:push/64zy952f3/ewoidXNlciI6ICJhZG1pbiIsCiJwYXNzd29yZCI6ICJyb290Igp9Cg==
+```
+
+##### Success Response
+
+- **Code:** `200`
+    **Content:**
+    ```json
+    {
+        "endpoint": "https://g.codefresh.io/dockerhub?secret=64zy952f3",
+        "description": "DockerHub codefresh/fortune push event",
+        "help": "Very long and helpful text (Markdown-formatted)",
+        "status": "active"
+    }
+    ```
+
+- `endpoint` - public address (or IP) of endpoint API; usually used as a webhook endpoint
+- `description` - human-readable "translation" of `event-uri`
+- `help` - very long and helpful text (markdown-formatted)
+- `status` - event status from event provider, usually `active` or `non-active` (can be other)
+
+##### Error Response
+
+- **Code:** `401 Unauthorized` when wrong credentials are passed
+- **Code:** `403 Forbidden` when no sufficient permissions
+- **Code:** `404 Not Found` when event source is not found
+- **Code:** `500 Internal Server Error` for any other error
+
+---
+
+### Unsubscribe from Event
+
+  Unsubscribe from event in external system (using available API, for example).
+
+#### URL
+
+```text
+/event/:uri/:credentials
+```
+
+#### Method
+
+```text
+DELETE
+```
+
+#### URL Params
+
+**Required:**
+
+```text
+uri=[string]
+credentials=[base64(string)]
+
+# example: `/event/registry:dockerhub:codefresh:fortune:push/ewoidXNlciI6ICJhZG1pbiIsCiJwYXNzd29yZCI6ICJyb290Igp9Cg==
+```
+
+##### Success Response
+
+- **Code:** `200` successfully unsubscribed
+
+##### Error Response
+
+- **Code:** `401 Unauthorized` when wrong credentials are passed
+- **Code:** `403 Forbidden` when no sufficient permissions
+- **Code:** `404 Not Found` when event source is not found
+- **Code:** `500 Internal Server Error` for any other error

@@ -5,8 +5,8 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// NewEventProviderInformerMock create EventProviderInformer API mock
-func NewEventProviderInformerMock() *Mock {
+// NewEventProviderMock create EventProvider API mock
+func NewEventProviderMock() *Mock {
 	return &Mock{}
 }
 
@@ -42,13 +42,28 @@ func (c *Mock) GetType(t string, k string) (*model.EventType, error) {
 	return args.Get(0).(*model.EventType), args.Error(1)
 }
 
-// GetEvent mock
-func (c *Mock) GetEvent(eventURI string, secret string) (*model.EventInfo, error) {
-	args := c.Called(eventURI, secret)
+// GetEventInfo mock
+func (c *Mock) GetEventInfo(event string, secret string) (*model.EventInfo, error) {
+	args := c.Called(event, secret)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*model.EventInfo), args.Error(1)
+}
+
+// SubscribeToEvent mock
+func (c *Mock) SubscribeToEvent(event, secret, credentials string) (*model.EventInfo, error) {
+	args := c.Called(event, secret, credentials)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.EventInfo), args.Error(1)
+}
+
+// SubscribeToEvent mock
+func (c *Mock) UnsubscribeFromEvent(event, credentials string) error {
+	args := c.Called(event, credentials)
+	return args.Error(0)
 }
 
 // ConstructEventURI mock
