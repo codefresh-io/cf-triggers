@@ -59,36 +59,33 @@ func runServer(c *cli.Context) error {
 	// get secret checker
 	secretChecker := backend.NewSecretChecker()
 
-	// trigger controller
-	triggerController := controller.NewController(triggerBackend)
-
 	// trigger management API
 	router.Handle("GET", "/", func(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/triggers")
 	})
 
-	// get supported events
+	// manage trigger events
 	eventsAPI := router.Group("/events", gin.Logger())
-	eventController := controller.NewEventController(triggerBackend, eventProvider)
-	eventsAPI.Handle("GET", "/info/:id", eventController.GetEvent)
-	eventsAPI.Handle("GET", "/types", eventController.ListTypes)
-	eventsAPI.Handle("GET", "/types/:type/:kind", eventController.GetType)
+	eventController := controller.NewTriggerEventController(triggerBackend)
+	eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
+	eventsAPI.Handle("GET", "/:type/:kind/:filter", eventController.ListEvents)
+	eventsAPI.Handle("DELETE", "/:event", eventController.DeleteEvent)
+	eventsAPI.Handle("POST", "/", eventController.CreateEvent)
+	eventsAPI.Handle("POST", "/trigger/:event", eventController.LinkEvent)
+	eventsAPI.Handle("DELETE", "/trigger/:event", eventController.UnlinkEvent)
 
-	// manage triggers
-	triggersAPI := router.Group("/triggers", gin.Logger())
-	//triggersAPI.Handle("GET", "/", triggerController.List) // pass filter or pipeline as query parameter
-	triggersAPI.Handle("GET", "/:event", triggerController.GetEvent)
-	triggersAPI.Handle("POST", "/", triggerController.CreateEvent)
-	triggersAPI.Handle("DELETE", "/:event", triggerController.DeleteEvent)
-
-	// manage pipelines attached to trigger event
-	triggersAPI.Handle("GET", "/:event/pipelines", triggerController.ListPipelines)
-	triggersAPI.Handle("POST", "/:event/pipelines", triggerController.CreateTriggersForEvent)
-	triggersAPI.Handle("DELETE", "/:event/pipelines/:pipeline", triggerController.DeleteTriggersForEvent)
+	// list trigger types
+	typesAPI := router.Group("/types", gin.Logger())
+	typesController := controller.NewTriggerTypeController(eventProvider)
+	typesAPI.Handle("GET", "/", typesController.ListTypes)
+	typesAPI.Handle("GET", "/:type/:kind", typesController.GetType)
 
 	// invoke trigger with event payload
-	runnerController := controller.NewRunnerController(runner, triggerBackend, secretChecker)
-	triggersAPI.Handle("POST", "/:id", runnerController.TriggerEvent)
+	triggersAPI := router.Group("/triggers", gin.Logger())
+	runnerController := controller.NewTriggerController(runner, triggerBackend, secretChecker)
+	triggersAPI.Handle("GET", "/event/:event", runnerController.ListEventTriggers)
+	triggersAPI.Handle("GET", "/pipeline/:pipeline", runnerController.ListPipelineTriggers)
+	triggersAPI.Handle("POST", "/:event", runnerController.RunTrigger)
 
 	// status handlers (without logging)
 	statusController := controller.NewStatusController(triggerBackend, codefreshService)

@@ -57,11 +57,11 @@ var triggerEventCommand = cli.Command{
 				},
 				cli.StringSliceFlag{
 					Name:  "value",
-					Usage: "trigger event value pair(s); as defined by trigger type config",
+					Usage: "trigger event values (key=value pairs); as defined by trigger type config",
 				},
 				cli.StringFlag{
-					Name:  "credentials",
-					Usage: "credentials for external system, required to subscribe to event (JSON)",
+					Name:  "credential",
+					Usage: "credential for external system (key=value pairs)",
 				},
 			},
 			Usage:       "create trigger event",
@@ -124,7 +124,7 @@ func getEvent(c *cli.Context) error {
 	// get trigger backend
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
 	// get trigger events
-	event, err := triggerReaderWriter.GetEvent(c.String("event"))
+	event, err := triggerReaderWriter.GetEvent(c.Args().First())
 	if err != nil {
 		return err
 	}
@@ -147,8 +147,18 @@ func createEvent(c *cli.Context) error {
 		}
 		values[kv[0]] = kv[1]
 	}
+	// construct credentials map
+	credentials := make(map[string]string)
+	credentialsFlag := c.StringSlice("credential")
+	for _, v := range credentialsFlag {
+		kv := strings.Split(v, "=")
+		if len(kv) != 2 {
+			return errors.New("Invalid credentials format, must be in form '--credential key=val'")
+		}
+		credentials[kv[0]] = kv[1]
+	}
 	// create new event
-	event, err := triggerReaderWriter.CreateEvent(c.String("type"), c.String("kind"), c.String("secret"), c.String("credentials"), values)
+	event, err := triggerReaderWriter.CreateEvent(c.String("type"), c.String("kind"), c.String("secret"), credentials, values)
 	if err != nil {
 		return err
 	}
@@ -162,8 +172,18 @@ func createEvent(c *cli.Context) error {
 func deleteEvent(c *cli.Context) error {
 	// get trigger backend
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	// construct credentials map
+	credentials := make(map[string]string)
+	credentialsFlag := c.StringSlice("credential")
+	for _, v := range credentialsFlag {
+		kv := strings.Split(v, "=")
+		if len(kv) != 2 {
+			return errors.New("Invalid credentials format, must be in form '--credential key=val'")
+		}
+		credentials[kv[0]] = kv[1]
+	}
 	// get trigger events
-	err := triggerReaderWriter.DeleteEvent(c.String("event"))
+	err := triggerReaderWriter.DeleteEvent(c.Args().First(), credentials)
 	if err != nil {
 		return err
 	}

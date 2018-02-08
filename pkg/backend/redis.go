@@ -487,7 +487,7 @@ func (r *RedisStore) GetPipelinesForTriggers(events []string) ([]string, error) 
 }
 
 // CreateEvent new trigger event
-func (r *RedisStore) CreateEvent(eventType, kind, secret, credentials string, values map[string]string) (*model.Event, error) {
+func (r *RedisStore) CreateEvent(eventType, kind, secret string, credentials map[string]string, values map[string]string) (*model.Event, error) {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
 		"type": eventType,
@@ -596,6 +596,10 @@ func (r *RedisStore) GetEvent(event string) (*model.Event, error) {
 		log.WithError(err).Error("Failed to get trigger event fields")
 		return nil, err
 	}
+	if len(fields) == 0 {
+		log.Error("Failed to find trigger event")
+		return nil, model.ErrEventNotFound
+	}
 	return model.StringsMapToEvent(event, fields), nil
 }
 
@@ -629,7 +633,7 @@ func (r *RedisStore) GetEvents(eventType, kind, filter string) ([]model.Event, e
 }
 
 // DeleteEvent delete trigger event
-func (r *RedisStore) DeleteEvent(event string) error {
+func (r *RedisStore) DeleteEvent(event string, credentials map[string]string) error {
 	con := r.redisPool.GetConn()
 	log.WithField("event-uri", event).Debug("Deleting trigger event")
 	// check event URI

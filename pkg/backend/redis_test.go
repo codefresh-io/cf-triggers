@@ -1167,6 +1167,12 @@ func TestRedisStore_GetEvent(t *testing.T) {
 			name:    "get non-existing event",
 			args:    args{event: "non-existing:event:uri:test"},
 			expect:  expect{},
+			wantErr: model.ErrEventNotFound,
+		},
+		{
+			name:    "get non-existing event REDIS error",
+			args:    args{event: "non-existing:event:uri:test"},
+			expect:  expect{},
 			wantErr: errors.New("HGETALL error"),
 		},
 		{
@@ -1182,7 +1188,7 @@ func TestRedisStore_GetEvent(t *testing.T) {
 				redisPool: &RedisPoolMock{},
 			}
 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getEventKey(tt.args.event))
-			if tt.wantErr != nil {
+			if tt.wantErr != nil && tt.wantErr != model.ErrEventNotFound {
 				cmd.ExpectError(tt.wantErr)
 			} else {
 				cmd.ExpectMap(tt.expect.fields)
@@ -1344,7 +1350,8 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		pipelines []string
 	}
 	type args struct {
-		event string
+		event       string
+		credentials map[string]string
 	}
 	tests := []struct {
 		name     string
@@ -1483,7 +1490,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			}
 
 		Invoke:
-			if err := r.DeleteEvent(tt.args.event); err != tt.wantErr {
+			if err := r.DeleteEvent(tt.args.event, tt.args.credentials); err != tt.wantErr {
 				t.Errorf("RedisStore.DeleteEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -1515,7 +1522,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		eventType   string
 		kind        string
 		secret      string
-		credentials string
+		credentials map[string]string
 		values      map[string]string
 	}
 	tests := []struct {
@@ -1529,7 +1536,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 	}{
 		{
 			name: "create event",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1544,21 +1551,21 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name:         "fail to construct URI",
-			args:         args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			args:         args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected:     expected{eventURI: ""},
 			wantEventErr: eventErrors{uri: errors.New("URI error")},
 			errs:         redisErrors{},
 		},
 		{
 			name:         "fail to subscribe to event",
-			args:         args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			args:         args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected:     expected{eventURI: "type:kind:test"},
 			wantEventErr: eventErrors{subscribe: errors.New("Subscribe error")},
 			errs:         redisErrors{},
 		},
 		{
 			name: "fail to subscribe to event (not implemented)",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1574,14 +1581,14 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name:         "fail to subscribe to event and get info fallback fails too",
-			args:         args{eventType: "type", kind: "kind", secret: "XXX", credentials: "{}", values: nil},
+			args:         args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected:     expected{eventURI: "type:kind:test"},
 			wantEventErr: eventErrors{subscribe: provider.ErrNotImplemented, info: errors.New("Info error")},
 			errs:         redisErrors{},
 		},
 		{
 			name: "fail start transaction",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1591,7 +1598,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "fail update type",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1601,7 +1608,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "fail update kind",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1611,7 +1618,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "fail update secret",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1621,7 +1628,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "fail update description",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1631,7 +1638,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "fail update endpoint",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1641,7 +1648,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "fail update help",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1651,7 +1658,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "fail update status",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1661,7 +1668,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "fail exec transaction",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", values: nil},
+			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test",
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},

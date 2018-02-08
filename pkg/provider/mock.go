@@ -52,7 +52,7 @@ func (c *Mock) GetEventInfo(event string, secret string) (*model.EventInfo, erro
 }
 
 // SubscribeToEvent mock
-func (c *Mock) SubscribeToEvent(event, secret, credentials string) (*model.EventInfo, error) {
+func (c *Mock) SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error) {
 	args := c.Called(event, secret, credentials)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -60,8 +60,8 @@ func (c *Mock) SubscribeToEvent(event, secret, credentials string) (*model.Event
 	return args.Get(0).(*model.EventInfo), args.Error(1)
 }
 
-// SubscribeToEvent mock
-func (c *Mock) UnsubscribeFromEvent(event, credentials string) error {
+// UnsubscribeFromEvent mock
+func (c *Mock) UnsubscribeFromEvent(event string, credentials map[string]string) error {
 	args := c.Called(event, credentials)
 	return args.Error(0)
 }

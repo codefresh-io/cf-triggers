@@ -2,6 +2,7 @@ package provider
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,8 +16,8 @@ type (
 	// EventProviderService Codefresh Service
 	EventProviderService interface {
 		GetEventInfo(event, secret string) (*model.EventInfo, error)
-		SubscribeToEvent(event, secret, credentials string) (*model.EventInfo, error)
-		UnsubscribeFromEvent(event, credentials string) error
+		SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error)
+		UnsubscribeFromEvent(event string, credentials map[string]string) error
 	}
 
 	// APIEndpoint Event Provider API endpoint
@@ -50,10 +51,11 @@ func (api *APIEndpoint) GetEventInfo(event string, secret string) (*model.EventI
 }
 
 // SubscribeToEvent configure remote system through event provider to subscribe for desired event
-func (api *APIEndpoint) SubscribeToEvent(event, secret, credentials string) (*model.EventInfo, error) {
+func (api *APIEndpoint) SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error) {
 	var info model.EventInfo
 	// encode credentials to pass them in url
-	encoded := base64.StdEncoding.EncodeToString([]byte(credentials))
+	creds, _ := json.Marshal(credentials)
+	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke POST method passing credentials as base64 encoded string; receive eventinfo on success
 	resp, err := api.endpoint.New().Post(fmt.Sprint("/event/", event, "/", secret, "/", encoded)).ReceiveSuccess(&info)
 	if err != nil {
@@ -70,9 +72,10 @@ func (api *APIEndpoint) SubscribeToEvent(event, secret, credentials string) (*mo
 }
 
 // UnsubscribeFromEvent configure remote system through event provider to unsubscribe for desired event
-func (api *APIEndpoint) UnsubscribeFromEvent(event, credentials string) error {
+func (api *APIEndpoint) UnsubscribeFromEvent(event string, credentials map[string]string) error {
 	// encode credentials to pass them in url
-	encoded := base64.StdEncoding.EncodeToString([]byte(credentials))
+	creds, _ := json.Marshal(credentials)
+	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke DELETE method passing credentials as base64 encoded string
 	resp, err := api.endpoint.New().Delete(fmt.Sprint("/event/", event, "/", encoded)).Receive(nil, nil)
 	if err != nil {

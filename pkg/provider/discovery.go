@@ -31,8 +31,8 @@ type (
 		MatchType(eventURI string) (*model.EventType, error)
 		GetType(t string, k string) (*model.EventType, error)
 		GetEventInfo(eventURI string, secret string) (*model.EventInfo, error)
-		SubscribeToEvent(event, secret, credentials string) (*model.EventInfo, error)
-		UnsubscribeFromEvent(event, credentials string) error
+		SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error)
+		UnsubscribeFromEvent(event string, credentials map[string]string) error
 		ConstructEventURI(t string, k string, values map[string]string) (string, error)
 	}
 )
@@ -196,6 +196,43 @@ func (m *EventProviderManager) GetEventInfo(event string, secret string) (*model
 	}
 
 	return info, nil
+}
+
+// SubscribeToEvent subscribe to remote event through event provider
+func (m *EventProviderManager) SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error) {
+	log.WithField("event-uri", event).Debug("Subscribe to remote event trough event provider")
+	et, err := m.MatchType(event)
+	if err != nil {
+		return nil, err
+	}
+
+	// call Event Provider service to subscribe to remote event
+	provider := NewEventProviderEndpoint(et.ServiceURL)
+	info, err := provider.SubscribeToEvent(event, secret, credentials)
+	if err != nil {
+		log.WithError(err).Error("Failed to subscribe to remote event")
+		return nil, err
+	}
+
+	return info, nil
+}
+
+// UnsubscribeFromEvent unsubscribe from remote event through event provider
+func (m *EventProviderManager) UnsubscribeFromEvent(event string, credentials map[string]string) error {
+	log.WithField("event-uri", event).Debug("Unsubscribe from remote event trough event provider")
+	et, err := m.MatchType(event)
+	if err != nil {
+		return err
+	}
+
+	// call Event Provider service to subscribe to remote event
+	provider := NewEventProviderEndpoint(et.ServiceURL)
+	err = provider.UnsubscribeFromEvent(event, credentials)
+	if err != nil {
+		log.WithError(err).Error("Failed to unsubscribe from remote event")
+	}
+
+	return err
 }
 
 // ConstructEventURI construct event URI from type/kind and values map

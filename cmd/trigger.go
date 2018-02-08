@@ -58,9 +58,13 @@ func listTriggers(c *cli.Context) error {
 	var err error
 	var triggers []model.Trigger
 
+	// at least one option must be defined
+	if len(events) == 0 && len(pipelines) == 0 {
+		return errors.New("at least one option 'event' or 'pipeline' must be specified")
+	}
 	// Handle 'pipelines'
-	if pipelines != nil {
-		if events != nil {
+	if len(pipelines) > 0 {
+		if len(events) > 0 {
 			return errors.New("'event' filter cannot be mixed with 'pipeline'")
 		}
 		triggers, err = triggerReaderWriter.ListTriggersForPipelines(pipelines)
@@ -68,8 +72,8 @@ func listTriggers(c *cli.Context) error {
 			return err
 		}
 	}
-	if events != nil {
-		if pipelines != nil {
+	if len(events) > 0 {
+		if len(pipelines) > 0 {
 			return errors.New("'pipeline' filter cannot be mixed with 'event'")
 		}
 		triggers, err = triggerReaderWriter.ListTriggersForEvents(events)
