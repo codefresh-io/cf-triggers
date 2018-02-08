@@ -1,14 +1,14 @@
 dependencies:
   # trigger manager
   - name: hermes
-    version: 0.4.0
+    version: 0.7.0
     repository: alias:hermes
     tags:
       - trigger-manager
       - codefresh
   # dockerhub event provider
   - name: nomios
-    version: 0.2.1
+    version: 0.4.0
     repository: alias:hermes
     tags:
       - event-provider
