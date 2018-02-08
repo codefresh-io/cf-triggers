@@ -250,7 +250,7 @@ func (r *RedisStore) ListTriggersForPipelines(pipelines []string) ([]model.Trigg
 func (r *RedisStore) CreateTriggersForPipeline(pipeline string, events []string) error {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
-		"pipeline-uid": pipeline,
+		"pipeline":     pipeline,
 		"event-uri(s)": events,
 	}).Debug("Creating triggers")
 
@@ -270,8 +270,8 @@ func (r *RedisStore) CreateTriggersForPipeline(pipeline string, events []string)
 	// add pipeline to Triggers
 	for _, event := range events {
 		log.WithFields(log.Fields{
-			"event-uri":    event,
-			"pipeline-uid": pipeline,
+			"event-uri": event,
+			"pipeline":  pipeline,
 		}).Debug("Adding pipeline to the Triggers")
 		_, err = con.Do("ZADD", getTriggerKey(event), 0, pipeline)
 		if err != nil {
@@ -281,10 +281,12 @@ func (r *RedisStore) CreateTriggersForPipeline(pipeline string, events []string)
 
 	// add trigger to Pipelines
 	log.WithFields(log.Fields{
-		"pipeline-uid": pipeline,
+		"pipeline":     pipeline,
 		"event-uri(s)": events,
 	}).Debug("Adding trigger to the Pipelines")
-	_, err = con.Do("ZADD", getPipelineKey(pipeline), 0, events)
+	params := []interface{}{getPipelineKey(pipeline), 0}
+	params = append(params, util.InterfaceSlice(events)...)
+	_, err = con.Do("ZADD", params...)
 	if err != nil {
 		return discardOnError(con, err)
 	}
@@ -301,7 +303,7 @@ func (r *RedisStore) CreateTriggersForPipeline(pipeline string, events []string)
 func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string) error {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
-		"pipeline-uid": pipeline,
+		"pipeline":     pipeline,
 		"event-uri(s)": events,
 	}).Debug("Deleting triggers for pipeline")
 
@@ -315,8 +317,8 @@ func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string)
 	// remove pipeline from Triggers
 	for _, event := range events {
 		log.WithFields(log.Fields{
-			"event-uri":    event,
-			"pipeline-uid": pipeline,
+			"event-uri": event,
+			"pipeline":  pipeline,
 		}).Debug("Removing pipeline from the Triggers")
 		_, err = con.Do("ZREM", getTriggerKey(event), pipeline)
 		if err != nil {
@@ -326,10 +328,12 @@ func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string)
 
 	// remove trigger(s) from Pipelines
 	log.WithFields(log.Fields{
-		"pipeline-uid": pipeline,
+		"pipeline":     pipeline,
 		"event-uri(s)": events,
 	}).Debug("Removing triggers from the Pipelines")
-	_, err = con.Do("ZREM", getPipelineKey(pipeline), events)
+	params := []interface{}{getPipelineKey(pipeline)}
+	params = append(params, util.InterfaceSlice(events)...)
+	_, err = con.Do("ZREM", params...)
 	if err != nil {
 		return discardOnError(con, err)
 	}
@@ -360,8 +364,8 @@ func (r *RedisStore) DeleteTriggersForEvent(event string, pipelines []string) er
 	// remove event from Pipelines
 	for _, pipeline := range pipelines {
 		log.WithFields(log.Fields{
-			"event-uri":    event,
-			"pipeline-uid": pipeline,
+			"event-uri": event,
+			"pipeline":  pipeline,
 		}).Debug("Removing event from the Pipelines")
 		_, err = con.Do("ZREM", getPipelineKey(pipeline), event)
 		if err != nil {
@@ -374,7 +378,9 @@ func (r *RedisStore) DeleteTriggersForEvent(event string, pipelines []string) er
 		"event-uri":    event,
 		"pipelines(s)": pipelines,
 	}).Debug("Removing triggers from the Triggers")
-	_, err = con.Do("ZREM", getTriggerKey(event), pipelines)
+	params := []interface{}{getTriggerKey(event)}
+	params = append(params, util.InterfaceSlice(pipelines)...)
+	_, err = con.Do("ZREM", params...)
 	if err != nil {
 		return discardOnError(con, err)
 	}
@@ -391,8 +397,8 @@ func (r *RedisStore) DeleteTriggersForEvent(event string, pipelines []string) er
 func (r *RedisStore) CreateTriggersForEvent(event string, pipelines []string) error {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
-		"event-uri":       event,
-		"pipeline-uid(s)": pipelines,
+		"event-uri": event,
+		"pipelines": pipelines,
 	}).Debug("Creating triggers")
 
 	// start Redis transaction
@@ -411,9 +417,9 @@ func (r *RedisStore) CreateTriggersForEvent(event string, pipelines []string) er
 
 		// add trigger to Pipelines
 		log.WithFields(log.Fields{
-			"pipeline-uid": pipeline,
-			"event-uri":    event,
-		}).Debug("Adding trigger to the Pipelines map")
+			"pipeline":  pipeline,
+			"event-uri": event,
+		}).Debug("Adding trigger to Pipelines")
 		_, err = con.Do("ZADD", getPipelineKey(pipeline), 0, event)
 		if err != nil {
 			return discardOnError(con, err)
@@ -421,10 +427,12 @@ func (r *RedisStore) CreateTriggersForEvent(event string, pipelines []string) er
 	}
 	// add pipelines to Triggers
 	log.WithFields(log.Fields{
-		"event-uri":       event,
-		"pipeline-uid(s)": pipelines,
-	}).Debug("Adding pipeline to the Triggers map")
-	_, err = con.Do("ZADD", getTriggerKey(event), 0, pipelines)
+		"event-uri": event,
+		"pipelines": pipelines,
+	}).Debug("Adding pipeline to the Triggers")
+	params := []interface{}{getTriggerKey(event), 0}
+	params = append(params, util.InterfaceSlice(pipelines)...)
+	_, err = con.Do("ZADD", params...)
 	if err != nil {
 		return discardOnError(con, err)
 	}
@@ -655,6 +663,7 @@ func (r *RedisStore) DeleteEvent(event string, credentials map[string]string) er
 	}
 
 	// delete event hash for key
+	log.Debug("Removing trigger event")
 	_, err = con.Do("DEL", getEventKey(event))
 	if err != nil {
 		log.WithError(err).Error("Failed to delete trigger event")
@@ -671,9 +680,9 @@ func (r *RedisStore) DeleteEvent(event string, credentials map[string]string) er
 	// remove trigger event from linked Pipelines
 	for _, pipeline := range pipelines {
 		log.WithFields(log.Fields{
-			"pipeline-uid": pipeline,
-			"event-uri":    event,
-		}).Debug("Removing trigger event from the Pipelines map")
+			"pipeline":  pipeline,
+			"event-uri": event,
+		}).Debug("Removing trigger event from Pipelines")
 		_, err = con.Do("ZREM", getPipelineKey(pipeline), event)
 		if err != nil {
 			return discardOnError(con, err)

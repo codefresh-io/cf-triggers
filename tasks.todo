@@ -13,6 +13,8 @@ Project:
     ✔ update cfapi proxy if needed @done (1/7/2018, 5:01:53 PM)
     ✔ expose codefresh cui commands @done (2/7/2018, 7:00:49 PM)
     ☐ unsubscribe from event through event provider when event is deleted (ignore not implemented)
+    ☐ Return "Trigger Event Already Exists" trying to create duplicate trigger
+    ☐ Return "Trigger Event Does not Exist" when deleting non existing trigger event
 
 DevOps:
     ☐ Backup Redis Store periodically; consider [stash](https://github.com/appscode/stash/)

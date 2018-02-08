@@ -27,6 +27,10 @@ var triggerEventCommand = cli.Command{
 					Name:  "kind",
 					Usage: "trigger event kind",
 				},
+				cli.BoolFlag{
+					Name:  "quiet,q",
+					Usage: "only display trigger event URIs",
+				},
 			},
 			Usage:       "list defined trigger events",
 			Description: "List trigger events",
@@ -59,7 +63,7 @@ var triggerEventCommand = cli.Command{
 					Name:  "value",
 					Usage: "trigger event values (key=value pairs); as defined by trigger type config",
 				},
-				cli.StringFlag{
+				cli.StringSliceFlag{
 					Name:  "credential",
 					Usage: "credential for external system (key=value pairs)",
 				},
@@ -114,8 +118,15 @@ func listEvents(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	if len(events) == 0 {
+		return errors.New("no trigger events found")
+	}
 	for _, event := range events {
-		fmt.Println(event)
+		if c.Bool("quiet") {
+			fmt.Println(event.URI)
+		} else {
+			fmt.Println(event)
+		}
 	}
 	return nil
 }

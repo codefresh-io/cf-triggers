@@ -210,7 +210,6 @@ func (m *EventProviderManager) SubscribeToEvent(event, secret string, credential
 	provider := NewEventProviderEndpoint(et.ServiceURL)
 	info, err := provider.SubscribeToEvent(event, secret, credentials)
 	if err != nil {
-		log.WithError(err).Error("Failed to subscribe to remote event")
 		return nil, err
 	}
 
@@ -227,12 +226,7 @@ func (m *EventProviderManager) UnsubscribeFromEvent(event string, credentials ma
 
 	// call Event Provider service to subscribe to remote event
 	provider := NewEventProviderEndpoint(et.ServiceURL)
-	err = provider.UnsubscribeFromEvent(event, credentials)
-	if err != nil {
-		log.WithError(err).Error("Failed to unsubscribe from remote event")
-	}
-
-	return err
+	return provider.UnsubscribeFromEvent(event, credentials)
 }
 
 // ConstructEventURI construct event URI from type/kind and values map

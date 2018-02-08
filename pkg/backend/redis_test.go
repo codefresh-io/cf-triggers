@@ -26,16 +26,6 @@ func (r *RedisPoolMock) GetConn() redis.Conn {
 	return r.conn
 }
 
-// helper function to convert []string to []interface{}
-// see https://github.com/golang/go/wiki/InterfaceSlice
-func interfaceSlice(slice []string) []interface{} {
-	islice := make([]interface{}, len(slice))
-	for i, v := range slice {
-		islice[i] = v
-	}
-	return islice
-}
-
 func Test_getPrefixKey(t *testing.T) {
 	tests := []struct {
 		name string
@@ -116,7 +106,7 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 			"get single trigger pipelines",
 			[]args{
 				{
-					id:        "event:test:uri",
+					id:        "test:uri",
 					pipelines: []string{"puid-1", "puid-2", "puid-3"},
 				},
 			},
@@ -128,11 +118,11 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 			"get multi trigger pipelines",
 			[]args{
 				{
-					id:        "event:test-1:uri",
+					id:        "test-1:uri",
 					pipelines: []string{"puid-1", "puid-2", "puid-3"},
 				},
 				{
-					id:        "event:test-2:uri",
+					id:        "test-2:uri",
 					pipelines: []string{"puid-4", "puid-5", "puid-6"},
 				},
 			},
@@ -144,11 +134,11 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 			"get multi trigger pipelines (duplicate)",
 			[]args{
 				{
-					id:        "event:test-1:uri",
+					id:        "test-1:uri",
 					pipelines: []string{"puid-1", "puid-2", "puid-3"},
 				},
 				{
-					id:        "event:test-2:uri",
+					id:        "test-2:uri",
 					pipelines: []string{"puid-2", "puid-3", "puid-4"},
 				},
 			},
@@ -208,7 +198,7 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 			"get trigger pipelines ZRANGE error",
 			[]args{
 				{
-					id:        "event:test:uri",
+					id:        "test:uri",
 					pipelines: nil,
 				},
 			},
@@ -220,7 +210,7 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 			"get trigger pipelines ZRANGE error",
 			[]args{
 				{
-					id:        "event:test:uri",
+					id:        "test:uri",
 					pipelines: nil,
 				},
 			},
@@ -232,7 +222,7 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 			"get trigger pipelines EMPTY error",
 			[]args{
 				{
-					id:        "event:test:uri",
+					id:        "test:uri",
 					pipelines: nil,
 				},
 			},
@@ -252,14 +242,14 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 					if tt.wantRedisErr != nil {
 						cmd.ExpectError(tt.wantRedisErr)
 					} else {
-						cmd.Expect(interfaceSlice(_arg.pipelines))
+						cmd.Expect(util.InterfaceSlice(_arg.pipelines))
 					}
 				} else {
 					cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(_arg.id), 0, -1)
 					if tt.wantRedisErr != nil {
 						cmd.ExpectError(tt.wantRedisErr)
 					} else {
-						cmd.Expect(interfaceSlice(_arg.pipelines))
+						cmd.Expect(util.InterfaceSlice(_arg.pipelines))
 					}
 				}
 			}
@@ -293,13 +283,13 @@ func TestRedisStore_GetSecret(t *testing.T) {
 	}{
 		{
 			name:    "get secret",
-			args:    args{eventURI: "event:test"},
+			args:    args{eventURI: "test"},
 			want:    "123456789",
 			wantErr: false,
 		},
 		{
 			name:    "get secret missing",
-			args:    args{eventURI: "event:test"},
+			args:    args{eventURI: "test"},
 			want:    "",
 			wantErr: true,
 		},
@@ -347,7 +337,7 @@ func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
 			"create pipeline triggers for multiple events",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			false,
 			redisErrors{false, false, false, false},
@@ -356,7 +346,7 @@ func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
 			"create trigger for non-existing pipeline",
 			args{
 				pipeline: "non-existing-pipeline",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{false, false, false, false},
@@ -365,7 +355,7 @@ func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
 			"fail start transaction",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{true, false, false, false},
@@ -374,7 +364,7 @@ func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
 			"fail adding pipeline to Triggers map",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{false, true, false, false},
@@ -383,7 +373,7 @@ func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
 			"fail adding events to Pipelines map",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{false, false, true, false},
@@ -392,7 +382,7 @@ func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
 			"fail exec transaction",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{false, false, false, true},
@@ -406,6 +396,7 @@ func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
 				pipelineSvc: mock,
 			}
 			var cmd *redigomock.Cmd
+			var params []interface{}
 
 			// mock Codefresh API call
 			if tt.args.pipeline == "non-existing-pipeline" {
@@ -432,7 +423,9 @@ func TestRedisStore_CreateTriggersForPipeline(t *testing.T) {
 				}
 			}
 			// add events to the Pipelines map
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(tt.args.pipeline), 0, tt.args.events)
+			params = []interface{}{getPipelineKey(tt.args.pipeline), 0}
+			params = append(params, util.InterfaceSlice(tt.args.events)...)
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", params...)
 			if tt.errs.zadd2 {
 				cmd.ExpectError(errors.New("ZADD error"))
 			}
@@ -484,7 +477,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 			"delete triggers for pipeline",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			false,
 			redisErrors{false, false, false, false},
@@ -493,7 +486,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 			"delete single event trigger for pipeline",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test"},
+				events:   []string{"uri:test"},
 			},
 			false,
 			redisErrors{false, false, false, false},
@@ -502,7 +495,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 			"fail start transaction",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{true, false, false, false},
@@ -511,7 +504,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 			"fail remove pipeline from Triggers map",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{false, true, false, false},
@@ -520,7 +513,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 			"fail remove events from Pipelines map",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{false, false, true, false},
@@ -529,7 +522,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 			"fail exec transaction",
 			args{
 				pipeline: "owner:repo:test",
-				events:   []string{"event:uri:test:1", "event:uri:test:2"},
+				events:   []string{"uri:test:1", "uri:test:2"},
 			},
 			true,
 			redisErrors{false, false, false, true},
@@ -541,6 +534,7 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 				redisPool: &RedisPoolMock{},
 			}
 			// expect Redis transaction open
+			var params []interface{}
 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
 			if tt.errs.multi {
 				cmd.ExpectError(errors.New("MULTI error"))
@@ -557,7 +551,9 @@ func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
 				}
 			}
 			// remove events from Pipelines
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pipeline), tt.args.events)
+			params = []interface{}{getPipelineKey(tt.args.pipeline)}
+			params = append(params, util.InterfaceSlice(tt.args.events)...)
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", params...)
 			if tt.errs.zrem2 {
 				cmd.ExpectError(errors.New("ZREM error"))
 			}
@@ -664,6 +660,7 @@ func TestRedisStore_DeleteTriggersForEvent(t *testing.T) {
 				redisPool: &RedisPoolMock{},
 			}
 			// expect Redis transaction open
+			var params []interface{}
 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
 			if tt.errs.multi {
 				cmd.ExpectError(errors.New("MULTI error"))
@@ -680,7 +677,9 @@ func TestRedisStore_DeleteTriggersForEvent(t *testing.T) {
 				}
 			}
 			// remove pipelines from Triggers
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(tt.args.event), tt.args.pipelines)
+			params = []interface{}{getTriggerKey(tt.args.event)}
+			params = append(params, util.InterfaceSlice(tt.args.pipelines)...)
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", params...)
 			if tt.errs.zrem2 {
 				cmd.ExpectError(errors.New("ZREM error"))
 			}
@@ -729,7 +728,7 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 		{
 			"create event trigger for multiple pipelines",
 			args{
-				event:     "event:uri:test",
+				event:     "uri:test",
 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
 			},
 			false,
@@ -738,7 +737,7 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 		{
 			"create event trigger for non-existing pipeline",
 			args{
-				event:     "event:uri:test",
+				event:     "uri:test",
 				pipelines: []string{"non-existing-pipeline", "owner:repo:test"},
 			},
 			true,
@@ -747,7 +746,7 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 		{
 			"fail start transaction",
 			args{
-				event:     "event:uri:test",
+				event:     "uri:test",
 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
 			},
 			true,
@@ -756,7 +755,7 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 		{
 			"fail adding pipeline to Triggers map",
 			args{
-				event:     "event:uri:test",
+				event:     "uri:test",
 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
 			},
 			true,
@@ -765,7 +764,7 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 		{
 			"fail adding events to Pipelines map",
 			args{
-				event:     "event:uri:test",
+				event:     "uri:test",
 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
 			},
 			true,
@@ -774,7 +773,7 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 		{
 			"fail exec transaction",
 			args{
-				event:     "event:uri:test",
+				event:     "uri:test",
 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
 			},
 			true,
@@ -789,6 +788,7 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 				pipelineSvc: mock,
 			}
 			// expect Redis transaction open
+			var params []interface{}
 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
 			if tt.errs.multi {
 				cmd.ExpectError(errors.New("MULTI error"))
@@ -813,7 +813,9 @@ func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
 				}
 			}
 			// add events to the Pipelines map
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.args.event), 0, tt.args.pipelines)
+			params = []interface{}{getTriggerKey(tt.args.event), 0}
+			params = append(params, util.InterfaceSlice(tt.args.pipelines)...)
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", params...)
 			if tt.errs.zadd2 {
 				cmd.ExpectError(errors.New("ZADD error"))
 			}
@@ -866,40 +868,40 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 		{
 			name: "list triggers for single event",
 			args: args{
-				events: []string{"event:uri:test"},
+				events: []string{"uri:test"},
 			},
 			triggers: []triggers{
 				triggers{
-					event:     "event:uri:test",
+					event:     "uri:test",
 					pipelines: []string{"pipeline-1", "pipeline-2"},
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{Event: "event:uri:test", Pipeline: "pipeline-1"},
-				model.Trigger{Event: "event:uri:test", Pipeline: "pipeline-2"},
+				model.Trigger{Event: "uri:test", Pipeline: "pipeline-1"},
+				model.Trigger{Event: "uri:test", Pipeline: "pipeline-2"},
 			},
 			errs: redisErrors{false, false},
 		},
 		{
 			name: "list triggers for multiple event",
 			args: args{
-				events: []string{"event:uri:test:1", "event:uri:test:2"},
+				events: []string{"uri:test:1", "uri:test:2"},
 			},
 			triggers: []triggers{
 				triggers{
-					event:     "event:uri:test:1",
+					event:     "uri:test:1",
 					pipelines: []string{"pipeline-1", "pipeline-2"},
 				},
 				triggers{
-					event:     "event:uri:test:2",
+					event:     "uri:test:2",
 					pipelines: []string{"pipeline-2", "pipeline-3"},
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{Event: "event:uri:test:1", Pipeline: "pipeline-1"},
-				model.Trigger{Event: "event:uri:test:1", Pipeline: "pipeline-2"},
-				model.Trigger{Event: "event:uri:test:2", Pipeline: "pipeline-2"},
-				model.Trigger{Event: "event:uri:test:2", Pipeline: "pipeline-3"},
+				model.Trigger{Event: "uri:test:1", Pipeline: "pipeline-1"},
+				model.Trigger{Event: "uri:test:1", Pipeline: "pipeline-2"},
+				model.Trigger{Event: "uri:test:2", Pipeline: "pipeline-2"},
+				model.Trigger{Event: "uri:test:2", Pipeline: "pipeline-3"},
 			},
 			errs: redisErrors{false, false},
 		},
@@ -914,14 +916,14 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 		{
 			name: "fail to find pipelines for event",
 			args: args{
-				events: []string{"event:uri:test"},
+				events: []string{"uri:test"},
 			},
 			triggers: []triggers{
 				triggers{
-					event: "event:uri:test",
+					event: "uri:test",
 				},
 				triggers{
-					event:     "event:uri:test:other",
+					event:     "uri:test:other",
 					pipelines: []string{"pipeline-2", "pipeline-3"},
 				},
 			},
@@ -947,7 +949,7 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 							keys = util.MergeStrings(keys, []string{getTriggerKey(t.event)})
 						}
 					}
-					cmd.Expect(interfaceSlice(keys))
+					cmd.Expect(util.InterfaceSlice(keys))
 				}
 			}
 			// get pipelines from Triggers Set
@@ -960,7 +962,7 @@ func TestRedisStore_ListTriggersForEvents(t *testing.T) {
 					for _, t := range tt.triggers {
 						// select pipelines for key
 						if getTriggerKey(t.event) == k {
-							cmd.Expect(interfaceSlice(t.pipelines))
+							cmd.Expect(util.InterfaceSlice(t.pipelines))
 							break
 						}
 					}
@@ -1089,7 +1091,7 @@ func TestRedisStore_ListTriggersForPipelines(t *testing.T) {
 							keys = util.MergeStrings(keys, []string{getPipelineKey(t.pipeline)})
 						}
 					}
-					cmd.Expect(interfaceSlice(keys))
+					cmd.Expect(util.InterfaceSlice(keys))
 				}
 			}
 			// get events from Pipeline Set
@@ -1102,7 +1104,7 @@ func TestRedisStore_ListTriggersForPipelines(t *testing.T) {
 					for _, t := range tt.pipelines {
 						// select pipelines for key
 						if getPipelineKey(t.pipeline) == k {
-							cmd.Expect(interfaceSlice(t.events))
+							cmd.Expect(util.InterfaceSlice(t.events))
 							break
 						}
 					}
@@ -1138,7 +1140,7 @@ func TestRedisStore_GetEvent(t *testing.T) {
 	}{
 		{
 			name: "get existing event",
-			args: args{event: "event:uri:test"},
+			args: args{event: "uri:test"},
 			expect: expect{
 				fields: map[string]string{
 					"type":        "test-type",
@@ -1151,7 +1153,7 @@ func TestRedisStore_GetEvent(t *testing.T) {
 				},
 			},
 			want: &model.Event{
-				URI:    "event:uri:test",
+				URI:    "uri:test",
 				Type:   "test-type",
 				Kind:   "test-kind",
 				Secret: "test-secret",
@@ -1177,7 +1179,7 @@ func TestRedisStore_GetEvent(t *testing.T) {
 		},
 		{
 			name:    "try getting event with invalid key",
-			args:    args{event: "event:uri:*"},
+			args:    args{event: "uri:*"},
 			expect:  expect{},
 			wantErr: model.ErrNotSingleKey,
 		},
@@ -1315,7 +1317,7 @@ func TestRedisStore_GetEvents(t *testing.T) {
 				cmd.ExpectError(errors.New("KEYS error"))
 				goto Invoke
 			} else {
-				cmd.Expect(interfaceSlice(tt.expect.keys))
+				cmd.Expect(util.InterfaceSlice(tt.expect.keys))
 			}
 			// mock scanning trough all trigger events
 			for i, k := range tt.expect.keys {
@@ -1362,25 +1364,25 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 	}{
 		{
 			name: "delete existing trigger event",
-			args: args{event: "event:uri:test"},
+			args: args{event: "uri:test"},
 			expected: expected{
 				pipelines: []string{"p1", "p2", "p3"},
 			},
 		},
 		{
 			name:    "try deleting event with invalid key",
-			args:    args{event: "event:uri:*"},
+			args:    args{event: "uri:*"},
 			wantErr: model.ErrNotSingleKey,
 		},
 		{
 			name:    "zrange error",
-			args:    args{event: "event:uri:test"},
+			args:    args{event: "uri:test"},
 			wantErr: errors.New("REDIS error"),
 			errs:    redisErrors{zrange: true},
 		},
 		{
 			name: "multi error",
-			args: args{event: "event:uri:test"},
+			args: args{event: "uri:test"},
 			expected: expected{
 				pipelines: []string{"p1", "p2", "p3"},
 			},
@@ -1389,7 +1391,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		},
 		{
 			name: "del event error",
-			args: args{event: "event:uri:test"},
+			args: args{event: "uri:test"},
 			expected: expected{
 				pipelines: []string{"p1", "p2", "p3"},
 			},
@@ -1398,7 +1400,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		},
 		{
 			name: "del trigger error",
-			args: args{event: "event:uri:test"},
+			args: args{event: "uri:test"},
 			expected: expected{
 				pipelines: []string{"p1", "p2", "p3"},
 			},
@@ -1407,7 +1409,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		},
 		{
 			name: "zrem trigger error",
-			args: args{event: "event:uri:test"},
+			args: args{event: "uri:test"},
 			expected: expected{
 				pipelines: []string{"p1", "p2", "p3"},
 			},
@@ -1416,7 +1418,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		},
 		{
 			name: "exec error",
-			args: args{event: "event:uri:test"},
+			args: args{event: "uri:test"},
 			expected: expected{
 				pipelines: []string{"p1", "p2", "p3"},
 			},
@@ -1438,7 +1440,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 				cmd.ExpectError(tt.wantErr)
 				goto Invoke
 			} else {
-				cmd.Expect(interfaceSlice(tt.expected.pipelines))
+				cmd.Expect(util.InterfaceSlice(tt.expected.pipelines))
 			}
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
 			if tt.errs.multi {

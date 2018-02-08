@@ -28,7 +28,7 @@
             "config": [{
                     "name": "namespace",
                     "type": "string",
-                    "validator": "^[а-z0-9_-]+$",
+                    "validator": "^[a-z0-9_-]+$",
                     "required": true
                 },
                 {

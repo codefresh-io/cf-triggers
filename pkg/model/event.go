@@ -1,6 +1,8 @@
 package model
 
 import (
+	"strings"
+
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -54,7 +56,7 @@ func (t Event) String() string {
 // StringsMapToEvent convert map[string]string to Event
 func StringsMapToEvent(event string, fields map[string]string) *Event {
 	return &Event{
-		URI:    event,
+		URI:    strings.TrimPrefix(event, "event:"),
 		Type:   fields["type"],
 		Kind:   fields["kind"],
 		Secret: fields["secret"],
