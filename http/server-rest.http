@@ -1,0 +1,14 @@
+# RUN
+# hermes server
+
+###
+# Get Health
+GET http://localhost:8080/health
+
+###
+# Get Version
+GET http://localhost:8080/version
+
+###
+# Get Version
+GET http://localhost:8080/ping

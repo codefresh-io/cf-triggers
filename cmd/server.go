@@ -68,8 +68,9 @@ func runServer(c *cli.Context) error {
 	eventsAPI := router.Group("/events", gin.Logger())
 	eventController := controller.NewTriggerEventController(triggerBackend)
 	eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
-	eventsAPI.Handle("GET", "/:type/:kind/:filter", eventController.ListEvents)
-	eventsAPI.Handle("DELETE", "/:event", eventController.DeleteEvent)
+	// list?type=xxx,kind=xxx,filter=xxx
+	eventsAPI.Handle("GET", "/", eventController.ListEvents)
+	eventsAPI.Handle("DELETE", "/event/:event", eventController.DeleteEvent)
 	eventsAPI.Handle("POST", "/", eventController.CreateEvent)
 	eventsAPI.Handle("POST", "/trigger/:event", eventController.LinkEvent)
 	eventsAPI.Handle("DELETE", "/trigger/:event", eventController.UnlinkEvent)

@@ -19,9 +19,9 @@ func NewTriggerEventController(svc model.TriggerReaderWriter) *TriggerEventContr
 
 // ListEvents get defined trigger events
 func (c *TriggerEventController) ListEvents(ctx *gin.Context) {
-	eventType := ctx.Params.ByName("type")
-	kind := ctx.Params.ByName("kind")
-	filter := ctx.Params.ByName("filter")
+	eventType := ctx.Query("type")
+	kind := ctx.Query("kind")
+	filter := ctx.Query("filter")
 	// list trigger events, optionally filtered by type/kind and event uri filter
 	if events, err := c.svc.GetEvents(eventType, kind, filter); err != nil {
 		status := http.StatusInternalServerError
