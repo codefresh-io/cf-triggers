@@ -118,19 +118,19 @@ func (api *APIEndpoint) checkPipelineExists(id string) (bool, error) {
 	// scan for pipeline ID
 	if pipeline != nil {
 		log.WithFields(log.Fields{
-			"pipeline-uid": pipeline.ID,
-			"account-id":   pipeline.Account.ID,
+			"pipeline":   pipeline.ID,
+			"account-id": pipeline.Account.ID,
 		}).Debug("found pipeline by id")
 		return true, nil
 	}
 
-	log.WithField("pipeline-uid", id).Error("failed to find pipeline with id")
+	log.WithField("pipeline", id).Error("failed to find pipeline with id")
 	return false, ErrPipelineNotFound
 }
 
 // run Codefresh pipeline
 func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, error) {
-	log.WithField("pipeline-uid", id).Debug("Going to run pipeline")
+	log.WithField("pipeline", id).Debug("Going to run pipeline")
 	type BuildRequest struct {
 		Branch    string            `json:"branch,omitempty"`
 		Variables map[string]string `json:"variables,omitempty"`
@@ -144,8 +144,8 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 	req, err := api.endpoint.New().Post(fmt.Sprint("api/builds/", id)).BodyJSON(body).Request()
 	if err != nil {
 		log.WithFields(log.Fields{
-			"pipeline-uid": id,
-			"error":        err,
+			"pipeline": id,
+			"error":    err,
 		}).Error("failed to build run request for pipeline")
 		return "", err
 	}
@@ -167,8 +167,8 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 
 	if resp.StatusCode == http.StatusOK {
 		log.WithFields(log.Fields{
-			"pipeline-uid": id,
-			"run-id":       runID,
+			"pipeline": id,
+			"run-id":   runID,
 		}).Debug("pipeline is running")
 	}
 	return runID, nil

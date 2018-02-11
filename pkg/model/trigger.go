@@ -14,28 +14,31 @@ type (
 		Error error  `json:"error, omitempty" yaml:"error,omitempty"`
 	}
 
-	// Trigger describes a trigger type
+	// Trigger a single link between event and pipeline
 	Trigger struct {
 		// unique event URI, use ':' instead of '/'
 		Event string `json:"event" yaml:"event"`
-		// trigger secret
-		Secret string `json:"secret" yaml:"secret"`
-		// pipelines
-		Pipelines []string `json:"pipelines" yaml:"pipelines"`
+		// pipeline
+		Pipeline string `json:"pipeline" yaml:"pipeline"`
 	}
 
 	// TriggerReaderWriter interface
 	TriggerReaderWriter interface {
-		List(filter string) ([]*Trigger, error)
-		ListByPipeline(pipelineUID string) ([]*Trigger, error)
+		// trigger events
+		GetEvent(event string) (*Event, error)
+		GetEvents(eventType, kind, filter string) ([]Event, error)
+		CreateEvent(eventType, kind, secret string, context string, values map[string]string) (*Event, error)
+		DeleteEvent(event string, context string) error
 		GetSecret(eventURI string) (string, error)
-		Get(eventURI string) (*Trigger, error)
-		Add(trigger Trigger) error
-		Delete(eventURI string) error
-		Update(trigger Trigger) error
-		GetPipelines(eventURI string) ([]string, error)
-		AddPipelines(eventURI string, pipelines []string) error
-		DeletePipeline(eventURI string, pipelineUID string) error
+		// triggers
+		ListTriggersForEvents(events []string) ([]Trigger, error)
+		CreateTriggersForEvent(event string, pipelines []string) error
+		DeleteTriggersForEvent(event string, pipelines []string) error
+		// pipelines
+		ListTriggersForPipelines(pipelines []string) ([]Trigger, error)
+		GetPipelinesForTriggers(events []string) ([]string, error)
+		CreateTriggersForPipeline(pipeline string, events []string) error
+		DeleteTriggersForPipeline(pipeline string, events []string) error
 	}
 
 	// Runner pipeline runner
@@ -54,8 +57,14 @@ type (
 	}
 )
 
+// ErrNotSingleKey error when key is a pattern and not a single key
+var ErrNotSingleKey = errors.New("key is a pattern and not a single key")
+
 // ErrTriggerNotFound error when trigger not found
 var ErrTriggerNotFound = errors.New("trigger not found")
+
+// ErrEventNotFound error when trigger event not found
+var ErrEventNotFound = errors.New("trigger event not found")
 
 // ErrPipelineNotFound error when trigger not found
 var ErrPipelineNotFound = errors.New("pipeline not found")

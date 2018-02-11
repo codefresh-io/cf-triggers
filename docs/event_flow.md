@@ -1,7 +1,7 @@
 # Event Flow Diagram
 
 ```ascii
-          DockerHub Event Provider        Hermes trigger manager       pipeline manager (cfapi)
+          DockerHub Event Provider        Hermes (trigger-manager)       pipeline manager (cfapi)
 
                     +                            +                             +
 original event      |                            |                             |

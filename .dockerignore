@@ -4,6 +4,7 @@
 .vscode
 .bin
 .env
+.gtm
 
 # dep files
 Gopkg.*

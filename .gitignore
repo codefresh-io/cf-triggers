@@ -12,3 +12,4 @@
 hermes/charts
 *.tgz
 index.yaml
+/.gtm/

@@ -23,8 +23,8 @@
   kubectl -it $POD_NAME sh 
 
   # add new trigger to DockerHub push event for 'codefresh/fortune' Docker image
-  > hermes trigger add index.docker.io:codefresh:fortune:push codefresh trigger-examples run_fortune
+  > hermes trigger add registry:dockerhub:codefresh:fortune:push codefresh trigger-examples run_fortune
 
   # see created trigger
-  > hermes trigger get index.docker.io:codefresh:fortune:push
+  > hermes trigger get registry:dockerhub:codefresh:fortune:push
 {{- end }}

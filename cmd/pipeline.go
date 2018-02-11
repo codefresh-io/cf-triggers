@@ -11,38 +11,40 @@ import (
 
 var pipelineCommand = cli.Command{
 	Name:  "pipeline",
-	Usage: "configure Codefresh trigger pipelines",
+	Usage: "setup Codefresh triggers, linking trigger events and pipelines",
 	Subcommands: []cli.Command{
 		{
-			Name:        "get",
-			Usage:       "get pipelines connected to trigger",
-			ArgsUsage:   "<event URI>",
-			Description: "Get all pipelines connected to trigger with provided event URI",
-			Action:      getTriggerPipelines,
+			Name: "list",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{
+					Name:  "event",
+					Usage: "trigger event filter",
+				},
+			},
+			Usage:       "list pipelines with triggers",
+			Description: "List Codefresh pipelines that have triggers defined",
+			Action:      listPipelines,
 		},
 		{
-			Name:        "add",
-			Usage:       "add pipelines to existing trigger",
-			ArgsUsage:   "<event URI> <pipeline UID>",
-			Description: "Add pipeline to existing trigger with specified event URI",
-			Action:      addTriggerPipelines,
+			Name:        "link",
+			Usage:       "connect pipeline to the specified trigger event(s)",
+			ArgsUsage:   "<pipeline> <event-uri> [event-uri...]",
+			Description: "Create a new trigger, linking a pipeline to the specified trigger event(s)",
+			Action:      linkPipeline,
 		},
 		{
-			Name:        "delete",
-			Usage:       "delete pipeline from existing trigger",
-			ArgsUsage:   "<event URI> <pipeline UID>",
-			Description: "Delete pipeline from existing trigger (specified by event URI)",
-			Action:      deleteTriggerPipeline,
+			Name:        "unlink",
+			Usage:       "disconnect pipeline from the specified trigger event(s)",
+			ArgsUsage:   "<pipeline> <event-uri> [event-uri...]",
+			Description: "Delete pipeline trigger, by removing link between the pipeline and the specified trigger event(s)",
+			Action:      unlinkPipeline,
 		},
 	},
 }
 
-func getTriggerPipelines(c *cli.Context) error {
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
-	if len(c.Args()) != 1 {
-		return errors.New("wrong arguments: expected event URI")
-	}
-	pipelines, err := triggerReaderWriter.GetPipelines(c.Args().First())
+func listPipelines(c *cli.Context) error {
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	pipelines, err := triggerReaderWriter.GetPipelinesForTriggers(c.StringSlice("event"))
 	if err != nil {
 		return err
 	}
@@ -53,30 +55,28 @@ func getTriggerPipelines(c *cli.Context) error {
 	return nil
 }
 
-func addTriggerPipelines(c *cli.Context) error {
+func linkPipeline(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return errors.New("wrong number of arguments")
 	}
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService)
-	// create pipelines
-	pipelines := make([]string, 1)
-	pipelines[0] = args.Get(1)
-	return triggerReaderWriter.AddPipelines(args.First(), pipelines)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
+	// create triggers for pipeline linking it to passed event(s)
+	return triggerReaderWriter.CreateTriggersForPipeline(args.First(), args.Tail())
 }
 
-func deleteTriggerPipeline(c *cli.Context) error {
+func unlinkPipeline(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return errors.New("wrong number of arguments")
 	}
 	// get trigger service
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
 	// delete pipelines
-	return triggerReaderWriter.DeletePipeline(c.Args().First(), args.Get(1))
+	return triggerReaderWriter.DeleteTriggersForPipeline(args.First(), args.Tail())
 }

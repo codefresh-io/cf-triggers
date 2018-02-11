@@ -1,4 +1,4 @@
-package backend
+package provider
 
 import (
 	"encoding/json"
@@ -22,11 +22,11 @@ var (
 				Type:        "registry",
 				Kind:        "dockerhub",
 				ServiceURL:  "http://service:8080",
-				URITemplate: "index.docker.io:{{repo-owner}}:{{repo-name}}:push",
-				URIPattern:  `^index\.docker\.io:[a-z0-9_-]+:[a-z0-9_-]+:push$`,
+				URITemplate: "registry:dockerhub:{{namespace}}:{{name}}:push",
+				URIPattern:  `^registry:dockerhub:[a-z0-9_-]+:[a-z0-9_-]+:push$`,
 				Config: []model.ConfigField{
-					{Name: "repo-owner", Type: "string", Validator: "^[A-z]+$", Required: true},
-					{Name: "repo-name", Type: "string", Validator: "^[A-z]+$", Required: true},
+					{Name: "namespace", Type: "string", Validator: "^[a-z0-9_-]+$", Required: true},
+					{Name: "name", Type: "string", Validator: "^[a-z0-9_-]+$", Required: true},
 				},
 			},
 		},
@@ -71,25 +71,25 @@ func createInvalidConfig() string {
 	return tmpfile.Name()
 }
 
-func Test_NewEventHandlerManagerSingleton(t *testing.T) {
+func Test_NewEventProviderManagerSingleton(t *testing.T) {
 	// create valid config file
 	config := createValidConfig("singleton")
 	defer os.Remove(config)
 	// create 2 instances
-	manager1 := NewEventHandlerManager(config, true)
-	manager2 := NewEventHandlerManager(config, true)
+	manager1 := NewEventProviderManager(config, true)
+	manager2 := NewEventProviderManager(config, true)
 	if manager1 != manager2 {
-		t.Error("non singleton EventHandlerManager")
+		t.Error("non singleton EventProviderManager")
 	}
 	manager1.Close()
 }
 
-func Test_NewEventHandlerManagerInvalid(t *testing.T) {
+func Test_NewEventProviderManagerInvalid(t *testing.T) {
 	// create invalid config file
 	config := createInvalidConfig()
 	defer os.Remove(config)
 	// create manager; ignores file error
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	manager.Close()
 }
 
@@ -98,7 +98,7 @@ func Test_loadInvalidConfig(t *testing.T) {
 	config := createInvalidConfig()
 	defer os.Remove(config)
 	// create manager; ignores file error
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// try to load config explicitly
 	types, err := loadEventHandlerTypes(config)
@@ -115,7 +115,7 @@ func Test_loadNonExistingConfig(t *testing.T) {
 	config := "non-existing.file.json"
 	defer os.Remove(config)
 	// create manager; ignores file error
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// try to load config explicitly
 	types, err := loadEventHandlerTypes(config)
@@ -132,7 +132,7 @@ func Test_loadValidConfig(t *testing.T) {
 	config := createValidConfig("valid")
 	defer os.Remove(config)
 	// create manager; ignores file error
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// try to load config explicitly
 	types, err := loadEventHandlerTypes(config)
@@ -149,7 +149,7 @@ func Test_monitorConfigFile(t *testing.T) {
 	config := createValidConfig("monitor")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 
 	// update config file
@@ -179,11 +179,11 @@ func Test_GetType(t *testing.T) {
 	config := createValidConfig("get_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// get type
-	eventType := manager.GetType("registry", "dockerhub")
-	if eventType == nil {
+	_, err := manager.GetType("registry", "dockerhub")
+	if err != nil {
 		t.Error("fail to get type from valid configuration")
 	}
 }
@@ -193,39 +193,102 @@ func Test_NonExistingGetType(t *testing.T) {
 	config := createValidConfig("get_ne_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// get type
-	eventType := manager.GetType("registry", "non-existing")
-	if eventType != nil {
+	_, err := manager.GetType("registry", "non-existing")
+	if err == nil {
 		t.Error("non-nil type from configuration")
 	}
 }
 
-func TestEventHandlerManager_MatchExistingType(t *testing.T) {
+func TestEventProviderManager_MatchExistingType(t *testing.T) {
 	// create valid config file
 	config := createValidConfig("match_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// match type
-	eventType := manager.MatchType("index.docker.io:codefresh:fortune:push")
-	if eventType == nil {
+	_, err := manager.MatchType("registry:dockerhub:codefresh:fortune:push")
+	if err != nil {
 		t.Error("failed to find type by uri")
 	}
 }
 
-func TestEventHandlerManager_MatchTypeNil(t *testing.T) {
+func TestEventProviderManager_MatchTypeNil(t *testing.T) {
 	// create valid config file
 	config := createValidConfig("match_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventHandlerManager(config)
+	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// match type
-	eventType := manager.MatchType("index.docker.io:not-valid:push")
-	if eventType != nil {
+	_, err := manager.MatchType("registry:dockerhub:not-valid:push")
+	if err == nil {
 		t.Error("non-nil type for invalid uri")
+	}
+}
+
+func TestEventProviderManager_ConstructEventURI(t *testing.T) {
+	type args struct {
+		t      string
+		k      string
+		values map[string]string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			"happy path",
+			args{
+				t:      "registry",
+				k:      "dockerhub",
+				values: map[string]string{"namespace": "codefresh", "name": "fortune"},
+			},
+			"registry:dockerhub:codefresh:fortune:push",
+			false,
+		},
+		{
+			"non existing type",
+			args{
+				t:      "non-existing-type",
+				k:      "any",
+				values: map[string]string{"namespace": "codefresh", "name": "fortune"},
+			},
+			"",
+			true,
+		},
+		{
+			"fail value validation",
+			args{
+				t:      "registry",
+				k:      "dockerhub",
+				values: map[string]string{"namespace": "codefresh!", "name": "fortune@"},
+			},
+			"",
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// create valid config file
+			config := createValidConfig("get_type")
+			defer os.Remove(config)
+			// create manager; and start monitoring
+			manager := newTestEventProviderManager(config)
+			defer manager.Close()
+			got, err := manager.ConstructEventURI(tt.args.t, tt.args.k, tt.args.values)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("EventProviderManager.ConstructEventURI() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("EventProviderManager.ConstructEventURI() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
