@@ -495,7 +495,7 @@ func (r *RedisStore) GetPipelinesForTriggers(events []string) ([]string, error) 
 }
 
 // CreateEvent new trigger event
-func (r *RedisStore) CreateEvent(eventType, kind, secret string, credentials map[string]string, values map[string]string) (*model.Event, error) {
+func (r *RedisStore) CreateEvent(eventType, kind, secret string, context string, values map[string]string) (*model.Event, error) {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
 		"type": eventType,
@@ -513,6 +513,9 @@ func (r *RedisStore) CreateEvent(eventType, kind, secret string, credentials map
 		log.Debug("Auto generating trigger secret")
 		secret = util.RandomString(16)
 	}
+
+	// TODO: get credentials from Codefresh context
+	var credentials map[string]string
 
 	// try subscribing to event - create event in remote system through event provider
 	eventInfo, err := r.eventProvider.SubscribeToEvent(eventURI, secret, credentials)
@@ -641,13 +644,16 @@ func (r *RedisStore) GetEvents(eventType, kind, filter string) ([]model.Event, e
 }
 
 // DeleteEvent delete trigger event
-func (r *RedisStore) DeleteEvent(event string, credentials map[string]string) error {
+func (r *RedisStore) DeleteEvent(event string, context string) error {
 	con := r.redisPool.GetConn()
 	log.WithField("event-uri", event).Debug("Deleting trigger event")
 	// check event URI
 	if err := checkSingleKey(event); err != nil {
 		return err
 	}
+	// TODO: get credentials from Codefresh context
+	// credentials := make(map[string]string)
+
 	// get pipelines linked to the trigger event
 	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(event), 0, -1))
 	if err != nil {

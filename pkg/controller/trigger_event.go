@@ -51,17 +51,17 @@ func (c *TriggerEventController) GetEvent(ctx *gin.Context) {
 // CreateEvent create trigger event
 func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 	type createReq struct {
-		Type        string            `json:"type"`
-		Kind        string            `json:"kind"`
-		Secret      string            `json:"secret,omitempty"`
-		Credentials map[string]string `json:"credentials,omitempty"`
-		Values      map[string]string `json:"values"`
+		Type    string            `json:"type"`
+		Kind    string            `json:"kind"`
+		Secret  string            `json:"secret,omitempty"`
+		Context string            `json:"context,omitempty"`
+		Values  map[string]string `json:"values"`
 	}
 	var req createReq
 	ctx.Bind(&req)
 
 	// create trigger event
-	if event, err := c.svc.CreateEvent(req.Type, req.Kind, req.Secret, req.Credentials, req.Values); err != nil {
+	if event, err := c.svc.CreateEvent(req.Type, req.Kind, req.Secret, req.Context, req.Values); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerAlreadyExists {
 			status = http.StatusBadRequest
@@ -76,14 +76,9 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 // DeleteEvent delete trigger event
 func (c *TriggerEventController) DeleteEvent(ctx *gin.Context) {
 	event := ctx.Params.ByName("event")
-	// get credentials from DELETE body
-	type deleteReq struct {
-		Credentials map[string]string `json:"credentials,omitempty"`
-	}
-	var req deleteReq
-	ctx.Bind(&req)
+	context := ctx.Params.ByName("context")
 
-	if err := c.svc.DeleteEvent(event, req.Credentials); err != nil {
+	if err := c.svc.DeleteEvent(event, context); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound

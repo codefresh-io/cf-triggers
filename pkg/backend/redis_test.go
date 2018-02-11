@@ -1352,8 +1352,8 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		pipelines []string
 	}
 	type args struct {
-		event       string
-		credentials map[string]string
+		event   string
+		context string
 	}
 	tests := []struct {
 		name     string
@@ -1492,7 +1492,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			}
 
 		Invoke:
-			if err := r.DeleteEvent(tt.args.event, tt.args.credentials); err != tt.wantErr {
+			if err := r.DeleteEvent(tt.args.event, tt.args.context); err != tt.wantErr {
 				t.Errorf("RedisStore.DeleteEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -1517,15 +1517,16 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		info      error
 	}
 	type expected struct {
-		eventURI string
-		info     *model.EventInfo
+		eventURI    string
+		info        *model.EventInfo
+		credentials map[string]string
 	}
 	type args struct {
-		eventType   string
-		kind        string
-		secret      string
-		credentials map[string]string
-		values      map[string]string
+		eventType string
+		kind      string
+		secret    string
+		context   string
+		values    map[string]string
 	}
 	tests := []struct {
 		name         string
@@ -1695,7 +1696,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			} else {
 				call.Return(tt.expected.eventURI, nil)
 			}
-			call = mock.On("SubscribeToEvent", tt.expected.eventURI, tt.args.secret, tt.args.credentials)
+			call = mock.On("SubscribeToEvent", tt.expected.eventURI, tt.args.secret, tt.expected.credentials)
 			if tt.wantEventErr.subscribe != nil {
 				call.Return(nil, tt.wantEventErr.subscribe)
 				if tt.wantEventErr.subscribe == provider.ErrNotImplemented {
@@ -1781,7 +1782,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 
 		Invoke:
 			// invoke method under test
-			got, err := r.CreateEvent(tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.credentials, tt.args.values)
+			got, err := r.CreateEvent(tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.values)
 			if (err != nil) != (tt.wantErr ||
 				tt.wantEventErr.info != nil ||
 				(tt.wantEventErr.subscribe != nil &&
