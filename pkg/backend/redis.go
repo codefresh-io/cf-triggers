@@ -498,8 +498,9 @@ func (r *RedisStore) GetPipelinesForTriggers(events []string) ([]string, error) 
 func (r *RedisStore) CreateEvent(eventType, kind, secret string, context string, values map[string]string) (*model.Event, error) {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
-		"type": eventType,
-		"kind": kind,
+		"type":   eventType,
+		"kind":   kind,
+		"values": values,
 	}).Debug("Creating a new trigger event")
 
 	// construct event URI

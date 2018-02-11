@@ -15,13 +15,13 @@ GET {{codefresh-url}}/api/hermes/ping
 
 ###
 # Get Event Types
-GET {{codefresh-url}}/api/hermes/events/types
+GET {{codefresh-url}}/api/hermes/types/?type=registry
 Authorization: {{api-token}}
 
 ###
 # Get DockerHub Event Type: type=registry kind=dockerhub
 # Expected: 200
-GET {{codefresh-url}}/api/hermes/events/types/registry/dockerhub
+GET {{codefresh-url}}/api/hermes/types/registry/dockerhub
 Authorization: {{api-token}}
 
 ###
@@ -33,7 +33,7 @@ Authorization: {{api-token}}
 ###
 # Get Event Info details for DockerHub codefresh/fortune push event
 # NOTE: create trigger pipeline before
-GET {{codefresh-url}}/api/hermes/events/info/registry:dockerhub:codefresh:fortune:push
+GET {{codefresh-url}}/api/hermes/events/registry:dockerhub:codefresh:fortune:push
 Authorization: {{api-token}}
 
 ###
@@ -51,21 +51,38 @@ GET {{codefresh-url}}/api/hermes/triggers/{{non-existing-pipeline-id}}
 Authorization: {{api-token}}
 
 ###
-# Add pipeline - some existing pipeline
-# to 
-# trigger - codefresh/fortune DockerHub push
-POST {{codefresh-url}}/api/hermes/triggers/registry:dockerhub:codefresh:fortune:push/pipelines
+# Create trigger event - codefresh/fortune DockerHub push
+POST {{codefresh-url}}/api/hermes/events
 Content-Type: application/json
 Authorization: {{api-token}}
 
 ["{{existing-pipeline-id}}"]
 
 ###
+# Add pipeline - some existing pipeline
+# to 
+# trigger event - codefresh/fortune DockerHub push
+POST {{codefresh-url}}/api/hermes/events
+Content-Type: application/json
+Authorization: {{api-token}}
+
+{
+	"type": "registry",
+	"kind": "dockerhub",
+	"secret": "123456789",
+	"context": "dockerhub",
+	"values": {
+		"namespace": "codefresh",
+		"name": "fortune"
+	}
+}
+
+###
 # Try adding non-existing pipeline
 # to 
 # trigger - codefresh/fortune DockerHub push
 # Expected: 500
-POST {{codefresh-url}}/api/hermes/triggers/registry:dockerhub:codefresh:fortune:push/pipelines
+POST {{codefresh-url}}/api/hermes/events/trigger/registry:dockerhub:codefresh:fortune:push
 Content-Type: application/json
 Authorization: {{api-token}}
 
