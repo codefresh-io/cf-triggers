@@ -38,7 +38,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		cli.StringFlag{
 			Name:   "codefresh, c",
 			Usage:  "Codefresh API endpoint",
-			Value:  "https://g.codefresh.io/",
+			Value:  "http://local.codefresh.io:9007",
 			EnvVar: "CFAPI_URL",
 		},
 		cli.StringFlag{
@@ -49,7 +49,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		cli.StringFlag{
 			Name:   "redis, r",
 			Usage:  "redis store host name",
-			Value:  "localhost",
+			Value:  "local.codefresh.io",
 			EnvVar: "STORE_HOST",
 		},
 		cli.IntFlag{
@@ -61,17 +61,19 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		cli.StringFlag{
 			Name:   "redis-password, s",
 			Usage:  "redis store password",
+			Value: "redisPassword",
 			EnvVar: "STORE_PASSWORD",
 		},
 		cli.StringFlag{
 			Name:   "config",
 			Usage:  "type config file",
-			Value:  "/etc/hermes/type_config.json",
+			Value:  "./pkg/backend/dev_external_types.json",
 			EnvVar: "TYPES_CONFIG",
 		},
 		cli.BoolFlag{
 			Name:  "skip-monitor, m",
 			Usage: "skip monitoring config file for changes",
+			EnvVar: "SKIP_MONITOR",
 		},
 		cli.StringFlag{
 			Name:   "log-level, l",

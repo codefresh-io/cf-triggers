@@ -21,7 +21,8 @@ var serverCommand = cli.Command{
 		cli.IntFlag{
 			Name:  "port",
 			Usage: "TCP port for the trigger manager server",
-			Value: 8080,
+			Value: 9011,
+			EnvVar: "PORT",
 		},
 	},
 	Usage:       "start trigger manager server",
