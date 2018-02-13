@@ -14,6 +14,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/util"
 
 	log "github.com/sirupsen/logrus"
+	"path/filepath"
 )
 
 type (
@@ -82,7 +83,14 @@ func NewEventProviderManager(configFile string, skipMonitor bool) *EventProvider
 // load EventHandler Types
 func loadEventHandlerTypes(configFile string) (model.EventTypes, error) {
 	eventTypes := model.EventTypes{}
-	eventTypesData, err := ioutil.ReadFile(configFile)
+
+	absConfigFilePath, err := filepath.Abs(configFile)
+	if err != nil {
+		log.WithError(err).Error("Failed to read config file (provided path is illegal)")
+		return eventTypes, err
+	}
+
+	eventTypesData, err := ioutil.ReadFile(absConfigFilePath)
 	if err != nil {
 		log.WithError(err).Error("Failed to read config file")
 		return eventTypes, err
