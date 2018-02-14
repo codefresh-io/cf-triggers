@@ -44,7 +44,7 @@ spec:
           - name: TYPES_CONFIG
             value: {{ default "/etc/hermes/type_config.json" .Values.types_config }}
           - name: PORT
-            value: {{ .Values.service.ionternalPort | quote }}
+            value: {{ .Values.service.internalPort | quote }}
           - name: CFAPI_URL
             {{- if .Values.cfapi.service }}
             value: "{{.Values.cfapi.protocol}}://{{.Values.cfapi.service}}:{{.Values.cfapi.port}}"
