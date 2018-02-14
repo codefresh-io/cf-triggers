@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
@@ -19,9 +20,9 @@ var serverCommand = cli.Command{
 	Name: "server",
 	Flags: []cli.Flag{
 		cli.IntFlag{
-			Name:  "port",
-			Usage: "TCP port for the trigger manager server",
-			Value: 9011,
+			Name:   "port",
+			Usage:  "TCP port for the trigger manager server",
+			Value:  9011,
 			EnvVar: "PORT",
 		},
 	},
@@ -95,5 +96,7 @@ func runServer(c *cli.Context) error {
 	router.GET("/version", statusController.GetVersion)
 	router.GET("/ping", statusController.Ping)
 
-	return router.Run(fmt.Sprintf(":%d", c.Int("port")))
+	port := c.Int("port")
+	log.WithField("port", port).Debug("starting hermes server")
+	return router.Run(strconv.Itoa(port))
 }
