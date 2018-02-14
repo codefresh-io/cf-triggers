@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
@@ -98,5 +97,5 @@ func runServer(c *cli.Context) error {
 
 	port := c.Int("port")
 	log.WithField("port", port).Debug("starting hermes server")
-	return router.Run(strconv.Itoa(port))
+	return router.Run(fmt.Sprintf(":%d", port))
 }
