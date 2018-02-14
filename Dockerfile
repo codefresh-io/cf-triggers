@@ -62,6 +62,8 @@ RUN apk add --no-cache ca-certificates
 ENV GIN_MODE=release
 
 COPY --from=builder /go/src/github.com/codefresh-io/hermes/.bin/hermes /usr/local/bin/hermes
+COPY --from=builder /go/src/github.com/codefresh-io/hermes/pkg/backend/dev_compose_types.json /etc/hermes/dev_compose_types.json
+COPY --from=builder /go/src/github.com/codefresh-io/hermes/pkg/backend/dev_external_types.json /etc/hermes/dev_external_types.json
 
 ENTRYPOINT ["/usr/local/bin/hermes"]
 CMD ["server"]
