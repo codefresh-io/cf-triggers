@@ -63,6 +63,9 @@ var ErrNotSingleKey = errors.New("key is a pattern and not a single key")
 // ErrTriggerNotFound error when trigger not found
 var ErrTriggerNotFound = errors.New("trigger not found")
 
+// ErrEventDeleteWithTriggers trigger-event has linked pipelines (omn delete)
+var ErrEventDeleteWithTriggers = errors.New("cannot delete trigger event linked to pipelines")
+
 // ErrEventNotFound error when trigger event not found
 var ErrEventNotFound = errors.New("trigger event not found")
 

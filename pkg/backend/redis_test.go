@@ -1345,7 +1345,6 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		zrange     bool
 		delEvent   bool
 		delTrigger bool
-		zrem       bool
 		exec       bool
 	}
 	type expected struct {
@@ -1365,9 +1364,14 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		{
 			name: "delete existing trigger event",
 			args: args{event: "uri:test"},
+		},
+		{
+			name: "try to delete existing trigger event linked to pipelines",
+			args: args{event: "uri:test"},
 			expected: expected{
 				pipelines: []string{"p1", "p2", "p3"},
 			},
+			wantErr: model.ErrEventDeleteWithTriggers,
 		},
 		{
 			name:    "try deleting event with invalid key",
@@ -1381,47 +1385,26 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			errs:    redisErrors{zrange: true},
 		},
 		{
-			name: "multi error",
-			args: args{event: "uri:test"},
-			expected: expected{
-				pipelines: []string{"p1", "p2", "p3"},
-			},
+			name:    "multi error",
+			args:    args{event: "uri:test"},
 			wantErr: errors.New("REDIS error"),
 			errs:    redisErrors{multi: true},
 		},
 		{
-			name: "del event error",
-			args: args{event: "uri:test"},
-			expected: expected{
-				pipelines: []string{"p1", "p2", "p3"},
-			},
+			name:    "del event error",
+			args:    args{event: "uri:test"},
 			wantErr: errors.New("REDIS error"),
 			errs:    redisErrors{delEvent: true},
 		},
 		{
-			name: "del trigger error",
-			args: args{event: "uri:test"},
-			expected: expected{
-				pipelines: []string{"p1", "p2", "p3"},
-			},
+			name:    "del trigger error",
+			args:    args{event: "uri:test"},
 			wantErr: errors.New("REDIS error"),
 			errs:    redisErrors{delTrigger: true},
 		},
 		{
-			name: "zrem trigger error",
-			args: args{event: "uri:test"},
-			expected: expected{
-				pipelines: []string{"p1", "p2", "p3"},
-			},
-			wantErr: errors.New("REDIS error"),
-			errs:    redisErrors{zrem: true},
-		},
-		{
-			name: "exec error",
-			args: args{event: "uri:test"},
-			expected: expected{
-				pipelines: []string{"p1", "p2", "p3"},
-			},
+			name:    "exec error",
+			args:    args{event: "uri:test"},
 			wantErr: errors.New("REDIS error"),
 			errs:    redisErrors{exec: true},
 		},
@@ -1441,6 +1424,9 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 				goto Invoke
 			} else {
 				cmd.Expect(util.InterfaceSlice(tt.expected.pipelines))
+			}
+			if len(tt.expected.pipelines) > 0 {
+				goto Invoke
 			}
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
 			if tt.errs.multi {
@@ -1465,20 +1451,10 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			} else {
 				cmd.Expect("QUEUED")
 			}
-			// delete trigger
-			for _, pipeline := range tt.expected.pipelines {
-				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(pipeline), tt.args.event)
-				if tt.errs.zrem {
-					cmd.ExpectError(tt.wantErr)
-					goto EndTransaction
-				} else {
-					cmd.Expect("QUEUED")
-				}
-			}
 
 		EndTransaction:
 			// discard transaction on error
-			if (tt.errs.delEvent || tt.errs.delTrigger || tt.errs.zrem) && !tt.errs.exec {
+			if (tt.errs.delEvent || tt.errs.delTrigger) && !tt.errs.exec {
 				// expect transaction discard on error
 				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
 			} else {

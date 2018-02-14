@@ -662,6 +662,11 @@ func (r *RedisStore) DeleteEvent(event string, context string) error {
 		return err
 	}
 
+	// abort delete operation if trigger event has linked pipelines
+	if len(pipelines) > 0 {
+		return model.ErrEventDeleteWithTriggers
+	}
+
 	// start Redis transaction
 	_, err = con.Do("MULTI")
 	if err != nil {
@@ -682,18 +687,6 @@ func (r *RedisStore) DeleteEvent(event string, context string) error {
 	_, err = con.Do("DEL", getTriggerKey(event))
 	if err != nil {
 		return discardOnError(con, err)
-	}
-
-	// remove trigger event from linked Pipelines
-	for _, pipeline := range pipelines {
-		log.WithFields(log.Fields{
-			"pipeline":  pipeline,
-			"event-uri": event,
-		}).Debug("Removing trigger event from Pipelines")
-		_, err = con.Do("ZREM", getPipelineKey(pipeline), event)
-		if err != nil {
-			return discardOnError(con, err)
-		}
 	}
 
 	// submit transaction
