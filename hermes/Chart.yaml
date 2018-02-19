@@ -2,7 +2,7 @@ apiVersion: v1
 description: Hermes - Codefresh Trigger Manager
 name: hermes
 version: 0.7.0
-icon: https://raw.githubusercontent.com/codefresh-io/hermes/master/docs/data_model.md
+icon: https://raw.githubusercontent.com/codefresh-io/hermes/master/docs/img/trigger.png
 keywords:
   - codefresh
   - triggers
