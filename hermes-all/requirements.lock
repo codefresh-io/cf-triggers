@@ -5,5 +5,8 @@ dependencies:
 - name: nomios
   repository: http://127.0.0.1:8879/charts
   version: 0.4.0
-digest: sha256:7cb4b2b394fd80da5f25af6d1bf4e203d82963a91629c0df1a0868ad49b355ca
-generated: 2018-02-08T13:08:00.46285+02:00
+- name: cronus
+  repository: http://127.0.0.1:8879/charts
+  version: 0.1.1
+digest: sha256:c172d21f3537ac418bcf48ea58c09b0c1ffff678590257cc580e617fa753e41c
+generated: 2018-02-19T13:34:28.37367+02:00

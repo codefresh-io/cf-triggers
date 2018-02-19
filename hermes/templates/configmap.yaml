@@ -32,6 +32,26 @@ data:
                 "required": true
               }
             ]
+          },
+          {
+            "type": "cron",
+            "kind": "codefresh",
+            "service-url": "{{ printf "%s-cronus" .Release.Name }}",
+            "uri-template": "cron:codefresh:{{"{{"}}expression{{"}}"}}:{{"{{"}}message{{"}}"}}",
+            "uri-regex": "^cron:codefresh:@yearly|@annually|@montly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6}:[a-zA-Z0-9_-]{2,64}$",
+            "config": [{
+                    "name": "expression",
+                    "type": "cron",
+                    "validator": "cron",
+                    "required": true
+                },
+                {
+                    "name": "message",
+                    "type": "string",
+                    "validator": "^[a-zA-Z0-9_-]{2,64}$",
+                    "required": true
+                }
+            ]
           }
         ]
     }
