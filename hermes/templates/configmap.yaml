@@ -42,7 +42,7 @@ data:
             "config": [{
                     "name": "expression",
                     "type": "cron",
-                    "validator": "cron",
+                    "validator": "^@yearly|@annually|@montly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6}$",
                     "required": true
                 },
                 {
