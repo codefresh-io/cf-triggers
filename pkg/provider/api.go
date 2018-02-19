@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/dghubble/sling"
@@ -39,7 +40,9 @@ func NewEventProviderEndpoint(url string) EventProviderService {
 // GetEventInfo get EventInfo from Event Provider passing event URI
 func (api *APIEndpoint) GetEventInfo(event string, secret string) (*model.EventInfo, error) {
 	var info model.EventInfo
-	resp, err := api.endpoint.New().Get(fmt.Sprint("/event/", event, "/", secret)).ReceiveSuccess(&info)
+	path := fmt.Sprint("/event/", url.QueryEscape(event), "/", url.QueryEscape(secret))
+	log.WithField("path", path).Debug("GET event info from event provider")
+	resp, err := api.endpoint.New().Get(path).ReceiveSuccess(&info)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +60,9 @@ func (api *APIEndpoint) SubscribeToEvent(event, secret string, credentials map[s
 	creds, _ := json.Marshal(credentials)
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke POST method passing credentials as base64 encoded string; receive eventinfo on success
-	resp, err := api.endpoint.New().Post(fmt.Sprint("/event/", event, "/", secret, "/", encoded)).ReceiveSuccess(&info)
+	path := fmt.Sprint("/event/", url.QueryEscape(event), "/", url.QueryEscape(secret), "/", url.QueryEscape(encoded))
+	log.WithField("path", path).Debug("POST event to event provider")
+	resp, err := api.endpoint.New().Post(path).ReceiveSuccess(&info)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +82,9 @@ func (api *APIEndpoint) UnsubscribeFromEvent(event string, credentials map[strin
 	creds, _ := json.Marshal(credentials)
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke DELETE method passing credentials as base64 encoded string
-	resp, err := api.endpoint.New().Delete(fmt.Sprint("/event/", event, "/", encoded)).Receive(nil, nil)
+	path := fmt.Sprint("/event/", url.QueryEscape(event), "/", url.QueryEscape(encoded))
+	log.WithField("path", path).Debug("DELETE event from event provider")
+	resp, err := api.endpoint.New().Delete(path).Receive(nil, nil)
 	if err != nil {
 		return err
 	}
