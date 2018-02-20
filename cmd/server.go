@@ -71,7 +71,7 @@ func runServer(c *cli.Context) error {
 	eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
 	// ?type=xxx,kind=xxx,filter=xxx
 	eventsAPI.Handle("GET", "/", eventController.ListEvents)
-	eventsAPI.Handle("DELETE", "/event/:event/:context", eventController.DeleteEvent)
+	eventsAPI.Handle("DELETE", "/event/:event/*context", eventController.DeleteEvent)
 	eventsAPI.Handle("POST", "/", eventController.CreateEvent)
 	eventsAPI.Handle("POST", "/trigger/:event", eventController.LinkEvent)
 	eventsAPI.Handle("DELETE", "/trigger/:event", eventController.UnlinkEvent)
