@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
@@ -37,6 +38,7 @@ func (c *TriggerEventController) ListEvents(ctx *gin.Context) {
 // GetEvent get trigger event
 func (c *TriggerEventController) GetEvent(ctx *gin.Context) {
 	event := ctx.Params.ByName("event")
+	event = strings.Replace(event, "_slash_", "/", -1)
 	if triggerEvent, err := c.svc.GetEvent(event); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
@@ -76,6 +78,7 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 // DeleteEvent delete trigger event
 func (c *TriggerEventController) DeleteEvent(ctx *gin.Context) {
 	event := ctx.Params.ByName("event")
+	event = strings.Replace(event, "_slash_", "/", -1)
 	context := ctx.Params.ByName("context")
 
 	if err := c.svc.DeleteEvent(event, context); err != nil {
@@ -93,6 +96,7 @@ func (c *TriggerEventController) DeleteEvent(ctx *gin.Context) {
 func (c *TriggerEventController) LinkEvent(ctx *gin.Context) {
 	// trigger event (event-uri)
 	event := ctx.Params.ByName("event")
+	event = strings.Replace(event, "_slash_", "/", -1)
 	// get pipelines from body
 	var pipelines []string
 	ctx.Bind(&pipelines)
@@ -112,6 +116,7 @@ func (c *TriggerEventController) LinkEvent(ctx *gin.Context) {
 func (c *TriggerEventController) UnlinkEvent(ctx *gin.Context) {
 	// get trigger event (event-uri)
 	event := ctx.Params.ByName("event")
+	event = strings.Replace(event, "_slash_", "/", -1)
 	// get pipeline
 	pipeline := ctx.Params.ByName("pipeline")
 	if err := c.svc.DeleteTriggersForPipeline(pipeline, []string{event}); err != nil {

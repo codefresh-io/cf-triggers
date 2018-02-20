@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
@@ -20,6 +21,7 @@ func NewPipelineController(svc model.TriggerReaderWriter) *PipelineController {
 // ListPipelines get trigger pipelines
 func (c *PipelineController) ListPipelines(ctx *gin.Context) {
 	event := ctx.Params.ByName("event")
+	event = strings.Replace(event, "_slash_", "/", -1)
 	var pipelines []string
 	var err error
 	if pipelines, err = c.svc.GetPipelinesForTriggers([]string{event}); err != nil {

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,7 @@ func NewTriggerController(runner model.Runner, trigger model.TriggerReaderWriter
 func (c *TriggerController) ListEventTriggers(ctx *gin.Context) {
 	// get event
 	event := ctx.Params.ByName("event")
+	event = strings.Replace(event, "_slash_", "/", -1)
 	// list trigger events, optionally filtered by type/kind and event uri filter
 	if triggers, err := c.trigger.ListTriggersForEvents([]string{event}); err != nil {
 		status := http.StatusInternalServerError
@@ -60,6 +62,7 @@ func (c *TriggerController) RunTrigger(ctx *gin.Context) {
 	}
 	// get trigger id
 	event := ctx.Params.ByName("event")
+	event = strings.Replace(event, "_slash_", "/", -1)
 	// get event payload
 	var runEvent RunEvent
 	if err := ctx.BindJSON(&runEvent); err != nil {
