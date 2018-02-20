@@ -18,10 +18,14 @@ func NewPipelineController(svc model.TriggerReaderWriter) *PipelineController {
 	return &PipelineController{svc}
 }
 
+func getParam(c *gin.Context, name string) string {
+	v := c.Param(name)
+	return strings.Replace(v, "_slash_", "/", -1)
+}
+
 // ListPipelines get trigger pipelines
 func (c *PipelineController) ListPipelines(ctx *gin.Context) {
-	event := ctx.Params.ByName("event")
-	event = strings.Replace(event, "_slash_", "/", -1)
+	event := getParam(ctx, "event")
 	var pipelines []string
 	var err error
 	if pipelines, err = c.svc.GetPipelinesForTriggers([]string{event}); err != nil {

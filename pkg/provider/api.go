@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/model"
@@ -38,11 +37,14 @@ func NewEventProviderEndpoint(url string) EventProviderService {
 	return &APIEndpoint{endpoint}
 }
 
+func escapeSlash(v string) string {
+	return strings.Replace(v, "/", "_slash_", -1)
+}
+
 // GetEventInfo get EventInfo from Event Provider passing event URI
 func (api *APIEndpoint) GetEventInfo(event string, secret string) (*model.EventInfo, error) {
 	var info model.EventInfo
-	event = strings.Replace(event, "/", "_slash_", -1)
-	path := fmt.Sprint("/event/", url.QueryEscape(event), "/", url.QueryEscape(secret))
+	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret)
 	log.WithField("path", path).Debug("GET event info from event provider")
 	resp, err := api.endpoint.New().Get(path).ReceiveSuccess(&info)
 	if err != nil {
@@ -62,8 +64,7 @@ func (api *APIEndpoint) SubscribeToEvent(event, secret string, credentials map[s
 	creds, _ := json.Marshal(credentials)
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke POST method passing credentials as base64 encoded string; receive eventinfo on success
-	event = strings.Replace(event, "/", "_slash_", -1)
-	path := fmt.Sprint("/event/", url.QueryEscape(event), "/", url.QueryEscape(secret), "/", url.QueryEscape(encoded))
+	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret, "/", encoded)
 	log.WithField("path", path).Debug("POST event to event provider")
 	resp, err := api.endpoint.New().Post(path).ReceiveSuccess(&info)
 	if err != nil {
@@ -85,8 +86,7 @@ func (api *APIEndpoint) UnsubscribeFromEvent(event string, credentials map[strin
 	creds, _ := json.Marshal(credentials)
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke DELETE method passing credentials as base64 encoded string
-	event = strings.Replace(event, "/", "_slash_", -1)
-	path := fmt.Sprint("/event/", url.QueryEscape(event), "/", url.QueryEscape(encoded))
+	path := fmt.Sprint("/event/", escapeSlash(event), "/", encoded)
 	log.WithField("path", path).Debug("DELETE event from event provider")
 	resp, err := api.endpoint.New().Delete(path).Receive(nil, nil)
 	if err != nil {

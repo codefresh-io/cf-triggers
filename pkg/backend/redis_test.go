@@ -1131,12 +1131,13 @@ func TestRedisStore_GetEvent(t *testing.T) {
 		fields map[string]string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		expect  expect
-		want    *model.Event
-		wantErr error
-		keyErr  bool
+		name      string
+		args      args
+		expect    expect
+		want      *model.Event
+		notExists bool
+		wantErr   error
+		keyErr    bool
 	}{
 		{
 			name: "get existing event",
@@ -1166,10 +1167,11 @@ func TestRedisStore_GetEvent(t *testing.T) {
 			},
 		},
 		{
-			name:    "get non-existing event",
-			args:    args{event: "non-existing:event:uri:test"},
-			expect:  expect{},
-			wantErr: model.ErrEventNotFound,
+			name:      "get non-existing event",
+			args:      args{event: "non-existing:event:uri:test"},
+			expect:    expect{},
+			notExists: true,
+			wantErr:   model.ErrEventNotFound,
 		},
 		{
 			name:    "get non-existing event REDIS error",
@@ -1178,10 +1180,11 @@ func TestRedisStore_GetEvent(t *testing.T) {
 			wantErr: errors.New("HGETALL error"),
 		},
 		{
-			name:    "try getting event with invalid key",
-			args:    args{event: "uri:*"},
-			expect:  expect{},
-			wantErr: model.ErrNotSingleKey,
+			name:      "try getting event with invalid key",
+			args:      args{event: "uri:*"},
+			expect:    expect{},
+			notExists: true,
+			wantErr:   model.ErrEventNotFound,
 		},
 	}
 	for _, tt := range tests {
@@ -1189,7 +1192,13 @@ func TestRedisStore_GetEvent(t *testing.T) {
 			r := &RedisStore{
 				redisPool: &RedisPoolMock{},
 			}
-			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getEventKey(tt.args.event))
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", getEventKey(tt.args.event))
+			if tt.notExists {
+				cmd.Expect(int64(0))
+			} else {
+				cmd.Expect(int64(1))
+			}
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getEventKey(tt.args.event))
 			if tt.wantErr != nil && tt.wantErr != model.ErrEventNotFound {
 				cmd.ExpectError(tt.wantErr)
 			} else {
@@ -1321,7 +1330,9 @@ func TestRedisStore_GetEvents(t *testing.T) {
 			}
 			// mock scanning trough all trigger events
 			for i, k := range tt.expect.keys {
-				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getEventKey(k))
+				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", getEventKey(k))
+				cmd.Expect(int64(1))
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getEventKey(k))
 				cmd.ExpectMap(tt.expect.fields[i])
 			}
 
@@ -1355,11 +1366,12 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		context string
 	}
 	tests := []struct {
-		name     string
-		args     args
-		expected expected
-		errs     redisErrors
-		wantErr  error
+		name      string
+		args      args
+		expected  expected
+		errs      redisErrors
+		notExists bool
+		wantErr   error
 	}{
 		{
 			name: "delete existing trigger event",
@@ -1374,9 +1386,10 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			wantErr: model.ErrEventDeleteWithTriggers,
 		},
 		{
-			name:    "try deleting event with invalid key",
-			args:    args{event: "uri:*"},
-			wantErr: model.ErrNotSingleKey,
+			name:      "try deleting event with invalid key",
+			args:      args{event: "uri:*"},
+			notExists: true,
+			wantErr:   model.ErrEventNotFound,
 		},
 		{
 			name:    "zrange error",
@@ -1417,6 +1430,14 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			// mock Redis
 			// expect Redis transaction open
 			var cmd *redigomock.Cmd
+			// check existence
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", getEventKey(tt.args.event))
+			if tt.notExists {
+				cmd.Expect(int64(0))
+				goto Invoke
+			} else {
+				cmd.Expect(int64(1))
+			}
 			// get trigger event pipelines
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.event), 0, -1)
 			if tt.errs.zrange {
@@ -1772,46 +1793,6 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			}
 			// assert mock
 			mock.AssertExpectations(t)
-		})
-	}
-}
-
-func Test_checkSingleKey(t *testing.T) {
-	tests := []struct {
-		name    string
-		key     string
-		wantErr bool
-	}{
-		{
-			name: "valid key",
-			key:  "registry:dockerhub:12345",
-		},
-		{
-			name:    "empty key",
-			key:     "",
-			wantErr: true,
-		},
-		{
-			name:    "invalid key star",
-			key:     "registry:*",
-			wantErr: true,
-		},
-		{
-			name:    "invalid key options",
-			key:     "registry:[dockerhub,cfcr]",
-			wantErr: true,
-		},
-		{
-			name:    "invalid key q mark",
-			key:     "registry:?hub",
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := checkSingleKey(tt.key); (err != nil) != tt.wantErr {
-				t.Errorf("checkSingleKey() error = %v, wantErr %v", err, tt.wantErr)
-			}
 		})
 	}
 }

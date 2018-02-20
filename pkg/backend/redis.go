@@ -132,14 +132,6 @@ func discardOnError(con redis.Conn, err error) error {
 	return err
 }
 
-// helper function - check if string is a key and not empty or contain *
-func checkSingleKey(key string) error {
-	if key == "" || strings.ContainsAny(key, "?*[]^") {
-		return model.ErrNotSingleKey
-	}
-	return nil
-}
-
 // construct prefixes - for trigger, secret and pipeline
 func getPrefixKey(prefix, id string) string {
 	// set * for empty id
@@ -598,9 +590,15 @@ func (r *RedisStore) GetSecret(eventURI string) (string, error) {
 func (r *RedisStore) GetEvent(event string) (*model.Event, error) {
 	con := r.redisPool.GetConn()
 	log.WithField("event-uri", event).Debug("Getting trigger event")
-	// check event URI
-	if err := checkSingleKey(event); err != nil {
+	// check event URI is a single event key
+	n, err := redis.Int(con.Do("EXISTS", getEventKey(event)))
+	if err != nil {
+		log.WithError(err).Error("failed to check trigger event existence")
 		return nil, err
+	}
+	if n != 1 {
+		log.Error("trigger event key does not exist")
+		return nil, model.ErrEventNotFound
 	}
 	// get hash values
 	fields, err := redis.StringMap(con.Do("HGETALL", getEventKey(event)))
@@ -648,9 +646,15 @@ func (r *RedisStore) GetEvents(eventType, kind, filter string) ([]model.Event, e
 func (r *RedisStore) DeleteEvent(event string, context string) error {
 	con := r.redisPool.GetConn()
 	log.WithField("event-uri", event).Debug("Deleting trigger event")
-	// check event URI
-	if err := checkSingleKey(event); err != nil {
+	// check event URI is a single event key
+	n, err := redis.Int(con.Do("EXISTS", getEventKey(event)))
+	if err != nil {
+		log.WithError(err).Error("failed to check trigger event existence")
 		return err
+	}
+	if n != 1 {
+		log.Error("trigger event key does not exist")
+		return model.ErrEventNotFound
 	}
 	// TODO: get credentials from Codefresh context
 	// credentials := make(map[string]string)

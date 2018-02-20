@@ -57,9 +57,6 @@ type (
 	}
 )
 
-// ErrNotSingleKey error when key is a pattern and not a single key
-var ErrNotSingleKey = errors.New("key is a pattern and not a single key")
-
 // ErrTriggerNotFound error when trigger not found
 var ErrTriggerNotFound = errors.New("trigger not found")
 
