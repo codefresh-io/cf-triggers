@@ -5,6 +5,7 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 // TriggerController trigger controller
@@ -29,7 +30,7 @@ func (c *TriggerController) ListEventTriggers(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to list triggers for event", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to list triggers for event", err.Error()})
 	} else {
 		ctx.JSON(http.StatusOK, triggers)
 	}
@@ -45,7 +46,7 @@ func (c *TriggerController) ListPipelineTriggers(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to list triggers for pipeline", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to list triggers for pipeline", err.Error()})
 	} else {
 		ctx.JSON(http.StatusOK, triggers)
 	}
@@ -60,10 +61,11 @@ func (c *TriggerController) RunTrigger(ctx *gin.Context) {
 	}
 	// get trigger id
 	event := getParam(ctx, "event")
+	log.WithField("event", event).Debug("triggering pipelines for event")
 	// get event payload
 	var runEvent RunEvent
 	if err := ctx.BindJSON(&runEvent); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "message": "error in JSON body", "error": err.Error()})
+		ctx.JSON(http.StatusBadRequest, ErrorResult{http.StatusBadRequest, "error in JSON body", err.Error()})
 		return
 	}
 	// get trigger event
@@ -73,7 +75,7 @@ func (c *TriggerController) RunTrigger(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed secret validation", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to get event", err.Error()})
 		return
 	}
 	if err := c.checker.Validate(runEvent.Original, runEvent.Secret, triggerEvent.Secret); err != nil {
@@ -81,7 +83,7 @@ func (c *TriggerController) RunTrigger(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed secret validation", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed secret validation", err.Error()})
 		return
 	}
 	// add original payload to variables
@@ -90,20 +92,24 @@ func (c *TriggerController) RunTrigger(ctx *gin.Context) {
 		vars[k] = v
 	}
 	vars["EVENT_PAYLOAD"] = runEvent.Original
-	// get pipelines
+	// get connected pipelines
 	pipelines, err := c.trigger.GetPipelinesForTriggers([]string{event})
 	if err != nil {
-		status := http.StatusInternalServerError
+		// if there are no pipelines connected to the trigger event don't fail this REST method
+		// to avoid multiple 'errors' reported to the event provider log
+		// it's possible to have trigger event defined and not connected to any pipeline
 		if err == model.ErrPipelineNotFound || err == model.ErrTriggerNotFound {
-			status = http.StatusNotFound
+			log.WithField("event", event).Debug("there are no pipelines associated with trigger event")
+			ctx.Status(http.StatusOK)
+			return
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to run trigger pipelines", "error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, ErrorResult{http.StatusInternalServerError, "failed to run trigger pipelines", err.Error()})
 		return
 	}
 	// run pipelines
 	runs, err := c.runner.Run(pipelines, vars)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "failed to run trigger pipelines", "error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, ErrorResult{http.StatusInternalServerError, "failed to run trigger pipelines", err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, runs)

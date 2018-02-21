@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
@@ -18,11 +17,6 @@ func NewPipelineController(svc model.TriggerReaderWriter) *PipelineController {
 	return &PipelineController{svc}
 }
 
-func getParam(c *gin.Context, name string) string {
-	v := c.Param(name)
-	return strings.Replace(v, "_slash_", "/", -1)
-}
-
 // ListPipelines get trigger pipelines
 func (c *PipelineController) ListPipelines(ctx *gin.Context) {
 	event := getParam(ctx, "event")
@@ -33,7 +27,7 @@ func (c *PipelineController) ListPipelines(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to get list pipelines", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to get list pipelines", err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, pipelines)

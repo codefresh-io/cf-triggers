@@ -28,7 +28,7 @@ func (c *TriggerEventController) ListEvents(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to list trigger events", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to list trigger events", err.Error()})
 	} else {
 		ctx.JSON(http.StatusOK, events)
 	}
@@ -42,7 +42,7 @@ func (c *TriggerEventController) GetEvent(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to get trigger event", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to get trigger event", err.Error()})
 	} else {
 		ctx.JSON(http.StatusOK, triggerEvent)
 	}
@@ -66,7 +66,7 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 		if err == model.ErrTriggerAlreadyExists {
 			status = http.StatusBadRequest
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to add trigger event", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to add trigger event", err.Error()})
 	} else {
 		// report OK and event URI
 		ctx.JSON(http.StatusOK, event.URI)
@@ -83,7 +83,7 @@ func (c *TriggerEventController) DeleteEvent(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to delete trigger event", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to delete trigger event", err.Error()})
 	} else {
 		ctx.Status(http.StatusOK)
 	}
@@ -102,7 +102,7 @@ func (c *TriggerEventController) LinkEvent(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to link trigger event to the pipelines", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to link trigger event to the pipelines", err.Error()})
 	} else {
 		ctx.Status(http.StatusOK)
 	}
@@ -119,7 +119,7 @@ func (c *TriggerEventController) UnlinkEvent(ctx *gin.Context) {
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, gin.H{"status": status, "message": "failed to unlink pipeline from trigger event", "error": err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to unlink pipeline from trigger event", err.Error()})
 	} else {
 		ctx.Status(http.StatusOK)
 	}
