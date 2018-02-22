@@ -1,7 +1,7 @@
 dependencies:
   # trigger manager
   - name: hermes
-    version: 0.7.0
+    version: 0.8.0
     repository: alias:hermes
     tags:
       - trigger-manager

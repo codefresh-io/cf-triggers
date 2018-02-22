@@ -1,6 +1,8 @@
 package model
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -30,6 +32,8 @@ type (
 		Type string `json:"type" yaml:"type"`
 		// event kind
 		Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
+		// event account
+		Account string `json:"account,omitempty" yaml:"account,omitempty"`
 		// event secret, used for event validation
 		Secret string `json:"secret" yaml:"secret"`
 	}
@@ -56,10 +60,11 @@ func (t Event) String() string {
 // StringsMapToEvent convert map[string]string to Event
 func StringsMapToEvent(event string, fields map[string]string) *Event {
 	return &Event{
-		URI:    strings.TrimPrefix(event, "event:"),
-		Type:   fields["type"],
-		Kind:   fields["kind"],
-		Secret: fields["secret"],
+		URI:     strings.TrimPrefix(event, "event:"),
+		Type:    fields["type"],
+		Kind:    fields["kind"],
+		Account: fields["account"],
+		Secret:  fields["secret"],
 		EventInfo: EventInfo{
 			Endpoint:    fields["endpoint"],
 			Description: fields["description"],
@@ -67,4 +72,11 @@ func StringsMapToEvent(event string, fields map[string]string) *Event {
 			Status:      fields["status"],
 		},
 	}
+}
+
+// CalculateAccountHash return first 12 of account SHA1 hash
+func CalculateAccountHash(account string) string {
+	hex := fmt.Sprintf("%x", sha1.Sum([]byte(account)))
+	runes := []rune(hex)
+	return string(runes[0:12])
 }

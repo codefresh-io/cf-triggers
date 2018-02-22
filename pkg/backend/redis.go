@@ -12,7 +12,8 @@ package backend
     | | event:{event-uri}  +------> type        | |
     | |                    |      | kind        | |
     | |                    |      | secret      | |
-    | |                    |      | endpoint    | |
+	| |                    |      | endpoint    | |
+	| |                    |      | account*    | |
     | |                    |      | description | |
     | |                    |      | help        | |
     | |                    |      | status      | |
@@ -487,16 +488,17 @@ func (r *RedisStore) GetPipelinesForTriggers(events []string) ([]string, error) 
 }
 
 // CreateEvent new trigger event
-func (r *RedisStore) CreateEvent(eventType, kind, secret string, context string, values map[string]string) (*model.Event, error) {
+func (r *RedisStore) CreateEvent(eventType, kind, secret string, account string, context string, values map[string]string) (*model.Event, error) {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
-		"type":   eventType,
-		"kind":   kind,
-		"values": values,
+		"type":    eventType,
+		"kind":    kind,
+		"values":  values,
+		"account": account,
 	}).Debug("Creating a new trigger event")
 
 	// construct event URI
-	eventURI, err := r.eventProvider.ConstructEventURI(eventType, kind, values)
+	eventURI, err := r.eventProvider.ConstructEventURI(eventType, kind, account, values)
 	if err != nil {
 		return nil, err
 	}
@@ -528,6 +530,7 @@ func (r *RedisStore) CreateEvent(eventType, kind, secret string, context string,
 		URI:       eventURI,
 		Type:      eventType,
 		Kind:      kind,
+		Account:   account,
 		Secret:    secret,
 		EventInfo: *eventInfo,
 	}
@@ -544,6 +547,12 @@ func (r *RedisStore) CreateEvent(eventType, kind, secret string, context string,
 	// store event kind
 	if _, err := con.Do("HSETNX", getEventKey(eventURI), "kind", kind); err != nil {
 		return nil, discardOnError(con, err)
+	}
+	// store event account, if not empty
+	if account != "" {
+		if _, err := con.Do("HSETNX", getEventKey(eventURI), "account", account); err != nil {
+			return nil, discardOnError(con, err)
+		}
 	}
 	// store event secret
 	if _, err := con.Do("HSETNX", getEventKey(eventURI), "secret", secret); err != nil {
@@ -614,12 +623,13 @@ func (r *RedisStore) GetEvent(event string) (*model.Event, error) {
 }
 
 // GetEvents get events by event type, kind and filter (can be URI or part of URI)
-func (r *RedisStore) GetEvents(eventType, kind, filter string) ([]model.Event, error) {
+func (r *RedisStore) GetEvents(eventType, kind, filter, account string) ([]model.Event, error) {
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
-		"type":   eventType,
-		"kind":   kind,
-		"filter": filter,
+		"type":    eventType,
+		"kind":    kind,
+		"account": account,
+		"filter":  filter,
 	}).Debug("Getting trigger events")
 	// get all events URIs
 	uris, err := redis.Strings(con.Do("KEYS", getEventKey(filter)))
@@ -628,6 +638,7 @@ func (r *RedisStore) GetEvents(eventType, kind, filter string) ([]model.Event, e
 		return nil, err
 	}
 	// scan through all events and select matching to non-empty type and kind
+	// and matching account or all public events
 	events := make([]model.Event, 0)
 	for _, uri := range uris {
 		event, err := r.GetEvent(uri)
@@ -635,7 +646,8 @@ func (r *RedisStore) GetEvents(eventType, kind, filter string) ([]model.Event, e
 			return nil, err
 		}
 		if (eventType == "" || event.Type == eventType) &&
-			(kind == "" || event.Kind == kind) {
+			(kind == "" || event.Kind == kind) &&
+			(account == "" || event.Account == "" || event.Account == account) {
 			events = append(events, *event)
 		}
 	}
@@ -643,9 +655,12 @@ func (r *RedisStore) GetEvents(eventType, kind, filter string) ([]model.Event, e
 }
 
 // DeleteEvent delete trigger event
-func (r *RedisStore) DeleteEvent(event string, context string) error {
+func (r *RedisStore) DeleteEvent(event string, context string, account string) error {
 	con := r.redisPool.GetConn()
-	log.WithField("event-uri", event).Debug("Deleting trigger event")
+	log.WithFields(log.Fields{
+		"event-uri": event,
+		"account":   account,
+	}).Debug("deleting trigger event")
 	// check event URI is a single event key
 	n, err := redis.Int(con.Do("EXISTS", getEventKey(event)))
 	if err != nil {
@@ -656,6 +671,20 @@ func (r *RedisStore) DeleteEvent(event string, context string) error {
 		log.Error("trigger event key does not exist")
 		return model.ErrEventNotFound
 	}
+	// check trigger event account vs passed account; skip 'public' events
+	if account != "" {
+		a, err := redis.String(con.Do("HGET", getEventKey(event), "account"))
+		if err != nil && err != redis.ErrNil {
+			log.WithError(err).Error("failed to get trigger event account")
+			return err
+		}
+		// if not public and belongs to different account - return not exists error
+		if a != "" && a != account {
+			log.Error("trigger event account does not match")
+			return model.ErrEventNotFound
+		}
+	}
+
 	// TODO: get credentials from Codefresh context
 	// credentials := make(map[string]string)
 

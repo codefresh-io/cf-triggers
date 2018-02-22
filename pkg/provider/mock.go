@@ -67,7 +67,7 @@ func (c *Mock) UnsubscribeFromEvent(event string, credentials map[string]string)
 }
 
 // ConstructEventURI mock
-func (c *Mock) ConstructEventURI(t string, k string, values map[string]string) (string, error) {
-	args := c.Called(t, k, values)
+func (c *Mock) ConstructEventURI(t string, k string, a string, values map[string]string) (string, error) {
+	args := c.Called(t, k, a, values)
 	return args.String(0), args.Error(1)
 }

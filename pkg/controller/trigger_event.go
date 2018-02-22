@@ -22,8 +22,9 @@ func (c *TriggerEventController) ListEvents(ctx *gin.Context) {
 	eventType := ctx.Query("type")
 	kind := ctx.Query("kind")
 	filter := ctx.Query("filter")
+	account := ctx.Query("account")
 	// list trigger events, optionally filtered by type/kind and event uri filter
-	if events, err := c.svc.GetEvents(eventType, kind, filter); err != nil {
+	if events, err := c.svc.GetEvents(eventType, kind, filter, account); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
@@ -59,9 +60,11 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 	}
 	var req createReq
 	ctx.Bind(&req)
+	// get account from query
+	account := ctx.Query("account")
 
 	// create trigger event
-	if event, err := c.svc.CreateEvent(req.Type, req.Kind, req.Secret, req.Context, req.Values); err != nil {
+	if event, err := c.svc.CreateEvent(req.Type, req.Kind, req.Secret, account, req.Context, req.Values); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerAlreadyExists {
 			status = http.StatusBadRequest
@@ -77,8 +80,10 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 func (c *TriggerEventController) DeleteEvent(ctx *gin.Context) {
 	event := getParam(ctx, "event")
 	context := ctx.Params.ByName("context")
+	// get account from query
+	account := ctx.Query("account")
 
-	if err := c.svc.DeleteEvent(event, context); err != nil {
+	if err := c.svc.DeleteEvent(event, context, account); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound

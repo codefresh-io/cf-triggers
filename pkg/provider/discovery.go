@@ -13,8 +13,9 @@ import (
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/codefresh-io/hermes/pkg/util"
 
-	log "github.com/sirupsen/logrus"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type (
@@ -34,7 +35,7 @@ type (
 		GetEventInfo(eventURI string, secret string) (*model.EventInfo, error)
 		SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error)
 		UnsubscribeFromEvent(event string, credentials map[string]string) error
-		ConstructEventURI(t string, k string, values map[string]string) (string, error)
+		ConstructEventURI(t string, k string, a string, values map[string]string) (string, error)
 	}
 )
 
@@ -100,6 +101,13 @@ func loadEventHandlerTypes(configFile string) (model.EventTypes, error) {
 	if err != nil {
 		log.WithError(err).Error("Failed to load types configuration from JSON file")
 		return eventTypes, err
+	}
+	// scan through all types and add optional account short hash
+	for i, et := range eventTypes.Types {
+		// trim last '$' character if exists
+		et.URIPattern = strings.TrimSuffix(et.URIPattern, "$")
+		// add optional 12 hexadecimal string (short account SHA1 hash code)
+		eventTypes.Types[i].URIPattern = et.URIPattern + "(:[[:xdigit:]]{12})?$"
 	}
 	return eventTypes, nil
 }
@@ -237,8 +245,8 @@ func (m *EventProviderManager) UnsubscribeFromEvent(event string, credentials ma
 	return provider.UnsubscribeFromEvent(event, credentials)
 }
 
-// ConstructEventURI construct event URI from type/kind and values map
-func (m *EventProviderManager) ConstructEventURI(t string, k string, values map[string]string) (string, error) {
+// ConstructEventURI construct event URI from type/kind, account and values map
+func (m *EventProviderManager) ConstructEventURI(t string, k string, a string, values map[string]string) (string, error) {
 	log.WithFields(log.Fields{
 		"type":   t,
 		"kind":   k,
@@ -272,6 +280,11 @@ func (m *EventProviderManager) ConstructEventURI(t string, k string, values map[
 		}
 		// substitute value for template string in URI template
 		eventURI = strings.Replace(eventURI, fmt.Sprintf("{{%s}}", field.Name), val, -1)
+	}
+	// append account short (12 hex chars) SHA1 if non-empty
+	if a != "" {
+		hash := model.CalculateAccountHash(a)
+		eventURI = fmt.Sprintf("%s:%s", eventURI, hash)
 	}
 
 	// do a final validation

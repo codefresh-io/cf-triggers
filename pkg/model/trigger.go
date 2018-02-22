@@ -26,9 +26,9 @@ type (
 	TriggerReaderWriter interface {
 		// trigger events
 		GetEvent(event string) (*Event, error)
-		GetEvents(eventType, kind, filter string) ([]Event, error)
-		CreateEvent(eventType, kind, secret string, context string, values map[string]string) (*Event, error)
-		DeleteEvent(event string, context string) error
+		GetEvents(eventType, kind, filter, account string) ([]Event, error)
+		CreateEvent(eventType, kind, secret string, account string, context string, values map[string]string) (*Event, error)
+		DeleteEvent(event string, context string, account string) error
 		GetSecret(eventURI string) (string, error)
 		// triggers
 		ListTriggersForEvents(events []string) ([]Trigger, error)

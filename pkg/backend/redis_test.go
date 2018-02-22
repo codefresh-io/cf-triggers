@@ -1224,6 +1224,7 @@ func TestRedisStore_GetEvents(t *testing.T) {
 	type args struct {
 		eventType string
 		kind      string
+		account   string
 		filter    string
 	}
 	tests := []struct {
@@ -1264,6 +1265,24 @@ func TestRedisStore_GetEvents(t *testing.T) {
 			want: []model.Event{
 				{URI: "uri:2", Type: "T", Kind: "k2", Secret: "s2"},
 				{URI: "uri:3", Type: "T", Kind: "k3", Secret: "s3"},
+			},
+		},
+		{
+			name: "get trigger events by account and public",
+			args: args{account: "A"},
+			expect: expect{
+				keys: []string{"uri:1:A", "uri:2:A", "uri:3", "uri:4:B"},
+				fields: []map[string]string{
+					{"type": "t1", "kind": "k1", "secret": "s1", "account": "A"},
+					{"type": "t1", "kind": "k2", "secret": "s2", "account": "A"},
+					{"type": "t2", "kind": "k3", "secret": "s3"},
+					{"type": "t2", "kind": "k1", "secret": "s2", "account": "B"},
+				},
+			},
+			want: []model.Event{
+				{URI: "uri:1:A", Type: "t1", Kind: "k1", Secret: "s1", Account: "A"},
+				{URI: "uri:2:A", Type: "t1", Kind: "k2", Secret: "s2", Account: "A"},
+				{URI: "uri:3", Type: "t2", Kind: "k3", Secret: "s3"},
 			},
 		},
 		{
@@ -1338,7 +1357,7 @@ func TestRedisStore_GetEvents(t *testing.T) {
 
 			// invoke
 		Invoke:
-			got, err := r.GetEvents(tt.args.eventType, tt.args.kind, tt.args.filter)
+			got, err := r.GetEvents(tt.args.eventType, tt.args.kind, tt.args.filter, tt.args.account)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.GetEvents() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1359,23 +1378,37 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		exec       bool
 	}
 	type expected struct {
+		account   string
 		pipelines []string
 	}
 	type args struct {
 		event   string
+		account string
 		context string
 	}
 	tests := []struct {
-		name      string
-		args      args
-		expected  expected
-		errs      redisErrors
-		notExists bool
-		wantErr   error
+		name           string
+		args           args
+		expected       expected
+		errs           redisErrors
+		notExists      bool
+		anotherAccount bool
+		wantErr        error
 	}{
 		{
 			name: "delete existing trigger event",
 			args: args{event: "uri:test"},
+		},
+		{
+			name:     "delete existing private trigger event",
+			args:     args{event: "uri:test:1234", account: "A"},
+			expected: expected{account: "A"},
+		},
+		{
+			name:     "delete existing private trigger event",
+			args:     args{event: "uri:test:1234", account: "A"},
+			expected: expected{account: "B"},
+			wantErr:  model.ErrEventNotFound,
 		},
 		{
 			name: "try to delete existing trigger event linked to pipelines",
@@ -1438,6 +1471,13 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			} else {
 				cmd.Expect(int64(1))
 			}
+			// get account
+			if tt.args.account != "" {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", getEventKey(tt.args.event), "account").Expect(tt.expected.account)
+				if tt.anotherAccount {
+					goto Invoke
+				}
+			}
 			// get trigger event pipelines
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.event), 0, -1)
 			if tt.errs.zrange {
@@ -1489,7 +1529,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			}
 
 		Invoke:
-			if err := r.DeleteEvent(tt.args.event, tt.args.context); err != tt.wantErr {
+			if err := r.DeleteEvent(tt.args.event, tt.args.context, tt.args.account); err != tt.wantErr {
 				t.Errorf("RedisStore.DeleteEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -1501,6 +1541,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		multi          bool
 		hsetnxType     bool
 		hsetnxKind     bool
+		hsetnxAccount  bool
 		hsetnxSecret   bool
 		hsetnxDesc     bool
 		hsetnxEndpoint bool
@@ -1522,6 +1563,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		eventType string
 		kind      string
 		secret    string
+		account   string
 		context   string
 		values    map[string]string
 	}
@@ -1545,6 +1587,22 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 				URI:       "type:kind:test",
 				Type:      "type",
 				Kind:      "kind",
+				Secret:    "XXX",
+				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
+			errs: redisErrors{},
+		},
+		{
+			name: "create private event (per account)",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62"},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			want: &model.Event{
+				URI:       "type:kind:test",
+				Type:      "type",
+				Kind:      "kind",
+				Account:   "5672d8deb6724b6e359adf62",
 				Secret:    "XXX",
 				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
 			errs: redisErrors{},
@@ -1617,6 +1675,16 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			errs:    redisErrors{hsetnxKind: true},
 		},
 		{
+			name: "fail update account",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62"},
+			expected: expected{
+				eventURI: "type:kind:test",
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			wantErr: true,
+			errs:    redisErrors{hsetnxAccount: true},
+		},
+		{
 			name: "fail update secret",
 			args: args{eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
@@ -1686,7 +1754,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 				eventProvider: mock,
 			}
 			// mock EventProvider calls
-			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, tt.args.values)
+			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, tt.args.account, tt.args.values)
 			if tt.wantEventErr.uri != nil {
 				call.Return("", tt.wantEventErr.uri)
 				goto Invoke
@@ -1730,6 +1798,14 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			if tt.errs.hsetnxKind {
 				cmd.ExpectError(errors.New("HSETNX error"))
 				goto EndTransaction
+			}
+			// store Event account
+			if tt.args.account != "" {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "account", tt.args.account)
+				if tt.errs.hsetnxAccount {
+					cmd.ExpectError(errors.New("HSETNX error"))
+					goto EndTransaction
+				}
 			}
 			// store Event secret
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getEventKey(tt.expected.eventURI), "secret", tt.args.secret)
@@ -1779,7 +1855,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 
 		Invoke:
 			// invoke method under test
-			got, err := r.CreateEvent(tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.values)
+			got, err := r.CreateEvent(tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.account, tt.args.context, tt.args.values)
 			if (err != nil) != (tt.wantErr ||
 				tt.wantEventErr.info != nil ||
 				(tt.wantEventErr.subscribe != nil &&

@@ -27,6 +27,14 @@ var triggerEventCommand = cli.Command{
 					Name:  "kind",
 					Usage: "trigger event kind",
 				},
+				cli.StringFlag{
+					Name:  "filter",
+					Usage: "event URI filter",
+				},
+				cli.StringFlag{
+					Name:  "account",
+					Usage: "Codefresh account ID",
+				},
 				cli.BoolFlag{
 					Name:  "quiet,q",
 					Usage: "only display trigger event URIs",
@@ -59,6 +67,10 @@ var triggerEventCommand = cli.Command{
 					Usage: "trigger event secret (auto-generated when skipped)",
 					Value: "!generate",
 				},
+				cli.StringFlag{
+					Name:  "account",
+					Usage: "Codefresh account ID",
+				},
 				cli.StringSliceFlag{
 					Name:  "value",
 					Usage: "trigger event values (key=value pairs); as defined by trigger type config",
@@ -87,6 +99,10 @@ var triggerEventCommand = cli.Command{
 					Name:  "context",
 					Usage: "Codefresh context with required credentials",
 				},
+				cli.StringFlag{
+					Name:  "account",
+					Usage: "Codefresh account ID",
+				},
 			},
 			Usage:       "delete trigger event",
 			ArgsUsage:   "<event-uri>",
@@ -114,7 +130,7 @@ func listEvents(c *cli.Context) error {
 	// get trigger backend
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
 	// get trigger events
-	events, err := triggerReaderWriter.GetEvents(c.String("type"), c.String("kind"), c.String("filter"))
+	events, err := triggerReaderWriter.GetEvents(c.String("type"), c.String("kind"), c.String("filter"), c.String("account"))
 	if err != nil {
 		return err
 	}
@@ -159,7 +175,7 @@ func createEvent(c *cli.Context) error {
 		values[kv[0]] = kv[1]
 	}
 	// create new event
-	event, err := triggerReaderWriter.CreateEvent(c.String("type"), c.String("kind"), c.String("secret"), c.String("context"), values)
+	event, err := triggerReaderWriter.CreateEvent(c.String("type"), c.String("kind"), c.String("secret"), c.String("account"), c.String("context"), values)
 	if err != nil {
 		return err
 	}
@@ -174,7 +190,7 @@ func deleteEvent(c *cli.Context) error {
 	// get trigger backend
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
 	// get trigger events
-	err := triggerReaderWriter.DeleteEvent(c.Args().First(), c.String("context"))
+	err := triggerReaderWriter.DeleteEvent(c.Args().First(), c.String("context"), c.String("account"))
 	if err != nil {
 		return err
 	}

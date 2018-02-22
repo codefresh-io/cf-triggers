@@ -216,6 +216,20 @@ func TestEventProviderManager_MatchExistingType(t *testing.T) {
 	}
 }
 
+func TestEventProviderManager_MatchExistingTypeAccount(t *testing.T) {
+	// create valid config file
+	config := createValidConfig("match_type")
+	defer os.Remove(config)
+	// create manager; and start monitoring
+	manager := newTestEventProviderManager(config)
+	defer manager.Close()
+	// match type
+	_, err := manager.MatchType("registry:dockerhub:codefresh:fortune:push:cb1e73c5215b")
+	if err != nil {
+		t.Error("failed to find type by uri")
+	}
+}
+
 func TestEventProviderManager_MatchTypeNil(t *testing.T) {
 	// create valid config file
 	config := createValidConfig("match_type")
@@ -234,6 +248,7 @@ func TestEventProviderManager_ConstructEventURI(t *testing.T) {
 	type args struct {
 		t      string
 		k      string
+		a      string
 		values map[string]string
 	}
 	tests := []struct {
@@ -250,6 +265,17 @@ func TestEventProviderManager_ConstructEventURI(t *testing.T) {
 				values: map[string]string{"namespace": "codefresh", "name": "fortune"},
 			},
 			"registry:dockerhub:codefresh:fortune:push",
+			false,
+		},
+		{
+			"happy path with account",
+			args{
+				t:      "registry",
+				k:      "dockerhub",
+				a:      "5672d8deb6724b6e359adf62",
+				values: map[string]string{"namespace": "codefresh", "name": "fortune"},
+			},
+			"registry:dockerhub:codefresh:fortune:push:cb1e73c5215b",
 			false,
 		},
 		{
@@ -281,7 +307,7 @@ func TestEventProviderManager_ConstructEventURI(t *testing.T) {
 			// create manager; and start monitoring
 			manager := newTestEventProviderManager(config)
 			defer manager.Close()
-			got, err := manager.ConstructEventURI(tt.args.t, tt.args.k, tt.args.values)
+			got, err := manager.ConstructEventURI(tt.args.t, tt.args.k, tt.args.a, tt.args.values)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("EventProviderManager.ConstructEventURI() error = %v, wantErr %v", err, tt.wantErr)
 				return
