@@ -69,7 +69,7 @@ func (c *TriggerController) RunTrigger(ctx *gin.Context) {
 		return
 	}
 	// get trigger event
-	triggerEvent, err := c.trigger.GetEvent(event)
+	triggerEvent, err := c.trigger.GetEvent(event, "")
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {

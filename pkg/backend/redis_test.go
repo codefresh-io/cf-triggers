@@ -1125,19 +1125,22 @@ func TestRedisStore_ListTriggersForPipelines(t *testing.T) {
 
 func TestRedisStore_GetEvent(t *testing.T) {
 	type args struct {
-		event string
+		event   string
+		account string
 	}
 	type expect struct {
-		fields map[string]string
+		account string
+		fields  map[string]string
 	}
 	tests := []struct {
-		name      string
-		args      args
-		expect    expect
-		want      *model.Event
-		notExists bool
-		wantErr   error
-		keyErr    bool
+		name           string
+		args           args
+		expect         expect
+		want           *model.Event
+		anotherAccount bool
+		notExists      bool
+		wantErr        error
+		keyErr         bool
 	}{
 		{
 			name: "get existing event",
@@ -1165,6 +1168,43 @@ func TestRedisStore_GetEvent(t *testing.T) {
 					Help:        "test-help",
 				},
 			},
+		},
+		{
+			name: "get existing private event",
+			args: args{event: "uri:test"},
+			expect: expect{
+				account: "test-account",
+				fields: map[string]string{
+					"type":        "test-type",
+					"kind":        "test-kind",
+					"account":     "test-account",
+					"secret":      "test-secret",
+					"endpoint":    "http://endpoint",
+					"description": "test-desc",
+					"status":      "test",
+					"help":        "test-help",
+				},
+			},
+			want: &model.Event{
+				URI:     "uri:test",
+				Type:    "test-type",
+				Kind:    "test-kind",
+				Account: "test-account",
+				Secret:  "test-secret",
+				EventInfo: model.EventInfo{
+					Endpoint:    "http://endpoint",
+					Description: "test-desc",
+					Status:      "test",
+					Help:        "test-help",
+				},
+			},
+		},
+		{
+			name:           "get trigger event from another account",
+			args:           args{event: "event:uri:test", account: "test-account"},
+			expect:         expect{account: "another"},
+			anotherAccount: true,
+			wantErr:        model.ErrEventNotFound,
 		},
 		{
 			name:      "get non-existing event",
@@ -1198,13 +1238,21 @@ func TestRedisStore_GetEvent(t *testing.T) {
 			} else {
 				cmd.Expect(int64(1))
 			}
+			// get account
+			if tt.args.account != "" {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", getEventKey(tt.args.event), "account").Expect(tt.expect.account)
+				if tt.anotherAccount {
+					goto Invoke
+				}
+			}
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getEventKey(tt.args.event))
 			if tt.wantErr != nil && tt.wantErr != model.ErrEventNotFound {
 				cmd.ExpectError(tt.wantErr)
 			} else {
 				cmd.ExpectMap(tt.expect.fields)
 			}
-			got, err := r.GetEvent(tt.args.event)
+		Invoke:
+			got, err := r.GetEvent(tt.args.event, tt.args.account)
 			if err != tt.wantErr {
 				t.Errorf("RedisStore.GetEvent() error = %v, wantErr %v", err, tt.wantErr)
 				return

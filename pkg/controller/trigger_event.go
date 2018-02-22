@@ -38,7 +38,8 @@ func (c *TriggerEventController) ListEvents(ctx *gin.Context) {
 // GetEvent get trigger event
 func (c *TriggerEventController) GetEvent(ctx *gin.Context) {
 	event := getParam(ctx, "event")
-	if triggerEvent, err := c.svc.GetEvent(event); err != nil {
+	account := ctx.Query("account")
+	if triggerEvent, err := c.svc.GetEvent(event, account); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound

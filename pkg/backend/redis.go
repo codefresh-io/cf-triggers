@@ -596,9 +596,12 @@ func (r *RedisStore) GetSecret(eventURI string) (string, error) {
 }
 
 // GetEvent get event by event URI
-func (r *RedisStore) GetEvent(event string) (*model.Event, error) {
+func (r *RedisStore) GetEvent(event string, account string) (*model.Event, error) {
 	con := r.redisPool.GetConn()
-	log.WithField("event-uri", event).Debug("Getting trigger event")
+	log.WithFields(log.Fields{
+		"event-uri": event,
+		"account":   account,
+	}).Debug("Getting trigger event")
 	// check event URI is a single event key
 	n, err := redis.Int(con.Do("EXISTS", getEventKey(event)))
 	if err != nil {
@@ -608,6 +611,19 @@ func (r *RedisStore) GetEvent(event string) (*model.Event, error) {
 	if n != 1 {
 		log.Error("trigger event key does not exist")
 		return nil, model.ErrEventNotFound
+	}
+	// check trigger event account vs passed account; skip 'public' events
+	if account != "" {
+		a, err := redis.String(con.Do("HGET", getEventKey(event), "account"))
+		if err != nil && err != redis.ErrNil {
+			log.WithError(err).Error("failed to get trigger event account")
+			return nil, err
+		}
+		// if not public and belongs to different account - return not exists error
+		if a != "" && a != account {
+			log.Error("trigger event account does not match")
+			return nil, model.ErrEventNotFound
+		}
 	}
 	// get hash values
 	fields, err := redis.StringMap(con.Do("HGETALL", getEventKey(event)))
@@ -641,7 +657,7 @@ func (r *RedisStore) GetEvents(eventType, kind, filter, account string) ([]model
 	// and matching account or all public events
 	events := make([]model.Event, 0)
 	for _, uri := range uris {
-		event, err := r.GetEvent(uri)
+		event, err := r.GetEvent(uri, "")
 		if err != nil {
 			return nil, err
 		}

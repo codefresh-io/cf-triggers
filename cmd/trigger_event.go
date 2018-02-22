@@ -45,7 +45,13 @@ var triggerEventCommand = cli.Command{
 			Action:      listEvents,
 		},
 		{
-			Name:        "get",
+			Name: "get",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "account",
+					Usage: "Codefresh account ID",
+				},
+			},
 			Usage:       "get trigger event by event URI",
 			ArgsUsage:   "<event-uri>",
 			Description: "Get single trigger event",
@@ -151,7 +157,7 @@ func getEvent(c *cli.Context) error {
 	// get trigger backend
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
 	// get trigger events
-	event, err := triggerReaderWriter.GetEvent(c.Args().First())
+	event, err := triggerReaderWriter.GetEvent(c.Args().First(), c.String("account"))
 	if err != nil {
 		return err
 	}

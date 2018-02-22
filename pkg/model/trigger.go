@@ -11,7 +11,7 @@ type (
 	// PipelineRun pipeline run with ID (can be empty on error) and error (when failed)
 	PipelineRun struct {
 		ID    string `json:"id" yaml:"id"`
-		Error error  `json:"error, omitempty" yaml:"error,omitempty"`
+		Error error  `json:"error,omitempty" yaml:"error,omitempty"`
 	}
 
 	// Trigger a single link between event and pipeline
@@ -25,7 +25,7 @@ type (
 	// TriggerReaderWriter interface
 	TriggerReaderWriter interface {
 		// trigger events
-		GetEvent(event string) (*Event, error)
+		GetEvent(event string, account string) (*Event, error)
 		GetEvents(eventType, kind, filter, account string) ([]Event, error)
 		CreateEvent(eventType, kind, secret string, account string, context string, values map[string]string) (*Event, error)
 		DeleteEvent(event string, context string, account string) error
