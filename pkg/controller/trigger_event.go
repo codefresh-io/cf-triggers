@@ -55,14 +55,18 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 	type createReq struct {
 		Type    string            `json:"type"`
 		Kind    string            `json:"kind"`
+		Public  bool              `json:"public,omitempty"`
 		Secret  string            `json:"secret,omitempty"`
 		Context string            `json:"context,omitempty"`
 		Values  map[string]string `json:"values"`
 	}
 	var req createReq
 	ctx.Bind(&req)
-	// get account from query
+	// get account from query and skip for public
 	account := ctx.Query("account")
+	if req.Public {
+		account = ""
+	}
 
 	// create trigger event
 	if event, err := c.svc.CreateEvent(req.Type, req.Kind, req.Secret, account, req.Context, req.Values); err != nil {
