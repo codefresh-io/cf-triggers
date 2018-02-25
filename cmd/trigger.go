@@ -110,7 +110,7 @@ func runTrigger(c *cli.Context) error {
 	}
 
 	// get trigger pipelines
-	pipelines, err := triggerReaderWriter.GetPipelinesForTriggers([]string{c.Args().First()})
+	pipelines, err := triggerReaderWriter.GetPipelinesForTriggers([]string{c.Args().First()}, "")
 	if err != nil {
 		return err
 	}

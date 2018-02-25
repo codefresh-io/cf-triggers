@@ -440,51 +440,74 @@ func (r *RedisStore) CreateTriggersForEvent(event string, pipelines []string) er
 
 // GetPipelinesForTriggers get pipelines that have trigger defined
 // can be filtered by event-uri(s)
-func (r *RedisStore) GetPipelinesForTriggers(events []string) ([]string, error) {
+func (r *RedisStore) GetPipelinesForTriggers(events []string, account string) ([]string, error) {
 	con := r.redisPool.GetConn()
 
 	// accumulator array
 	var all []string
 
-	// using events filter
-	if len(events) > 0 {
-		for _, event := range events {
-			log.WithField("event-uri", event).Debug("Getting pipelines for trigger filter")
-			// get pipelines from Trigger Set
-			pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(event), 0, -1))
+	// scan through all events
+	for _, event := range events {
+		log.WithFields(log.Fields{
+			"event-uri": event,
+			"account":   account,
+		}).Debug("Getting pipelines for trigger filter")
+		// handle account
+		if account != "" {
+			// get account from trigger event
+			a, err := con.Do("HGET", getTriggerKey(event), "account")
 			if err != nil && err != redis.ErrNil {
-				log.WithError(err).Error("Failed to get pipelines")
+				log.WithError(err).Error("failed to get pipelines")
 				return nil, err
-			} else if err == redis.ErrNil {
-				log.Warning("No pipelines found")
-				return nil, model.ErrTriggerNotFound
 			}
-			if len(pipelines) == 0 {
-				log.Warning("No pipelines found")
-				return nil, model.ErrPipelineNotFound
+			// if this is a private trigger event -> compare accounts
+			if a != "" {
+				if account != a {
+					log.Error("trigger event account does not match")
+					return nil, model.ErrEventNotFound
+				}
 			}
-			// aggregate pipelines
-			all = util.MergeStrings(all, pipelines)
 		}
-	} else { // getting all pipelines
-		log.Debug("Getting all pipelines")
 		// get pipelines from Trigger Set
-		pipelines, err := redis.Strings(con.Do("KEYS", getPipelineKey("")))
+		pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(event), 0, -1))
 		if err != nil && err != redis.ErrNil {
 			log.WithError(err).Error("Failed to get pipelines")
 			return nil, err
 		} else if err == redis.ErrNil {
-			log.Warning("No pipelines found")
+			log.Warning("No trigger found")
 			return nil, model.ErrTriggerNotFound
 		}
 		if len(pipelines) == 0 {
 			log.Warning("No pipelines found")
 			return nil, model.ErrPipelineNotFound
 		}
-		all = append(all, pipelines...)
+		// aggregate pipelines
+		all = util.MergeStrings(all, pipelines)
 	}
 
 	return all, nil
+}
+
+// GetAllPipelines get all pipelines
+func (r *RedisStore) GetAllPipelines() ([]string, error) {
+	con := r.redisPool.GetConn()
+
+	log.Debug("getting all pipelines")
+	// get pipelines from Trigger Set
+	pipelines, err := redis.Strings(con.Do("KEYS", getPipelineKey("")))
+	if err != nil && err != redis.ErrNil {
+		log.WithError(err).Error("Failed to get pipelines")
+		return nil, err
+	} else if err == redis.ErrNil {
+		log.Warning("No pipelines found")
+		return nil, model.ErrTriggerNotFound
+	}
+	if len(pipelines) == 0 {
+		log.Warning("No pipelines found")
+		return nil, model.ErrPipelineNotFound
+	}
+
+	return pipelines, nil
 }
 
 // CreateEvent new trigger event
@@ -576,7 +599,7 @@ func (r *RedisStore) CreateEvent(eventType, kind, secret string, account string,
 	}
 	// submit transaction
 	if _, err := con.Do("EXEC"); err != nil {
-		log.WithError(err).Error("Failed to execute transaction")
+		log.WithError(err).Error("failed to execute transaction")
 		return nil, err
 	}
 	return &event, nil
@@ -585,7 +608,7 @@ func (r *RedisStore) CreateEvent(eventType, kind, secret string, account string,
 // GetSecret trigger by eventURI
 func (r *RedisStore) GetSecret(eventURI string) (string, error) {
 	con := r.redisPool.GetConn()
-	log.WithField("event-uri", eventURI).Debug("Getting trigger secret")
+	log.WithField("event-uri", eventURI).Debug("getting trigger secret")
 	// get secret from String
 	secret, err := redis.String(con.Do("HGET", getEventKey(eventURI), "secret"))
 	if err != nil && err != redis.ErrNil {

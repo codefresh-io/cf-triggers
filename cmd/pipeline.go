@@ -20,6 +20,10 @@ var pipelineCommand = cli.Command{
 					Name:  "event",
 					Usage: "trigger event filter",
 				},
+				cli.StringFlag{
+					Name:  "account",
+					Usage: "Codefresh account ID",
+				},
 			},
 			Usage:       "list pipelines with triggers",
 			Description: "List Codefresh pipelines that have triggers defined",
@@ -44,7 +48,16 @@ var pipelineCommand = cli.Command{
 
 func listPipelines(c *cli.Context) error {
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
-	pipelines, err := triggerReaderWriter.GetPipelinesForTriggers(c.StringSlice("event"))
+
+	events := c.StringSlice("event")
+	var pipelines []string
+	var err error
+
+	if len(events) == 0 {
+		pipelines, err = triggerReaderWriter.GetAllPipelines()
+	} else {
+		pipelines, err = triggerReaderWriter.GetPipelinesForTriggers(events, c.String("account"))
+	}
 	if err != nil {
 		return err
 	}

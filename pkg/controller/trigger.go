@@ -93,7 +93,7 @@ func (c *TriggerController) RunTrigger(ctx *gin.Context) {
 	}
 	vars["EVENT_PAYLOAD"] = runEvent.Original
 	// get connected pipelines
-	pipelines, err := c.trigger.GetPipelinesForTriggers([]string{event})
+	pipelines, err := c.trigger.GetPipelinesForTriggers([]string{event}, "")
 	if err != nil {
 		// if there are no pipelines connected to the trigger event don't fail this REST method
 		// to avoid multiple 'errors' reported to the event provider log

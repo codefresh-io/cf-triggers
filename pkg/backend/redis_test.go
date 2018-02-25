@@ -92,143 +92,93 @@ func TestRedisStore_Ping(t *testing.T) {
 
 func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 	type args struct {
-		id        string
+		events  []string
+		account string
+	}
+	type response struct {
 		pipelines []string
+		account   string
+	}
+	type redisErrors struct {
+		hgetErr   bool
+		zrangeErr bool
 	}
 	tests := []struct {
-		name         string
-		args         []args
-		expected     []string
-		wantRedisErr error
-		wantEmptyErr bool
+		name     string
+		args     args
+		response []response
+		expected []string
+		redisErr redisErrors
+		wantErr  error
 	}{
 		{
-			"get single trigger pipelines",
-			[]args{
+			name: "get pipelines for one private trigger event",
+			args: args{
+				events:  []string{"uri:test:1"},
+				account: "test",
+			},
+			response: []response{
 				{
-					id:        "test:uri",
-					pipelines: []string{"puid-1", "puid-2", "puid-3"},
+					pipelines: []string{"pipeline1", "pipeline2"},
+					account:   "test",
 				},
 			},
-			[]string{"puid-1", "puid-2", "puid-3"},
-			nil,
-			false,
+			expected: []string{"pipeline1", "pipeline2"},
 		},
 		{
-			"get multi trigger pipelines",
-			[]args{
+			name: "get joined pipelines for multiple private trigger events",
+			args: args{
+				events:  []string{"uri:test:1", "uri:test:2"},
+				account: "test",
+			},
+			response: []response{
 				{
-					id:        "test-1:uri",
-					pipelines: []string{"puid-1", "puid-2", "puid-3"},
+					pipelines: []string{"pipeline1", "pipeline2"},
+					account:   "test",
 				},
 				{
-					id:        "test-2:uri",
-					pipelines: []string{"puid-4", "puid-5", "puid-6"},
+					pipelines: []string{"pipeline2", "pipeline3"},
+					account:   "test",
 				},
 			},
-			[]string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
-			nil,
-			false,
+			expected: []string{"pipeline1", "pipeline2", "pipeline3"},
 		},
 		{
-			"get multi trigger pipelines (duplicate)",
-			[]args{
+			name: "get joined pipelines for multiple private and public trigger events",
+			args: args{
+				events:  []string{"uri:test:1", "uri:test:2"},
+				account: "test",
+			},
+			response: []response{
 				{
-					id:        "test-1:uri",
-					pipelines: []string{"puid-1", "puid-2", "puid-3"},
+					pipelines: []string{"pipeline1", "pipeline2"},
+					account:   "test",
 				},
 				{
-					id:        "test-2:uri",
-					pipelines: []string{"puid-2", "puid-3", "puid-4"},
+					pipelines: []string{"pipeline2", "pipeline3"},
 				},
 			},
-			[]string{"puid-1", "puid-2", "puid-3", "puid-4"},
-			nil,
-			false,
+			expected: []string{"pipeline1", "pipeline2", "pipeline3"},
 		},
 		{
-			"get all pipelines",
-			[]args{
-				{
-					id:        "",
-					pipelines: []string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
-				},
+			name: "try to get trigger event from another account",
+			args: args{
+				events:  []string{"uri:test:1"},
+				account: "test1",
 			},
-			[]string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
-			nil,
-			false,
+			response: []response{
+				{account: "test2"},
+			},
+			wantErr: model.ErrEventNotFound,
 		},
 		{
-			"get all pipelines with redis error",
-			[]args{
-				{
-					id:        "",
-					pipelines: []string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
-				},
+			name: "redis HGET error",
+			args: args{
+				events:  []string{"uri:test:1"},
+				account: "test1",
 			},
-			nil,
-			errors.New("REDIS error"),
-			false,
-		},
-		{
-			"get all pipelines with redis ErrNil",
-			[]args{
-				{
-					id:        "",
-					pipelines: []string{"puid-1", "puid-2", "puid-3", "puid-4", "puid-5", "puid-6"},
-				},
-			},
-			nil,
-			redis.ErrNil,
-			false,
-		},
-		{
-			"get all pipelines with empty result",
-			[]args{
-				{
-					id:        "",
-					pipelines: []string{},
-				},
-			},
-			[]string{},
-			nil,
-			true,
-		},
-		{
-			"get trigger pipelines ZRANGE error",
-			[]args{
-				{
-					id:        "test:uri",
-					pipelines: nil,
-				},
-			},
-			nil,
-			errors.New("REDIS error"),
-			true,
-		},
-		{
-			"get trigger pipelines ZRANGE error",
-			[]args{
-				{
-					id:        "test:uri",
-					pipelines: nil,
-				},
-			},
-			nil,
-			redis.ErrNil,
-			true,
-		},
-		{
-			"get trigger pipelines EMPTY error",
-			[]args{
-				{
-					id:        "test:uri",
-					pipelines: nil,
-				},
-			},
-			nil,
-			nil,
-			true,
+			redisErr: redisErrors{hgetErr: true},
+			wantErr:  errors.New("HGET error"),
 		},
 	}
 	for _, tt := range tests {
@@ -236,32 +186,31 @@ func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
 			r := &RedisStore{
 				redisPool: &RedisPoolMock{},
 			}
-			for _, _arg := range tt.args {
-				if _arg.id == "" {
-					cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getPipelineKey(_arg.id))
-					if tt.wantRedisErr != nil {
-						cmd.ExpectError(tt.wantRedisErr)
+			for i, event := range tt.args.events {
+				var cmd *redigomock.Cmd
+				if tt.args.account != "" {
+					cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", getTriggerKey(event), "account")
+					if tt.redisErr.hgetErr {
+						cmd.ExpectError(errors.New("HGET error"))
+						goto Invoke
 					} else {
-						cmd.Expect(util.InterfaceSlice(_arg.pipelines))
+						cmd.Expect(tt.response[i].account)
 					}
+					if tt.response[i].account != "" && tt.args.account != tt.response[i].account {
+						goto Invoke
+					}
+				}
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(event), 0, -1)
+				if tt.redisErr.zrangeErr {
+					cmd.ExpectError(errors.New("ZRANGE error"))
 				} else {
-					cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(_arg.id), 0, -1)
-					if tt.wantRedisErr != nil {
-						cmd.ExpectError(tt.wantRedisErr)
-					} else {
-						cmd.Expect(util.InterfaceSlice(_arg.pipelines))
-					}
+					cmd.Expect(util.InterfaceSlice(tt.response[i].pipelines))
 				}
 			}
-			var ids []string
-			for _, _arg := range tt.args {
-				if _arg.id != "" {
-					ids = append(ids, _arg.id)
-				}
-			}
-			got, err := r.GetPipelinesForTriggers(ids)
-			if (err != nil) != (tt.wantRedisErr != nil || tt.wantEmptyErr) {
-				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, (tt.wantRedisErr != nil || tt.wantEmptyErr))
+		Invoke:
+			got, err := r.GetPipelinesForTriggers(tt.args.events, tt.args.account)
+			if err != nil && err.Error() != tt.wantErr.Error() {
+				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if (len(got) > 0 || len(tt.expected) > 0) && !reflect.DeepEqual(got, tt.expected) {

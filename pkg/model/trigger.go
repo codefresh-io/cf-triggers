@@ -35,8 +35,9 @@ type (
 		CreateTriggersForEvent(event string, pipelines []string) error
 		DeleteTriggersForEvent(event string, pipelines []string) error
 		// pipelines
+		GetAllPipelines() ([]string, error)
 		ListTriggersForPipelines(pipelines []string) ([]Trigger, error)
-		GetPipelinesForTriggers(events []string) ([]string, error)
+		GetPipelinesForTriggers(events []string, account string) ([]string, error)
 		CreateTriggersForPipeline(pipeline string, events []string) error
 		DeleteTriggersForPipeline(pipeline string, events []string) error
 	}

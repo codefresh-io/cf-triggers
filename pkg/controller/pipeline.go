@@ -22,7 +22,7 @@ func (c *PipelineController) ListPipelines(ctx *gin.Context) {
 	event := getParam(ctx, "event")
 	var pipelines []string
 	var err error
-	if pipelines, err = c.svc.GetPipelinesForTriggers([]string{event}); err != nil {
+	if pipelines, err = c.svc.GetPipelinesForTriggers([]string{event}, ctx.Query("account")); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
