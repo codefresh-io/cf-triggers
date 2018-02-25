@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 
 	log "github.com/sirupsen/logrus"
@@ -22,23 +23,23 @@ type (
 		Pipeline string `json:"pipeline" yaml:"pipeline"`
 	}
 
+	// TriggerEventReaderWriter interface
+	TriggerEventReaderWriter interface {
+		// trigger events
+		GetEvent(ctx context.Context, event string) (*Event, error)
+		GetEvents(ctx context.Context, eventType, kind, filter string) ([]Event, error)
+		CreateEvent(ctx context.Context, eventType, kind, secret, context string, values map[string]string) (*Event, error)
+		DeleteEvent(ctx context.Context, event, context string) error
+	}
+
 	// TriggerReaderWriter interface
 	TriggerReaderWriter interface {
-		// trigger events
-		GetEvent(event string, account string) (*Event, error)
-		GetEvents(eventType, kind, filter, account string) ([]Event, error)
-		CreateEvent(eventType, kind, secret string, account string, context string, values map[string]string) (*Event, error)
-		DeleteEvent(event string, context string, account string) error
-		GetSecret(eventURI string) (string, error)
 		// triggers
 		ListTriggersForEvents(events []string) ([]Trigger, error)
 		CreateTriggersForEvent(event string, pipelines []string) error
 		DeleteTriggersForEvent(event string, pipelines []string) error
-		// pipelines
-		GetAllPipelines() ([]string, error)
 		ListTriggersForPipelines(pipelines []string) ([]Trigger, error)
 		GetPipelinesForTriggers(events []string, account string) ([]string, error)
-		CreateTriggersForPipeline(pipeline string, events []string) error
 		DeleteTriggersForPipeline(pipeline string, events []string) error
 	}
 
@@ -56,6 +57,15 @@ type (
 	SecretChecker interface {
 		Validate(message string, secret string, key string) error
 	}
+
+	// contextKey type
+	contextKey string
+)
+
+// Context keys
+var (
+	ContextKeyAccount = contextKey("account")
+	ContextKeyUser    = contextKey("user")
 )
 
 // ErrTriggerNotFound error when trigger not found

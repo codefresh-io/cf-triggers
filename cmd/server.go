@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
@@ -41,18 +40,18 @@ func runServer(c *cli.Context) error {
 
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("codefresh"), c.GlobalString("token"))
-	log.WithField("cfapi", c.GlobalString("codefresh")).Debug("Using Codefresh API")
+	log.WithField("cfapi", c.GlobalString("codefresh")).Debug("using Codefresh API")
 
 	// get event provider manager
 	eventProvider := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
-	log.WithField("config", c.GlobalString("config")).Debug("Monitoring types config file")
+	log.WithField("config", c.GlobalString("config")).Debug("monitoring types config file")
 
 	// get trigger backend service
 	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, eventProvider)
 	log.WithFields(log.Fields{
 		"redis server": c.GlobalString("redis"),
 		"redis port":   c.GlobalInt("redis-port"),
-	}).Debug("Using Redis backend server")
+	}).Debug("using Redis backend server")
 
 	// get pipeline runner service
 	runner := backend.NewRunner(codefreshService)
@@ -60,40 +59,53 @@ func runServer(c *cli.Context) error {
 	// get secret checker
 	secretChecker := backend.NewSecretChecker()
 
-	// trigger management API
-	router.Handle("GET", "/", func(c *gin.Context) {
-		c.Redirect(http.StatusFound, "/triggers")
-	})
-
 	// manage trigger events
-	eventsAPI := router.Group("/events", gin.Logger())
 	eventController := controller.NewTriggerEventController(triggerBackend)
-	eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
-	// ?type=...&kind=...&filter=...&account=...
-	eventsAPI.Handle("GET", "/", eventController.ListEvents)
-	eventsAPI.Handle("DELETE", "/event/:event/*context", eventController.DeleteEvent)
-	eventsAPI.Handle("POST", "/", eventController.CreateEvent)
-	eventsAPI.Handle("POST", "/trigger/:event", eventController.LinkEvent)
-	eventsAPI.Handle("DELETE", "/trigger/:event", eventController.UnlinkEvent)
+	for _, route := range []string{"/events", "/account/:account/events"} {
+		eventsAPI := router.Group(route, gin.Logger())
+		{
+			eventsAPI.Handle("GET", "/", eventController.ListEvents)
+			eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
+			eventsAPI.Handle("DELETE", "/event/:event/*context", eventController.DeleteEvent)
+			eventsAPI.Handle("POST", "/", eventController.CreateEvent)
+		}
+	}
+
+	// manage triggers
+	triggerController := controller.NewTriggerController(triggerBackend)
+	for _, route := range []string{"/triggers", "/accounts/:account/triggers"} {
+		triggersAPI := router.Group(route, gin.Logger())
+		{
+			triggersAPI.Handle("GET", "/", triggerController.ListTriggers)
+			triggersAPI.Handle("GET", "/:event", triggerController.ListEventTriggers)
+			triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.ListPipelineTriggers)
+			triggersAPI.Handle("POST", "/:event", triggerController.LinkEvent)
+			triggersAPI.Handle("DELETE", "/:event", triggerController.UnlinkEvent)
+		}
+	}
 
 	// list trigger types
-	typesAPI := router.Group("/types", gin.Logger())
 	typesController := controller.NewTriggerTypeController(eventProvider)
-	typesAPI.Handle("GET", "/", typesController.ListTypes)
-	typesAPI.Handle("GET", "/:type/:kind", typesController.GetType)
+	typesAPI := router.Group("/types", gin.Logger())
+	{
+		typesAPI.Handle("GET", "/", typesController.ListTypes)
+		typesAPI.Handle("GET", "/:type/:kind", typesController.GetType)
+	}
 
 	// invoke trigger with event payload
-	triggersAPI := router.Group("/triggers", gin.Logger())
-	runnerController := controller.NewTriggerController(runner, triggerBackend, secretChecker)
-	triggersAPI.Handle("GET", "/event/:event", runnerController.ListEventTriggers)
-	triggersAPI.Handle("GET", "/pipeline/:pipeline", runnerController.ListPipelineTriggers)
-	triggersAPI.Handle("POST", "/:event", runnerController.RunTrigger)
+	runAPI := router.Group("/run", gin.Logger())
+	runnerController := controller.NewRunnerController(runner, triggerBackend, triggerBackend, secretChecker)
+	{
+		runAPI.Handle("POST", "/:event", runnerController.RunTrigger)
+	}
 
 	// status handlers (without logging)
 	statusController := controller.NewStatusController(triggerBackend, codefreshService)
-	router.GET("/health", statusController.GetHealth)
-	router.GET("/version", statusController.GetVersion)
-	router.GET("/ping", statusController.Ping)
+	{
+		router.GET("/health", statusController.GetHealth)
+		router.GET("/version", statusController.GetVersion)
+		router.GET("/ping", statusController.Ping)
+	}
 
 	port := c.Int("port")
 	log.WithField("port", port).Debug("starting hermes server")

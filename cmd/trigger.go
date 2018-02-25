@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
@@ -32,17 +31,18 @@ var triggerCommand = cli.Command{
 			Action:      listTriggers,
 		},
 		{
-			Name: "run",
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:  "var",
-					Usage: "variable pairs (key=val); can pass multiple pairs",
-				},
-			},
-			Usage:       "execute trigger",
-			ArgsUsage:   "<event-uri>",
-			Description: "Execute trigger for trigger event. Pass multiple variable pairs (key=value), using --var flags.",
-			Action:      runTrigger,
+			Name:        "link",
+			Usage:       "connect trigger event to the specified pipeline(s)",
+			ArgsUsage:   "<event-uri> <pipeline> [pipeline...]",
+			Description: "Create a new trigger, linking a trigger event to the specified pipeline(s)",
+			Action:      linkEvent,
+		},
+		{
+			Name:        "unlink",
+			Usage:       "disconnect trigger event from the specified pipeline(s)",
+			ArgsUsage:   "<event-uri> <pipeline> [pipeline...]",
+			Description: "Delete trigger, by removing link between the trigger event and the specified pipeline(s)",
+			Action:      unlinkEvent,
 		},
 	},
 }
@@ -91,42 +91,28 @@ func listTriggers(c *cli.Context) error {
 	return nil
 }
 
-// run all pipelines connected to specified trigger
-func runTrigger(c *cli.Context) error {
+func linkEvent(c *cli.Context) error {
+	// get trigger name and pipeline
+	args := c.Args()
+	if len(args) < 2 {
+		return errors.New("wrong number of arguments")
+	}
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
-	// get pipeline runner
-	runner := backend.NewRunner(codefreshService)
-	// convert command line 'var' variables (key=value) to map
-	vars := make(map[string]string)
-	for _, v := range c.StringSlice("var") {
-		kv := strings.Split(v, "=")
-		if len(kv) != 2 {
-			return fmt.Errorf("Invalid 'var' value: %s ; should be 'key=value' form", v)
-		}
-		vars[kv[0]] = kv[1]
-	}
+	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
+	// create triggers for event linking it to passed pipeline(s)
+	return eventReaderWriter.CreateTriggersForEvent(c.Args().First(), c.Args().Tail())
+}
 
-	// get trigger pipelines
-	pipelines, err := triggerReaderWriter.GetPipelinesForTriggers([]string{c.Args().First()}, "")
-	if err != nil {
-		return err
+func unlinkEvent(c *cli.Context) error {
+	// get trigger name and pipeline
+	args := c.Args()
+	if len(args) != 2 {
+		return errors.New("wrong number of arguments")
 	}
-	// run pipelines
-	runs, err := runner.Run(pipelines, vars)
-	if err != nil {
-		return err
-	}
-
-	// print out runs or errors
-	for _, r := range runs {
-		if r.Error != nil {
-			fmt.Println("\terror: ", r.Error)
-		} else {
-			fmt.Println("\trun: ", r.ID)
-		}
-	}
-	return nil
+	// get trigger service
+	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	// delete pipelines
+	return eventReaderWriter.DeleteTriggersForEvent(args.First(), args.Tail())
 }

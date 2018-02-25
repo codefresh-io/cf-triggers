@@ -30,7 +30,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 	app.Commands = []cli.Command{
 		serverCommand,
 		triggerCommand,
-		pipelineCommand,
+		runnerCommand,
 		triggerEventCommand,
 		triggerTypeCommand,
 	}
@@ -61,7 +61,7 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 		cli.StringFlag{
 			Name:   "redis-password, s",
 			Usage:  "redis store password",
-			Value: "redisPassword",
+			Value:  "redisPassword",
 			EnvVar: "STORE_PASSWORD",
 		},
 		cli.StringFlag{
@@ -71,8 +71,8 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			EnvVar: "TYPES_CONFIG",
 		},
 		cli.BoolFlag{
-			Name:  "skip-monitor, m",
-			Usage: "skip monitoring config file for changes",
+			Name:   "skip-monitor, m",
+			Usage:  "skip monitoring config file for changes",
 			EnvVar: "SKIP_MONITOR",
 		},
 		cli.StringFlag{
