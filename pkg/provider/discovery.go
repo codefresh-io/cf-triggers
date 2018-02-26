@@ -107,7 +107,7 @@ func loadEventHandlerTypes(configFile string) (model.EventTypes, error) {
 		// trim last '$' character if exists
 		et.URIPattern = strings.TrimSuffix(et.URIPattern, "$")
 		// add optional 12 hexadecimal string (short account SHA1 hash code)
-		eventTypes.Types[i].URIPattern = et.URIPattern + "(:[[:xdigit:]]{12})?$"
+		eventTypes.Types[i].URIPattern = et.URIPattern + "(:[[:xdigit:]]{12})$"
 	}
 	return eventTypes, nil
 }
@@ -172,8 +172,8 @@ func (m *EventProviderManager) GetType(eventType string, eventKind string) (*mod
 }
 
 // MatchType match event type by uri
-func (m *EventProviderManager) MatchType(eventURI string) (*model.EventType, error) {
-	log.WithField("event-uri", eventURI).Debug("Matching event type")
+func (m *EventProviderManager) MatchType(event string) (*model.EventType, error) {
+	log.WithField("event", event).Debug("matching event type")
 
 	m.Lock()
 	defer m.Unlock()
@@ -187,7 +187,7 @@ func (m *EventProviderManager) MatchType(eventURI string) (*model.EventType, err
 			}).Error("bad uri regex pattern for type")
 			continue // skip
 		}
-		if r.MatchString(eventURI) {
+		if r.MatchString(event) {
 			return &e, nil
 		}
 	}
@@ -197,7 +197,7 @@ func (m *EventProviderManager) MatchType(eventURI string) (*model.EventType, err
 
 // GetEventInfo get event info from event provider
 func (m *EventProviderManager) GetEventInfo(event string, secret string) (*model.EventInfo, error) {
-	log.WithField("event-uri", event).Debug("Getting event info from event provider")
+	log.WithField("event", event).Debug("getting event info from event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
 		return nil, err
@@ -216,7 +216,7 @@ func (m *EventProviderManager) GetEventInfo(event string, secret string) (*model
 
 // SubscribeToEvent subscribe to remote event through event provider
 func (m *EventProviderManager) SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error) {
-	log.WithField("event-uri", event).Debug("Subscribe to remote event trough event provider")
+	log.WithField("event", event).Debug("subscribe to remote event trough event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
 		return nil, err
@@ -234,7 +234,7 @@ func (m *EventProviderManager) SubscribeToEvent(event, secret string, credential
 
 // UnsubscribeFromEvent unsubscribe from remote event through event provider
 func (m *EventProviderManager) UnsubscribeFromEvent(event string, credentials map[string]string) error {
-	log.WithField("event-uri", event).Debug("Unsubscribe from remote event trough event provider")
+	log.WithField("event", event).Debug("unsubscribe from remote event trough event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
 		return err
@@ -260,7 +260,7 @@ func (m *EventProviderManager) ConstructEventURI(t string, k string, a string, v
 	}
 
 	// event URI is set to URI template initially
-	eventURI := eventType.URITemplate
+	event := eventType.URITemplate
 
 	// scan through all config fields
 	for _, field := range eventType.Config {
@@ -279,21 +279,19 @@ func (m *EventProviderManager) ConstructEventURI(t string, k string, a string, v
 			return "", errors.New("field validation failed")
 		}
 		// substitute value for template string in URI template
-		eventURI = strings.Replace(eventURI, fmt.Sprintf("{{%s}}", field.Name), val, -1)
+		event = strings.Replace(event, fmt.Sprintf("{{%s}}", field.Name), val, -1)
 	}
 	// append account short (12 hex chars) SHA1 if non-empty
-	if a != "" {
-		hash := model.CalculateAccountHash(a)
-		eventURI = fmt.Sprintf("%s:%s", eventURI, hash)
-	}
+	hash := model.CalculateAccountHash(a)
+	event = fmt.Sprintf("%s:%s", event, hash)
 
 	// do a final validation
 	r, err := regexp.Compile(eventType.URIPattern)
 	if err != nil {
 		return "", err
 	}
-	if r.MatchString(eventURI) {
-		return eventURI, nil
+	if r.MatchString(event) {
+		return event, nil
 	}
 	return "", errors.New("event URI does not match URI pattern")
 }

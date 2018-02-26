@@ -61,27 +61,23 @@ func runServer(c *cli.Context) error {
 
 	// manage trigger events
 	eventController := controller.NewTriggerEventController(triggerBackend)
-	for _, route := range []string{"/events", "/account/:account/events"} {
-		eventsAPI := router.Group(route, gin.Logger())
-		{
-			eventsAPI.Handle("GET", "/", eventController.ListEvents)
-			eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
-			eventsAPI.Handle("DELETE", "/event/:event/*context", eventController.DeleteEvent)
-			eventsAPI.Handle("POST", "/", eventController.CreateEvent)
-		}
+	eventsAPI := router.Group("/account/:account/events", gin.Logger())
+	{
+		eventsAPI.Handle("GET", "/", eventController.ListEvents)
+		eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
+		eventsAPI.Handle("DELETE", "/event/:event/*context", eventController.DeleteEvent)
+		eventsAPI.Handle("POST", "/", eventController.CreateEvent)
 	}
 
 	// manage triggers
 	triggerController := controller.NewTriggerController(triggerBackend)
-	for _, route := range []string{"/triggers", "/accounts/:account/triggers"} {
-		triggersAPI := router.Group(route, gin.Logger())
-		{
-			triggersAPI.Handle("GET", "/", triggerController.ListTriggers)
-			triggersAPI.Handle("GET", "/:event", triggerController.ListEventTriggers)
-			triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.ListPipelineTriggers)
-			triggersAPI.Handle("POST", "/:event", triggerController.LinkEvent)
-			triggersAPI.Handle("DELETE", "/:event", triggerController.UnlinkEvent)
-		}
+	triggersAPI := router.Group("/accounts/:account/triggers", gin.Logger())
+	{
+		triggersAPI.Handle("GET", "/", triggerController.ListTriggers)
+		triggersAPI.Handle("GET", "/:event", triggerController.ListEventTriggers)
+		triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.ListPipelineTriggers)
+		triggersAPI.Handle("POST", "/:event", triggerController.LinkEvent)
+		triggersAPI.Handle("DELETE", "/:event", triggerController.UnlinkEvent)
 	}
 
 	// list trigger types

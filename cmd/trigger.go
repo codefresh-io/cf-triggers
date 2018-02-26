@@ -17,31 +17,36 @@ var triggerCommand = cli.Command{
 		{
 			Name: "list",
 			Flags: []cli.Flag{
-				cli.StringSliceFlag{
+				cli.StringFlag{
 					Name:  "event",
 					Usage: "trigger event filter (cannot be mixed with 'pipeline')",
 				},
-				cli.StringSliceFlag{
+				cli.StringFlag{
 					Name:  "pipeline",
 					Usage: "pipeline filter (cannot be mixed with 'event')",
 				},
+				cli.StringFlag{
+					Name:  "account",
+					Usage: "Codefresh account ID",
+					Value: model.PublicAccount,
+				},
 			},
 			Usage:       "list defined triggers",
-			Description: "List triggers filtered by trigger event(s) or pipeline(s)",
+			Description: "List triggers filtered by trigger event or pipeline",
 			Action:      listTriggers,
 		},
 		{
 			Name:        "link",
-			Usage:       "connect trigger event to the specified pipeline(s)",
+			Usage:       "connect trigger event to the specified pipeline",
 			ArgsUsage:   "<event-uri> <pipeline> [pipeline...]",
-			Description: "Create a new trigger, linking a trigger event to the specified pipeline(s)",
+			Description: "Create a new trigger, linking a trigger event to the specified pipeline",
 			Action:      linkEvent,
 		},
 		{
 			Name:        "unlink",
-			Usage:       "disconnect trigger event from the specified pipeline(s)",
-			ArgsUsage:   "<event-uri> <pipeline> [pipeline...]",
-			Description: "Delete trigger, by removing link between the trigger event and the specified pipeline(s)",
+			Usage:       "disconnect trigger event from the specified pipeline",
+			ArgsUsage:   "<event-uri> <pipeline>",
+			Description: "Delete trigger, by removing link between the trigger event and the specified pipeline",
 			Action:      unlinkEvent,
 		},
 	},
@@ -50,33 +55,25 @@ var triggerCommand = cli.Command{
 // get triggers by name(s), filter or ALL
 func listTriggers(c *cli.Context) error {
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
-	// get events or pipelines
-	events := c.StringSlice("event")
-	pipelines := c.StringSlice("pipeline")
+	// get event or pipeline
+	event := c.String("event")
+	pipeline := c.String("pipeline")
 
 	// triggers slice
 	var err error
 	var triggers []model.Trigger
 
-	// at least one option must be defined
-	if len(events) == 0 && len(pipelines) == 0 {
-		return errors.New("at least one option 'event' or 'pipeline' must be specified")
-	}
-	// Handle 'pipelines'
-	if len(pipelines) > 0 {
-		if len(events) > 0 {
-			return errors.New("'event' filter cannot be mixed with 'pipeline'")
-		}
-		triggers, err = triggerReaderWriter.ListTriggersForPipelines(pipelines)
+	// list by event
+	if event != "" {
+		triggers, err = triggerReaderWriter.GetEventTriggers(getContext(c), event)
 		if err != nil {
 			return err
 		}
 	}
-	if len(events) > 0 {
-		if len(pipelines) > 0 {
-			return errors.New("'pipeline' filter cannot be mixed with 'event'")
-		}
-		triggers, err = triggerReaderWriter.ListTriggersForEvents(events)
+
+	// list by pipeline
+	if pipeline != "" {
+		triggers, err = triggerReaderWriter.GetPipelineTriggers(getContext(c), pipeline)
 		if err != nil {
 			return err
 		}

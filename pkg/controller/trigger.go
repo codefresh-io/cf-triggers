@@ -22,7 +22,7 @@ func (c *TriggerController) ListEventTriggers(ctx *gin.Context) {
 	// get event
 	event := getParam(ctx, "event")
 	// list trigger events, optionally filtered by type/kind and event uri filter
-	if triggers, err := c.trigger.ListTriggersForEvents([]string{event}); err != nil {
+	if triggers, err := c.trigger.GetEventTriggers(getContext(ctx), event); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
@@ -36,7 +36,7 @@ func (c *TriggerController) ListEventTriggers(ctx *gin.Context) {
 // ListTriggers list triggers for trigger event
 func (c *TriggerController) ListTriggers(ctx *gin.Context) {
 	// list trigger events for all events
-	if triggers, err := c.trigger.ListTriggersForEvents([]string{"*"}); err != nil {
+	if triggers, err := c.trigger.GetEventTriggers(getContext(ctx), "*"); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
@@ -52,7 +52,7 @@ func (c *TriggerController) ListPipelineTriggers(ctx *gin.Context) {
 	// get pipeline
 	pipeline := ctx.Param("pipeline")
 	// list trigger events, optionally filtered by type/kind and event uri filter
-	if triggers, err := c.trigger.ListTriggersForPipelines([]string{pipeline}); err != nil {
+	if triggers, err := c.trigger.GetPipelineTriggers(getContext(ctx), pipeline); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound

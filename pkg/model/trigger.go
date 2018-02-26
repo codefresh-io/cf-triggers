@@ -35,10 +35,10 @@ type (
 	// TriggerReaderWriter interface
 	TriggerReaderWriter interface {
 		// triggers
-		ListTriggersForEvents(events []string) ([]Trigger, error)
+		GetEventTriggers(ctx context.Context, event string) ([]Trigger, error)
+		GetPipelineTriggers(ctx context.Context, pipeline string) ([]Trigger, error)
 		CreateTriggersForEvent(event string, pipelines []string) error
 		DeleteTriggersForEvent(event string, pipelines []string) error
-		ListTriggersForPipelines(pipelines []string) ([]Trigger, error)
 		GetPipelinesForTriggers(events []string, account string) ([]string, error)
 		DeleteTriggersForPipeline(pipeline string, events []string) error
 	}

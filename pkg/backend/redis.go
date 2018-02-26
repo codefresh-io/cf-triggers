@@ -95,13 +95,13 @@ func newPool(server string, port int, password string) *redis.Pool {
 		Dial: func() (redis.Conn, error) {
 			c, err := redis.Dial("tcp", fmt.Sprintf("%s:%d", server, port))
 			if err != nil {
-				log.WithError(err).Fatal("Failed to connect to Redis store")
+				log.WithError(err).Fatal("failed to connect to the Redis store")
 				return nil, err
 			}
 			if password != "" {
 				if _, err := c.Do("AUTH", password); err != nil {
 					c.Close()
-					log.WithError(err).Fatal("Failed to connect to Redis store")
+					log.WithError(err).Fatal("failed to connect to the Redis store")
 					return nil, err
 				}
 			}
@@ -135,7 +135,7 @@ type RedisStore struct {
 // helper function - discard Redis transaction and return error
 func discardOnError(con redis.Conn, err error) error {
 	if _, err := con.Do("DISCARD"); err != nil {
-		log.WithError(err).Error("Failed to discard Redis transaction")
+		log.WithError(err).Error("failed to discard Redis transaction")
 		return err
 	}
 	log.Error(err)
@@ -154,16 +154,28 @@ func getPrefixKey(prefix, id string) string {
 	return fmt.Sprintf("%s:%s", prefix, id)
 }
 
-func getTriggerKey(id string) string {
-	return getPrefixKey("trigger", id)
+func getAccountSuffixKey(account, id string) string {
+	suffix := model.CalculateAccountHash(account)
+	// if id already has private ot public account suffix, return it as is
+	if strings.HasSuffix(id, suffix) || strings.HasSuffix(id, model.PublicAccountHash) {
+		return id
+	}
+	return fmt.Sprintf("%s:%s", id, suffix)
 }
 
+func getTriggerKey(account, id string) string {
+	key := getPrefixKey("trigger", id)
+	return getAccountSuffixKey(account, key)
+}
+
+// pipeline key is not account aware
 func getPipelineKey(id string) string {
 	return getPrefixKey("pipeline", id)
 }
 
-func getEventKey(id string) string {
-	return getPrefixKey("event", id)
+func getEventKey(account, id string) string {
+	key := getPrefixKey("event", id)
+	return getAccountSuffixKey(account, key)
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
@@ -178,27 +190,36 @@ func NewRedisStore(server string, port int, password string, pipelineSvc codefre
 
 //-------------------------- TriggerReaderWriter Interface -------------------------
 
-// ListTriggersForEvents get list of defined triggers for trigger events
-func (r *RedisStore) ListTriggersForEvents(events []string) ([]model.Trigger, error) {
+// GetEventTriggers get list of triggers for specified event
+func (r *RedisStore) GetEventTriggers(ctx context.Context, event string) ([]model.Trigger, error) {
+	account := getAccount(ctx)
 	con := r.redisPool.GetConn()
-	log.WithField("events", events).Debug("List triggers for events")
+	log.WithFields(log.Fields{
+		"event":   event,
+		"account": account,
+	}).Debug("get triggers for event")
 
-	keys := make([]string, 0)
-	for _, event := range events {
-		res, err := redis.Strings(con.Do("KEYS", getTriggerKey(event)))
-		if err != nil {
-			log.WithField("event", event).WithError(err).Error("Failed to find triggers")
-			return nil, err
-		}
-		keys = util.MergeStrings(keys, res)
+	// get trigger keys for events
+	keys, err := redis.Strings(con.Do("KEYS", getTriggerKey(account, event)))
+	if err != nil {
+		log.WithField("event", event).WithError(err).Error("failed to find triggers")
+		return nil, err
 	}
+	// get trigger keys for matching public events
+	publicKeys, err := redis.Strings(con.Do("KEYS", getTriggerKey(model.PublicAccount, event)))
+	if err != nil {
+		log.WithField("event", event).WithError(err).Error("failed to find triggers")
+		return nil, err
+	}
+	// merge keys
+	keys = util.MergeStrings(publicKeys, keys)
 
-	// Iterate through all trigger keys and get pipelines
+	// Iterate through all trigger keys and get linked pipelines
 	triggers := make([]model.Trigger, 0)
 	for _, k := range keys {
 		res, err := redis.Strings(con.Do("ZRANGE", k, 0, -1))
 		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to get pipelines")
+			log.WithField("key", k).WithError(err).Error("failed to get pipelines")
 			return nil, err
 		}
 		// for all linked pipelines ...
@@ -213,36 +234,39 @@ func (r *RedisStore) ListTriggersForEvents(events []string) ([]model.Trigger, er
 	return triggers, nil
 }
 
-// ListTriggersForPipelines get list of defined triggers for specified pipelines
-func (r *RedisStore) ListTriggersForPipelines(pipelines []string) ([]model.Trigger, error) {
+// GetPipelineTriggers get list of defined triggers for specified pipeline
+func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string) ([]model.Trigger, error) {
+	account := getAccount(ctx)
 	con := r.redisPool.GetConn()
-	log.WithField("pipelines", pipelines).Debug("List triggers for pipelines")
+	log.WithFields(log.Fields{
+		"pipeline": pipeline,
+		"account":  account,
+	}).Debug("get triggers for pipeline")
 
-	keys := make([]string, 0)
-	for _, pipeline := range pipelines {
-		res, err := redis.Strings(con.Do("KEYS", getPipelineKey(pipeline)))
-		if err != nil {
-			log.WithField("pipeline", pipeline).WithError(err).Error("Failed to find triggers for pipeline")
-			return nil, err
-		}
-		keys = util.MergeStrings(keys, res)
+	keys, err := redis.Strings(con.Do("KEYS", getPipelineKey(pipeline)))
+	if err != nil {
+		log.WithField("pipeline", pipeline).WithError(err).Error("failed to find triggers for pipeline")
+		return nil, err
 	}
 
-	// Iterate through all pipelines keys and get trigger events
+	// Iterate through all pipelines keys and get trigger events (public) and per account
+	suffix := model.CalculateAccountHash(account)
 	triggers := make([]model.Trigger, 0)
 	for _, k := range keys {
 		res, err := redis.Strings(con.Do("ZRANGE", k, 0, -1))
 		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to get trigger events")
+			log.WithField("key", k).WithError(err).Error("failed to get trigger events")
 			return nil, err
 		}
-		// for all linked trigger events ...
+		// for all linked trigger events, check if event belongs to context account of it's a public event
 		for _, event := range res {
-			trigger := model.Trigger{
-				Event:    event,
-				Pipeline: strings.TrimPrefix(k, "pipeline:"),
+			if strings.HasSuffix(event, suffix) || strings.HasSuffix(event, model.PublicAccountHash) {
+				trigger := model.Trigger{
+					Event:    event,
+					Pipeline: strings.TrimPrefix(k, "pipeline:"),
+				}
+				triggers = append(triggers, trigger)
 			}
-			triggers = append(triggers, trigger)
 		}
 	}
 	return triggers, nil
@@ -269,7 +293,7 @@ func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string)
 			"event-uri": event,
 			"pipeline":  pipeline,
 		}).Debug("Removing pipeline from the Triggers")
-		_, err = con.Do("ZREM", getTriggerKey(event), pipeline)
+		_, err = con.Do("ZREM", getTriggerKey("TODO", event), pipeline)
 		if err != nil {
 			return discardOnError(con, err)
 		}
@@ -327,7 +351,7 @@ func (r *RedisStore) DeleteTriggersForEvent(event string, pipelines []string) er
 		"event-uri":    event,
 		"pipelines(s)": pipelines,
 	}).Debug("Removing triggers from the Triggers")
-	params := []interface{}{getTriggerKey(event)}
+	params := []interface{}{getTriggerKey("TODO", event)}
 	params = append(params, util.InterfaceSlice(pipelines)...)
 	_, err = con.Do("ZREM", params...)
 	if err != nil {
@@ -379,7 +403,7 @@ func (r *RedisStore) CreateTriggersForEvent(event string, pipelines []string) er
 		"event-uri": event,
 		"pipelines": pipelines,
 	}).Debug("Adding pipeline to the Triggers")
-	params := []interface{}{getTriggerKey(event), 0}
+	params := []interface{}{getTriggerKey("TODO", event), 0}
 	params = append(params, util.InterfaceSlice(pipelines)...)
 	_, err = con.Do("ZADD", params...)
 	if err != nil {
@@ -411,7 +435,7 @@ func (r *RedisStore) GetPipelinesForTriggers(events []string, account string) ([
 		// handle account
 		if account != "" {
 			// get account from trigger event
-			a, err := con.Do("HGET", getTriggerKey(event), "account")
+			a, err := con.Do("HGET", getTriggerKey("TODO", event), "account")
 			if err != nil && err != redis.ErrNil {
 				log.WithError(err).Error("failed to get pipelines")
 				return nil, err
@@ -425,7 +449,7 @@ func (r *RedisStore) GetPipelinesForTriggers(events []string, account string) ([
 			}
 		}
 		// get pipelines from Trigger Set
-		pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(event), 0, -1))
+		pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey("TODO", event), 0, -1))
 		if err != nil && err != redis.ErrNil {
 			log.WithError(err).Error("Failed to get pipelines")
 			return nil, err
@@ -494,42 +518,41 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 	}
 
 	// start Redis transaction
+	eventKey := getEventKey(account, eventURI)
 	if _, err := con.Do("MULTI"); err != nil {
 		log.WithError(err).Error("Failed to start Redis transaction")
 		return nil, err
 	}
 	// store event type
-	if _, err := con.Do("HSETNX", getEventKey(eventURI), "type", eventType); err != nil {
+	if _, err := con.Do("HSETNX", eventKey, "type", eventType); err != nil {
 		return nil, discardOnError(con, err)
 	}
 	// store event kind
-	if _, err := con.Do("HSETNX", getEventKey(eventURI), "kind", kind); err != nil {
+	if _, err := con.Do("HSETNX", eventKey, "kind", kind); err != nil {
 		return nil, discardOnError(con, err)
 	}
 	// store event account, if not empty
-	if account != "" {
-		if _, err := con.Do("HSETNX", getEventKey(eventURI), "account", account); err != nil {
-			return nil, discardOnError(con, err)
-		}
+	if _, err := con.Do("HSETNX", eventKey, "account", account); err != nil {
+		return nil, discardOnError(con, err)
 	}
 	// store event secret
-	if _, err := con.Do("HSETNX", getEventKey(eventURI), "secret", secret); err != nil {
+	if _, err := con.Do("HSETNX", eventKey, "secret", secret); err != nil {
 		return nil, discardOnError(con, err)
 	}
 	// store event description (from event provider)
-	if _, err := con.Do("HSETNX", getEventKey(eventURI), "description", eventInfo.Description); err != nil {
+	if _, err := con.Do("HSETNX", eventKey, "description", eventInfo.Description); err != nil {
 		return nil, discardOnError(con, err)
 	}
 	// store event endpoint (from event provider)
-	if _, err := con.Do("HSETNX", getEventKey(eventURI), "endpoint", eventInfo.Endpoint); err != nil {
+	if _, err := con.Do("HSETNX", eventKey, "endpoint", eventInfo.Endpoint); err != nil {
 		return nil, discardOnError(con, err)
 	}
 	// store event help (from event provider)
-	if _, err := con.Do("HSETNX", getEventKey(eventURI), "help", eventInfo.Help); err != nil {
+	if _, err := con.Do("HSETNX", eventKey, "help", eventInfo.Help); err != nil {
 		return nil, discardOnError(con, err)
 	}
 	// store event status (from event provider)
-	if _, err := con.Do("HSETNX", getEventKey(eventURI), "status", eventInfo.Status); err != nil {
+	if _, err := con.Do("HSETNX", eventKey, "status", eventInfo.Status); err != nil {
 		return nil, discardOnError(con, err)
 	}
 	// submit transaction
@@ -548,8 +571,10 @@ func (r *RedisStore) GetEvent(ctx context.Context, event string) (*model.Event, 
 		"event-uri": event,
 		"account":   account,
 	}).Debug("Getting trigger event")
+	// prepare key
+	eventKey := getEventKey(account, event)
 	// check event URI is a single event key
-	n, err := redis.Int(con.Do("EXISTS", getEventKey(event)))
+	n, err := redis.Int(con.Do("EXISTS", eventKey))
 	if err != nil {
 		log.WithError(err).Error("failed to check trigger event existence")
 		return nil, err
@@ -558,21 +583,9 @@ func (r *RedisStore) GetEvent(ctx context.Context, event string) (*model.Event, 
 		log.Error("trigger event key does not exist")
 		return nil, model.ErrEventNotFound
 	}
-	// check trigger event account vs passed account; skip 'public' events
-	if account != "" {
-		a, err := redis.String(con.Do("HGET", getEventKey(event), "account"))
-		if err != nil && err != redis.ErrNil {
-			log.WithError(err).Error("failed to get trigger event account")
-			return nil, err
-		}
-		// if not public and belongs to different account - return not exists error
-		if a != "" && a != account {
-			log.Error("trigger event account does not match")
-			return nil, model.ErrEventNotFound
-		}
-	}
+
 	// get hash values
-	fields, err := redis.StringMap(con.Do("HGETALL", getEventKey(event)))
+	fields, err := redis.StringMap(con.Do("HGETALL", eventKey))
 	if err != nil {
 		log.WithError(err).Error("Failed to get trigger event fields")
 		return nil, err
@@ -595,7 +608,7 @@ func (r *RedisStore) GetEvents(ctx context.Context, eventType, kind, filter stri
 		"filter":  filter,
 	}).Debug("Getting trigger events")
 	// get all events URIs
-	uris, err := redis.Strings(con.Do("KEYS", getEventKey(filter)))
+	uris, err := redis.Strings(con.Do("KEYS", getEventKey(account, filter)))
 	if err != nil {
 		log.WithError(err).Error("Failed to get trigger events")
 		return nil, err
@@ -604,13 +617,12 @@ func (r *RedisStore) GetEvents(ctx context.Context, eventType, kind, filter stri
 	// and matching account or all public events
 	events := make([]model.Event, 0)
 	for _, uri := range uris {
-		event, err := r.GetEvent(context.Background(), uri)
+		event, err := r.GetEvent(ctx, uri)
 		if err != nil {
 			return nil, err
 		}
 		if (eventType == "" || event.Type == eventType) &&
-			(kind == "" || event.Kind == kind) &&
-			(account == "" || event.Account == "" || event.Account == account) {
+			(kind == "" || event.Kind == kind) {
 			events = append(events, *event)
 		}
 	}
@@ -625,8 +637,11 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 		"event-uri": event,
 		"account":   account,
 	}).Debug("deleting trigger event")
+	// prepare keys
+	eventKey := getEventKey(account, event)
+	triggerKey := getTriggerKey(account, event)
 	// check event URI is a single event key
-	n, err := redis.Int(con.Do("EXISTS", getEventKey(event)))
+	n, err := redis.Int(con.Do("EXISTS", eventKey))
 	if err != nil {
 		log.WithError(err).Error("failed to check trigger event existence")
 		return err
@@ -637,7 +652,7 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 	}
 	// check trigger event account vs passed account; skip 'public' events
 	if account != "" {
-		a, err := redis.String(con.Do("HGET", getEventKey(event), "account"))
+		a, err := redis.String(con.Do("HGET", eventKey, "account"))
 		if err != nil && err != redis.ErrNil {
 			log.WithError(err).Error("failed to get trigger event account")
 			return err
@@ -653,7 +668,7 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 	// credentials := make(map[string]string)
 
 	// get pipelines linked to the trigger event
-	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(event), 0, -1))
+	pipelines, err := redis.Strings(con.Do("ZRANGE", triggerKey, 0, -1))
 	if err != nil {
 		log.WithError(err).Error("Failed to get pipelines for the trigger event")
 		return err
@@ -673,7 +688,7 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 
 	// delete event hash for key
 	log.Debug("Removing trigger event")
-	_, err = con.Do("DEL", getEventKey(event))
+	_, err = con.Do("DEL", eventKey)
 	if err != nil {
 		log.WithError(err).Error("Failed to delete trigger event")
 		return discardOnError(con, err)
@@ -681,7 +696,7 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 
 	// delete trigger event from Triggers
 	log.Debug("Removing trigger event from Triggers")
-	_, err = con.Do("DEL", getTriggerKey(event))
+	_, err = con.Do("DEL", triggerKey)
 	if err != nil {
 		return discardOnError(con, err)
 	}

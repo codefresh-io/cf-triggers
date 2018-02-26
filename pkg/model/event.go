@@ -31,13 +31,19 @@ type (
 		// event type
 		Type string `json:"type" yaml:"type"`
 		// event kind
-		Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
+		Kind string `json:"kind" yaml:"kind"`
 		// event account
-		Account string `json:"account,omitempty" yaml:"account,omitempty"`
+		Account string `json:"account" yaml:"account"`
 		// event secret, used for event validation
 		Secret string `json:"secret" yaml:"secret"`
 	}
 )
+
+// PublicAccount public account ID [0]{12}
+var PublicAccount = strings.Repeat("0", 12)
+
+// PublicAccountHash calculated sha1 hash
+var PublicAccountHash = CalculateAccountHash(PublicAccount)
 
 // String retrun event info as YAML string
 func (t EventInfo) String() string {
@@ -75,6 +81,7 @@ func StringsMapToEvent(event string, fields map[string]string) *Event {
 }
 
 // CalculateAccountHash return first 12 of account SHA1 hash
+// return empty string for empty account
 func CalculateAccountHash(account string) string {
 	hex := fmt.Sprintf("%x", sha1.Sum([]byte(account)))
 	runes := []rune(hex)

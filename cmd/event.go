@@ -35,6 +35,7 @@ var triggerEventCommand = cli.Command{
 				cli.StringFlag{
 					Name:  "account",
 					Usage: "Codefresh account ID",
+					Value: model.PublicAccount,
 				},
 				cli.BoolFlag{
 					Name:  "quiet,q",
@@ -51,6 +52,7 @@ var triggerEventCommand = cli.Command{
 				cli.StringFlag{
 					Name:  "account",
 					Usage: "Codefresh account ID",
+					Value: model.PublicAccount,
 				},
 			},
 			Usage:       "get trigger event by event URI",
@@ -77,6 +79,7 @@ var triggerEventCommand = cli.Command{
 				cli.StringFlag{
 					Name:  "account",
 					Usage: "Codefresh account ID",
+					Value: model.PublicAccount,
 				},
 				cli.StringSliceFlag{
 					Name:  "value",
@@ -109,6 +112,7 @@ var triggerEventCommand = cli.Command{
 				cli.StringFlag{
 					Name:  "account",
 					Usage: "Codefresh account ID",
+					Value: model.PublicAccount,
 				},
 			},
 			Usage:       "delete trigger event",

@@ -210,7 +210,7 @@ func TestEventProviderManager_MatchExistingType(t *testing.T) {
 	manager := newTestEventProviderManager(config)
 	defer manager.Close()
 	// match type
-	_, err := manager.MatchType("registry:dockerhub:codefresh:fortune:push")
+	_, err := manager.MatchType("registry:dockerhub:codefresh:fortune:push:" + model.CalculateAccountHash("A"))
 	if err != nil {
 		t.Error("failed to find type by uri")
 	}
@@ -262,9 +262,10 @@ func TestEventProviderManager_ConstructEventURI(t *testing.T) {
 			args{
 				t:      "registry",
 				k:      "dockerhub",
+				a:      model.PublicAccount,
 				values: map[string]string{"namespace": "codefresh", "name": "fortune"},
 			},
-			"registry:dockerhub:codefresh:fortune:push",
+			"registry:dockerhub:codefresh:fortune:push:" + model.PublicAccountHash,
 			false,
 		},
 		{

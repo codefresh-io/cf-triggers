@@ -18,9 +18,6 @@ type ErrorResult struct {
 
 type contextKey string
 
-// use _ for public account
-var publicAccount = "_"
-
 func getParam(c *gin.Context, name string) string {
 	v := c.Param(name)
 	return strings.Replace(v, "_slash_", "/", -1)
@@ -28,9 +25,5 @@ func getParam(c *gin.Context, name string) string {
 
 func getContext(c *gin.Context) context.Context {
 	account := c.Param("account")
-	// use '_' for "public"
-	if account == publicAccount {
-		account = ""
-	}
 	return context.WithValue(context.Background(), model.ContextKeyAccount, account)
 }
