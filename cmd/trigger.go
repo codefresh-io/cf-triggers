@@ -79,6 +79,12 @@ func listTriggers(c *cli.Context) error {
 		}
 	}
 
+	// get all triggers for all events (private and public)
+	triggers, err = triggerReaderWriter.GetEventTriggers(getContext(c), "*")
+	if err != nil {
+		return err
+	}
+
 	if len(triggers) == 0 {
 		return errors.New("no triggers defined")
 	}

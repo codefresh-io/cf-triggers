@@ -231,6 +231,9 @@ func (r *RedisStore) GetEventTriggers(ctx context.Context, event string) ([]mode
 			triggers = append(triggers, trigger)
 		}
 	}
+	if len(triggers) == 0 {
+		return nil, model.ErrTriggerNotFound
+	}
 	return triggers, nil
 }
 
@@ -243,8 +246,9 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string) (
 		"account":  account,
 	}).Debug("get triggers for pipeline")
 
-	keys, err := redis.Strings(con.Do("KEYS", getPipelineKey(pipeline)))
-	if err != nil {
+	pipelineKey := getPipelineKey(pipeline)
+	n, err := redis.Int(con.Do("EXISTS", pipelineKey))
+	if err != nil || n == 0 {
 		log.WithField("pipeline", pipeline).WithError(err).Error("failed to find triggers for pipeline")
 		return nil, err
 	}
@@ -252,22 +256,24 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string) (
 	// Iterate through all pipelines keys and get trigger events (public) and per account
 	suffix := model.CalculateAccountHash(account)
 	triggers := make([]model.Trigger, 0)
-	for _, k := range keys {
-		res, err := redis.Strings(con.Do("ZRANGE", k, 0, -1))
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("failed to get trigger events")
-			return nil, err
-		}
-		// for all linked trigger events, check if event belongs to context account of it's a public event
-		for _, event := range res {
-			if strings.HasSuffix(event, suffix) || strings.HasSuffix(event, model.PublicAccountHash) {
-				trigger := model.Trigger{
-					Event:    event,
-					Pipeline: strings.TrimPrefix(k, "pipeline:"),
-				}
-				triggers = append(triggers, trigger)
+
+	res, err := redis.Strings(con.Do("ZRANGE", pipelineKey, 0, -1))
+	if err != nil {
+		log.WithField("key", pipelineKey).WithError(err).Error("failed to get trigger events")
+		return nil, err
+	}
+	// for all linked trigger events, check if event belongs to context account of it's a public event
+	for _, event := range res {
+		if strings.HasSuffix(event, suffix) || strings.HasSuffix(event, model.PublicAccountHash) {
+			trigger := model.Trigger{
+				Event:    event,
+				Pipeline: pipeline,
 			}
+			triggers = append(triggers, trigger)
 		}
+	}
+	if len(triggers) == 0 {
+		return nil, model.ErrTriggerNotFound
 	}
 	return triggers, nil
 }

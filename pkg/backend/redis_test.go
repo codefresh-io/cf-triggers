@@ -661,299 +661,334 @@ func TestRedisStore_Ping(t *testing.T) {
 // 	}
 // }
 
-// func TestRedisStore_GetEventTriggers(t *testing.T) {
-// 	type redisErrors struct {
-// 		keys   bool
-// 		zrange bool
-// 	}
-// 	type args struct {
-// 		event   string
-// 		account string
-// 	}
-// 	type triggers struct {
-// 		event     string
-// 		pipelines []string
-// 	}
-// 	tests := []struct {
-// 		name     string
-// 		args     args
-// 		triggers []triggers
-// 		want     []model.Trigger
-// 		errs     redisErrors
-// 		wantErr  bool
-// 	}{
-// 		{
-// 			name: "list triggers for public event",
-// 			args: args{
-// 				event: "uri:test",
-// 			},
-// 			triggers: []triggers{
-// 				triggers{
-// 					event:     "uri:test",
-// 					pipelines: []string{"pipeline-1", "pipeline-2"},
-// 				},
-// 			},
-// 			want: []model.Trigger{
-// 				model.Trigger{Event: "uri:test", Pipeline: "pipeline-1"},
-// 				model.Trigger{Event: "uri:test", Pipeline: "pipeline-2"},
-// 			},
-// 			errs: redisErrors{false, false},
-// 		},
-// 		{
-// 			name: "list triggers for account event",
-// 			args: args{
-// 				account: "test-account",
-// 				event:   "uri:test",
-// 			},
-// 			triggers: []triggers{
-// 				triggers{
-// 					event:     "uri:test:bcd5ffa2db6e",
-// 					pipelines: []string{"pipeline-1", "pipeline-2"},
-// 				},
-// 			},
-// 			want: []model.Trigger{
-// 				model.Trigger{Event: "uri:test:bcd5ffa2db6e", Pipeline: "pipeline-1"},
-// 				model.Trigger{Event: "uri:test:bcd5ffa2db6e", Pipeline: "pipeline-2"},
-// 			},
-// 			errs: redisErrors{false, false},
-// 		},
-// 		{
-// 			name: "list triggers for multiple public events",
-// 			args: args{
-// 				event: "uri:test:*",
-// 			},
-// 			triggers: []triggers{
-// 				triggers{
-// 					event:     "uri:test:1",
-// 					pipelines: []string{"pipeline-1", "pipeline-2"},
-// 				},
-// 				triggers{
-// 					event:     "uri:test:2",
-// 					pipelines: []string{"pipeline-2", "pipeline-3"},
-// 				},
-// 			},
-// 			want: []model.Trigger{
-// 				model.Trigger{Event: "uri:test:1", Pipeline: "pipeline-1"},
-// 				model.Trigger{Event: "uri:test:1", Pipeline: "pipeline-2"},
-// 				model.Trigger{Event: "uri:test:2", Pipeline: "pipeline-2"},
-// 				model.Trigger{Event: "uri:test:2", Pipeline: "pipeline-3"},
-// 			},
-// 			errs: redisErrors{false, false},
-// 		},
-// 		{
-// 			name: "fail to find trigger by event",
-// 			args: args{
-// 				event: "non-existing-event",
-// 			},
-// 			errs:    redisErrors{true, false},
-// 			wantErr: true,
-// 		},
-// 		{
-// 			name: "fail to find pipelines for event",
-// 			args: args{
-// 				event: "uri:test",
-// 			},
-// 			triggers: []triggers{
-// 				triggers{
-// 					event: "uri:test",
-// 				},
-// 				triggers{
-// 					event:     "uri:test:other",
-// 					pipelines: []string{"pipeline-2", "pipeline-3"},
-// 				},
-// 			},
-// 			errs:    redisErrors{false, true},
-// 			wantErr: true,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			r := &RedisStore{
-// 				redisPool: &RedisPoolMock{},
-// 			}
-// 			// get keys from Triggers Set
-// 			keys := make([]string, 0)
-// 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getAccountTriggerKey(tt.args.account, tt.args.event))
-// 			if tt.errs.keys {
-// 				cmd.ExpectError(errors.New("KEYS error"))
-// 				goto Invoke
-// 			} else {
-// 				for _, t := range tt.triggers {
-// 					keys = util.MergeStrings(keys, []string{getTriggerKey(t.event)})
-// 				}
-// 				cmd.Expect(util.InterfaceSlice(keys))
-// 			}
+func TestRedisStore_GetEventTriggers(t *testing.T) {
+	type redisErrors struct {
+		keys   bool
+		zrange bool
+	}
+	type args struct {
+		event   string
+		account string
+	}
+	type triggers struct {
+		event     string
+		pipelines []string
+	}
+	tests := []struct {
+		name            string
+		args            args
+		privateTriggers []triggers
+		publicTriggers  []triggers
+		want            []model.Trigger
+		errs            redisErrors
+		wantErr         bool
+	}{
+		{
+			name: "list triggers for public event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			publicTriggers: []triggers{
+				{
+					event:     "uri:test:" + model.PublicAccountHash,
+					pipelines: []string{"pipeline-1", "pipeline-2"},
+				},
+			},
+			want: []model.Trigger{
+				model.Trigger{Event: "uri:test:" + model.PublicAccountHash, Pipeline: "pipeline-1"},
+				model.Trigger{Event: "uri:test:" + model.PublicAccountHash, Pipeline: "pipeline-2"},
+			},
+			errs: redisErrors{false, false},
+		},
+		{
+			name: "list triggers for account event",
+			args: args{
+				account: "test-account",
+				event:   "uri:test:bcd5ffa2db6e",
+			},
+			privateTriggers: []triggers{
+				{
+					event:     "uri:test:bcd5ffa2db6e",
+					pipelines: []string{"pipeline-1", "pipeline-2"},
+				},
+			},
+			want: []model.Trigger{
+				model.Trigger{Event: "uri:test:bcd5ffa2db6e", Pipeline: "pipeline-1"},
+				model.Trigger{Event: "uri:test:bcd5ffa2db6e", Pipeline: "pipeline-2"},
+			},
+			errs: redisErrors{false, false},
+		},
+		{
+			name: "list triggers for multiple public events",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:*",
+			},
+			publicTriggers: []triggers{
+				{
+					event:     "uri:test:1:" + model.PublicAccountHash,
+					pipelines: []string{"pipeline-1", "pipeline-2"},
+				},
+				{
+					event:     "uri:test:2:" + model.PublicAccountHash,
+					pipelines: []string{"pipeline-2", "pipeline-3"},
+				},
+			},
+			want: []model.Trigger{
+				model.Trigger{Event: "uri:test:1:" + model.PublicAccountHash, Pipeline: "pipeline-1"},
+				model.Trigger{Event: "uri:test:1:" + model.PublicAccountHash, Pipeline: "pipeline-2"},
+				model.Trigger{Event: "uri:test:2:" + model.PublicAccountHash, Pipeline: "pipeline-2"},
+				model.Trigger{Event: "uri:test:2:" + model.PublicAccountHash, Pipeline: "pipeline-3"},
+			},
+			errs: redisErrors{false, false},
+		},
+		{
+			name: "list triggers for multiple private and public events",
+			args: args{
+				account: "A",
+				event:   "uri:test:*",
+			},
+			privateTriggers: []triggers{
+				{
+					event:     "uri:test:1:" + model.CalculateAccountHash("A"),
+					pipelines: []string{"pipeline-1", "pipeline-2"},
+				},
+			},
+			publicTriggers: []triggers{
+				{
+					event:     "uri:test:2:" + model.PublicAccountHash,
+					pipelines: []string{"pipeline-2", "pipeline-3"},
+				},
+			},
+			want: []model.Trigger{
+				model.Trigger{Event: "uri:test:1:" + model.CalculateAccountHash("A"), Pipeline: "pipeline-1"},
+				model.Trigger{Event: "uri:test:1:" + model.CalculateAccountHash("A"), Pipeline: "pipeline-2"},
+				model.Trigger{Event: "uri:test:2:" + model.PublicAccountHash, Pipeline: "pipeline-2"},
+				model.Trigger{Event: "uri:test:2:" + model.PublicAccountHash, Pipeline: "pipeline-3"},
+			},
+			errs: redisErrors{false, false},
+		},
+		{
+			name: "fail to find trigger by event",
+			args: args{
+				event: "non-existing-event",
+			},
+			errs:    redisErrors{true, false},
+			wantErr: true,
+		},
+		{
+			name: "fail to find pipelines for event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			publicTriggers: []triggers{
+				{
+					event: "uri:test:" + model.PublicAccountHash,
+				},
+				{
+					event:     "uri:test:other",
+					pipelines: []string{"pipeline-2", "pipeline-3"},
+				},
+			},
+			errs:    redisErrors{false, true},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			// merge all triggers
+			triggers := make([]triggers, 0)
+			triggers = append(triggers, tt.privateTriggers...)
+			triggers = append(triggers, tt.publicTriggers...)
+			// get keys from Triggers Set
+			keys := make([]string, 0)
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getTriggerKey(tt.args.account, tt.args.event))
+			if tt.errs.keys {
+				cmd.ExpectError(errors.New("KEYS error"))
+				goto Invoke
+			} else {
+				for _, t := range tt.privateTriggers {
+					keys = util.MergeStrings(keys, []string{getTriggerKey(tt.args.account, t.event)})
+				}
+				cmd.Expect(util.InterfaceSlice(keys))
+			}
+			// get public triggers matching event
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getTriggerKey(model.PublicAccount, tt.args.event))
+			if tt.errs.keys {
+				cmd.ExpectError(errors.New("KEYS error"))
+				goto Invoke
+			} else {
+				for _, t := range tt.publicTriggers {
+					keys = util.MergeStrings(keys, []string{getTriggerKey(model.PublicAccount, t.event)})
+				}
+				cmd.Expect(util.InterfaceSlice(keys))
+			}
 
-// 			// get pipelines from Triggers Set
-// 			for _, k := range keys {
-// 				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", k, 0, -1)
-// 				if tt.errs.zrange {
-// 					cmd.ExpectError(errors.New("ZRANGE error"))
-// 					goto Invoke
-// 				} else {
-// 					for _, t := range tt.triggers {
-// 						// select pipelines for key
-// 						if getTriggerKey(t.event) == k {
-// 							cmd.Expect(util.InterfaceSlice(t.pipelines))
-// 							break
-// 						}
-// 					}
-// 				}
-// 			}
-// 		Invoke:
-// 			got, err := r.GetEventTriggers(setContext(tt.args.account), tt.args.event)
-// 			if (err != nil) != tt.wantErr {
-// 				t.Errorf("RedisStore.GetEventTriggers() error = %v, wantErr %v", err, tt.wantErr)
-// 				return
-// 			}
-// 			if !reflect.DeepEqual(got, tt.want) {
-// 				t.Errorf("RedisStore.GetEventTriggers() = %v, want %v", got, tt.want)
-// 			}
-// 		})
-// 	}
-// }
+			// get pipelines from Triggers Set
+			for _, k := range keys {
+				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", k, 0, -1)
+				if tt.errs.zrange {
+					cmd.ExpectError(errors.New("ZRANGE error"))
+					goto Invoke
+				} else {
+					for _, t := range triggers {
+						// select pipelines for key
+						if getTriggerKey(tt.args.account, t.event) == k {
+							cmd.Expect(util.InterfaceSlice(t.pipelines))
+							break
+						}
+					}
+				}
+			}
+		Invoke:
+			got, err := r.GetEventTriggers(setContext(tt.args.account), tt.args.event)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.GetEventTriggers() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.GetEventTriggers() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
-// func TestRedisStore_GetPipelineTriggers(t *testing.T) {
-// 	type redisErrors struct {
-// 		keys   bool
-// 		zrange bool
-// 	}
-// 	type pipelines struct {
-// 		pipeline string
-// 		events   []string
-// 	}
-// 	type args struct {
-// 		pipelines []string
-// 	}
-// 	tests := []struct {
-// 		name      string
-// 		args      args
-// 		pipelines []pipelines
-// 		want      []model.Trigger
-// 		errs      redisErrors
-// 		wantErr   bool
-// 	}{
-// 		{
-// 			name: "list triggers for single pipeline",
-// 			args: args{
-// 				pipelines: []string{"test-pipeline"},
-// 			},
-// 			pipelines: []pipelines{
-// 				pipelines{
-// 					pipeline: "test-pipeline",
-// 					events:   []string{"event-1", "event-2"},
-// 				},
-// 			},
-// 			want: []model.Trigger{
-// 				model.Trigger{Event: "event-1", Pipeline: "test-pipeline"},
-// 				model.Trigger{Event: "event-2", Pipeline: "test-pipeline"},
-// 			},
-// 			errs:    redisErrors{false, false},
-// 			wantErr: false,
-// 		},
-// 		{
-// 			name: "list triggers for multiple pipeline",
-// 			args: args{
-// 				pipelines: []string{"test-pipeline-1", "test-pipeline-2"},
-// 			},
-// 			pipelines: []pipelines{
-// 				pipelines{
-// 					pipeline: "test-pipeline-1",
-// 					events:   []string{"event-1", "event-2"},
-// 				},
-// 				pipelines{
-// 					pipeline: "test-pipeline-2",
-// 					events:   []string{"event-2", "event-3"},
-// 				},
-// 			},
-// 			want: []model.Trigger{
-// 				model.Trigger{Event: "event-1", Pipeline: "test-pipeline-1"},
-// 				model.Trigger{Event: "event-2", Pipeline: "test-pipeline-1"},
-// 				model.Trigger{Event: "event-2", Pipeline: "test-pipeline-2"},
-// 				model.Trigger{Event: "event-3", Pipeline: "test-pipeline-2"},
-// 			},
-// 			errs:    redisErrors{false, false},
-// 			wantErr: false,
-// 		},
-// 		{
-// 			name: "fail to find triggers by pipeline",
-// 			args: args{
-// 				pipelines: []string{"non-existing-pipeline"},
-// 			},
-// 			pipelines: nil,
-// 			want:      nil,
-// 			errs:      redisErrors{true, false},
-// 			wantErr:   true,
-// 		},
-// 		{
-// 			name: "fail to find events for pipeline",
-// 			args: args{
-// 				pipelines: []string{"test-pipeline"},
-// 			},
-// 			pipelines: []pipelines{
-// 				pipelines{
-// 					pipeline: "test-pipeline",
-// 					events:   nil,
-// 				},
-// 				pipelines{
-// 					pipeline: "test-pipeline-2",
-// 					events:   []string{"event-1", "event-2"},
-// 				},
-// 			},
-// 			want:    nil,
-// 			errs:    redisErrors{false, true},
-// 			wantErr: true,
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			r := &RedisStore{
-// 				redisPool: &RedisPoolMock{},
-// 			}
-// 			// get keys from Pipelines Set
-// 			keys := make([]string, 0)
-// 			for _, pipeline := range tt.args.pipelines {
-// 				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getPipelineKey(pipeline))
-// 				if tt.errs.keys {
-// 					cmd.ExpectError(errors.New("KEYS error"))
-// 					goto Invoke
-// 				} else {
-// 					for _, t := range tt.pipelines {
-// 						if pipeline == t.pipeline {
-// 							keys = util.MergeStrings(keys, []string{getPipelineKey(t.pipeline)})
-// 						}
-// 					}
-// 					cmd.Expect(util.InterfaceSlice(keys))
-// 				}
-// 			}
-// 			// get events from Pipeline Set
-// 			for _, k := range keys {
-// 				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", k, 0, -1)
-// 				if tt.errs.zrange {
-// 					cmd.ExpectError(errors.New("ZRANGE error"))
-// 					goto Invoke
-// 				} else {
-// 					for _, t := range tt.pipelines {
-// 						// select pipelines for key
-// 						if getPipelineKey(t.pipeline) == k {
-// 							cmd.Expect(util.InterfaceSlice(t.events))
-// 							break
-// 						}
-// 					}
-// 				}
-// 			}
-// 		Invoke:
-// 			got, err := r.GetPipelineTriggers(setContext(tt.args.account), tt.args.pipeline)
-// 			if (err != nil) != tt.wantErr {
-// 				t.Errorf("RedisStore.GetPipelineTriggers() error = %v, wantErr %v", err, tt.wantErr)
-// 				return
-// 			}
-// 			if !reflect.DeepEqual(got, tt.want) {
-// 				t.Errorf("RedisStore.GetPipelineTriggers() = %v, want %v", got, tt.want)
-// 			}
-// 		})
-// 	}
-// }
+func TestRedisStore_GetPipelineTriggers(t *testing.T) {
+	type redisErrors struct {
+		exists bool
+		zrange bool
+	}
+	type pipeline struct {
+		events []string
+	}
+	type args struct {
+		account  string
+		pipeline string
+	}
+	tests := []struct {
+		name     string
+		args     args
+		pipeline pipeline
+		want     []model.Trigger
+		errs     redisErrors
+		wantErr  bool
+	}{
+		{
+			name: "list public triggers for pipeline",
+			args: args{
+				account:  model.PublicAccount,
+				pipeline: "test-pipeline",
+			},
+			pipeline: pipeline{
+				events: []string{
+					"event:1:" + model.PublicAccountHash,
+					"event:2:" + model.PublicAccountHash,
+				},
+			},
+			want: []model.Trigger{
+				model.Trigger{Event: "event:1:" + model.PublicAccountHash, Pipeline: "test-pipeline"},
+				model.Trigger{Event: "event:2:" + model.PublicAccountHash, Pipeline: "test-pipeline"},
+			},
+			errs:    redisErrors{false, false},
+			wantErr: false,
+		},
+		{
+			name: "list public and private triggers for pipeline",
+			args: args{
+				account:  "A",
+				pipeline: "test-pipeline",
+			},
+			pipeline: pipeline{
+				events: []string{
+					"event:1:" + model.PublicAccountHash,
+					"event:2:" + model.PublicAccountHash,
+					"event:3:" + model.CalculateAccountHash("A"),
+					"event:4:" + model.CalculateAccountHash("B"),
+					"event:5:" + model.CalculateAccountHash("A"),
+				},
+			},
+			want: []model.Trigger{
+				model.Trigger{Event: "event:1:" + model.PublicAccountHash, Pipeline: "test-pipeline"},
+				model.Trigger{Event: "event:2:" + model.PublicAccountHash, Pipeline: "test-pipeline"},
+				model.Trigger{Event: "event:3:" + model.CalculateAccountHash("A"), Pipeline: "test-pipeline"},
+				model.Trigger{Event: "event:5:" + model.CalculateAccountHash("A"), Pipeline: "test-pipeline"},
+			},
+			errs:    redisErrors{false, false},
+			wantErr: false,
+		},
+		{
+			name: "get triggers for non-existing pipeline",
+			args: args{
+				pipeline: "non-existing-pipeline",
+			},
+			errs:    redisErrors{exists: true},
+			wantErr: true,
+		},
+		{
+			name: "fail to get another account triggers for pipeline",
+			args: args{
+				account:  "A",
+				pipeline: "test-pipeline",
+			},
+			pipeline: pipeline{
+				events: []string{
+					"event:1:" + model.CalculateAccountHash("B"),
+					"event:2:" + model.CalculateAccountHash("C"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "fail to get triggers REDIS ZRANGE error",
+			args: args{
+				account:  "A",
+				pipeline: "test-pipeline",
+			},
+			errs:    redisErrors{zrange: true},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			// get keys from Pipelines Set
+			pipelineKey := getPipelineKey(tt.args.pipeline)
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", pipelineKey)
+			if tt.errs.exists {
+				cmd.ExpectError(errors.New("EXISTS error"))
+				goto Invoke
+			} else {
+				cmd.Expect(int64(1))
+			}
+
+			// get events from Pipeline Set
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", pipelineKey, 0, -1)
+			if tt.errs.zrange {
+				cmd.ExpectError(errors.New("ZRANGE error"))
+				goto Invoke
+			} else {
+				cmd.Expect(util.InterfaceSlice(tt.pipeline.events))
+			}
+
+		Invoke:
+			got, err := r.GetPipelineTriggers(setContext(tt.args.account), tt.args.pipeline)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.GetPipelineTriggers() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.GetPipelineTriggers() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestRedisStore_GetEvent(t *testing.T) {
 	type args struct {
@@ -1580,7 +1615,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			name: "fail update account",
 			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62"},
 			expected: expected{
-				eventURI: "type:kind:test:"+model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
+				eventURI: "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
 			},
 			wantErr: true,
