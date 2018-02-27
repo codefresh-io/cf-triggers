@@ -36,18 +36,18 @@ var triggerCommand = cli.Command{
 			Action:      listTriggers,
 		},
 		{
-			Name:        "link",
-			Usage:       "connect trigger event to the specified pipeline",
-			ArgsUsage:   "<event-uri> <pipeline> [pipeline...]",
-			Description: "Create a new trigger, linking a trigger event to the specified pipeline",
-			Action:      linkEvent,
+			Name:        "create",
+			Usage:       "create trigger",
+			ArgsUsage:   "<event-uri> <pipeline>",
+			Description: "Create a new trigger, linking the trigger event to the specified pipeline",
+			Action:      createTrigger,
 		},
 		{
-			Name:        "unlink",
-			Usage:       "disconnect trigger event from the specified pipeline",
+			Name:        "delete",
+			Usage:       "delete trigger",
 			ArgsUsage:   "<event-uri> <pipeline>",
 			Description: "Delete trigger, by removing link between the trigger event and the specified pipeline",
-			Action:      unlinkEvent,
+			Action:      deleteTrigger,
 		},
 	},
 }
@@ -94,28 +94,28 @@ func listTriggers(c *cli.Context) error {
 	return nil
 }
 
-func linkEvent(c *cli.Context) error {
+func createTrigger(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
-	if len(args) < 2 {
+	if len(args) != 2 {
 		return errors.New("wrong number of arguments")
 	}
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
-	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
 	// create triggers for event linking it to passed pipeline(s)
-	return eventReaderWriter.CreateTriggersForEvent(c.Args().First(), c.Args().Tail())
+	return triggerReaderWriter.CreateTrigger(getContext(c), args.First(), args.Get(1))
 }
 
-func unlinkEvent(c *cli.Context) error {
+func deleteTrigger(c *cli.Context) error {
 	// get trigger name and pipeline
 	args := c.Args()
 	if len(args) != 2 {
 		return errors.New("wrong number of arguments")
 	}
 	// get trigger service
-	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
 	// delete pipelines
-	return eventReaderWriter.DeleteTriggersForEvent(args.First(), args.Tail())
+	return triggerReaderWriter.DeleteTrigger(getContext(c), args.First(), args.Get(1))
 }

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/codefresh-io/hermes/pkg/model"
@@ -42,8 +43,10 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, ErrorResult{http.StatusBadRequest, "error in JSON body", err.Error()})
 		return
 	}
+	// prepare context for specified event (skip account check)
+	allCtx := context.WithValue(context.Background(), model.ContextKeyAccount, "-")
 	// get trigger event
-	triggerEvent, err := c.eventSvc.GetEvent(getContext(ctx), event)
+	triggerEvent, err := c.eventSvc.GetEvent(allCtx, event)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
@@ -67,7 +70,7 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 	}
 	vars["EVENT_PAYLOAD"] = runEvent.Original
 	// get connected pipelines
-	pipelines, err := c.triggerSvc.GetPipelinesForTriggers([]string{event}, "")
+	pipelines, err := c.triggerSvc.GetTriggerPipelines(allCtx, event)
 	if err != nil {
 		// if there are no pipelines connected to the trigger event don't fail this REST method
 		// to avoid multiple 'errors' reported to the event provider log

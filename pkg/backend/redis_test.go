@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/codefresh-io/hermes/pkg/util"
@@ -81,6 +82,14 @@ func Test_getTriggerKey(t *testing.T) {
 			want: "trigger:*:" + model.CalculateAccountHash("test-account"),
 		},
 		{
+			name: "any account",
+			args: args{
+				account: "-",
+				id:      "not:changing:id",
+			},
+			want: "trigger:not:changing:id",
+		},
+		{
 			name: "star",
 			args: args{
 				account: "test-account",
@@ -142,524 +151,435 @@ func TestRedisStore_Ping(t *testing.T) {
 	}
 }
 
-// func TestRedisStore_GetPipelinesForTriggers(t *testing.T) {
-// 	type args struct {
-// 		events  []string
-// 		account string
-// 	}
-// 	type response struct {
-// 		pipelines []string
-// 		account   string
-// 	}
-// 	type redisErrors struct {
-// 		hgetErr   bool
-// 		zrangeErr bool
-// 	}
-// 	tests := []struct {
-// 		name     string
-// 		args     args
-// 		response []response
-// 		expected []string
-// 		redisErr redisErrors
-// 		wantErr  error
-// 	}{
-// 		{
-// 			name: "get pipelines for one private trigger event",
-// 			args: args{
-// 				events:  []string{"uri:test:1"},
-// 				account: "test",
-// 			},
-// 			response: []response{
-// 				{
-// 					pipelines: []string{"pipeline1", "pipeline2"},
-// 					account:   "test",
-// 				},
-// 			},
-// 			expected: []string{"pipeline1", "pipeline2"},
-// 		},
-// 		{
-// 			name: "get joined pipelines for multiple private trigger events",
-// 			args: args{
-// 				events:  []string{"uri:test:1", "uri:test:2"},
-// 				account: "test",
-// 			},
-// 			response: []response{
-// 				{
-// 					pipelines: []string{"pipeline1", "pipeline2"},
-// 					account:   "test",
-// 				},
-// 				{
-// 					pipelines: []string{"pipeline2", "pipeline3"},
-// 					account:   "test",
-// 				},
-// 			},
-// 			expected: []string{"pipeline1", "pipeline2", "pipeline3"},
-// 		},
-// 		{
-// 			name: "get joined pipelines for multiple private and public trigger events",
-// 			args: args{
-// 				events:  []string{"uri:test:1", "uri:test:2"},
-// 				account: "test",
-// 			},
-// 			response: []response{
-// 				{
-// 					pipelines: []string{"pipeline1", "pipeline2"},
-// 					account:   "test",
-// 				},
-// 				{
-// 					pipelines: []string{"pipeline2", "pipeline3"},
-// 				},
-// 			},
-// 			expected: []string{"pipeline1", "pipeline2", "pipeline3"},
-// 		},
-// 		{
-// 			name: "try to get trigger event from another account",
-// 			args: args{
-// 				events:  []string{"uri:test:1"},
-// 				account: "test1",
-// 			},
-// 			response: []response{
-// 				{account: "test2"},
-// 			},
-// 			wantErr: model.ErrEventNotFound,
-// 		},
-// 		{
-// 			name: "redis HGET error",
-// 			args: args{
-// 				events:  []string{"uri:test:1"},
-// 				account: "test1",
-// 			},
-// 			redisErr: redisErrors{hgetErr: true},
-// 			wantErr:  errors.New("HGET error"),
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			r := &RedisStore{
-// 				redisPool: &RedisPoolMock{},
-// 			}
-// 			for i, event := range tt.args.events {
-// 				var cmd *redigomock.Cmd
-// 				if tt.args.account != "" {
-// 					cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", getTriggerKey(event), "account")
-// 					if tt.redisErr.hgetErr {
-// 						cmd.ExpectError(errors.New("HGET error"))
-// 						goto Invoke
-// 					} else {
-// 						cmd.Expect(tt.response[i].account)
-// 					}
-// 					if tt.response[i].account != "" && tt.args.account != tt.response[i].account {
-// 						goto Invoke
-// 					}
-// 				}
-// 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(event), 0, -1)
-// 				if tt.redisErr.zrangeErr {
-// 					cmd.ExpectError(errors.New("ZRANGE error"))
-// 				} else {
-// 					cmd.Expect(util.InterfaceSlice(tt.response[i].pipelines))
-// 				}
-// 			}
-// 		Invoke:
-// 			got, err := r.GetPipelinesForTriggers(tt.args.events, tt.args.account)
-// 			if err != nil && err.Error() != tt.wantErr.Error() {
-// 				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, tt.wantErr)
-// 				return
-// 			}
-// 			if (len(got) > 0 || len(tt.expected) > 0) && !reflect.DeepEqual(got, tt.expected) {
-// 				t.Errorf("RedisStore.GetPipelinesForTriggers() = %v, want %v", got, tt.expected)
-// 			}
-// 		})
-// 	}
-// }
+func TestRedisStore_GetTriggerPipelines(t *testing.T) {
+	type args struct {
+		account string
+		event   string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		pipelines []string
+		redisErr  error
+		wantErr   error
+	}{
+		{
+			name: "get pipelines for event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+		},
+		{
+			name: "no pipelines for event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			wantErr: model.ErrPipelineNotFound,
+		},
+		{
+			name: "redis ZRANGE ErrNil error",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			redisErr: redis.ErrNil,
+			wantErr:  model.ErrTriggerNotFound,
+		},
+		{
+			name: "redis ZRANGE error",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			redisErr: redis.ErrPoolExhausted,
+			wantErr:  redis.ErrPoolExhausted,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.account, tt.args.event), 0, -1)
+			if tt.redisErr != nil {
+				cmd.ExpectError(tt.redisErr)
+			} else {
+				cmd.Expect(util.InterfaceSlice(tt.pipelines))
+			}
 
-// func TestRedisStore_DeleteTriggersForPipeline(t *testing.T) {
-// 	type redisErrors struct {
-// 		multi bool
-// 		zrem1 bool
-// 		zrem2 bool
-// 		exec  bool
-// 	}
-// 	type args struct {
-// 		pipeline string
-// 		events   []string
-// 	}
-// 	tests := []struct {
-// 		name    string
-// 		args    args
-// 		wantErr bool
-// 		errs    redisErrors
-// 	}{
-// 		{
-// 			"delete triggers for pipeline",
-// 			args{
-// 				pipeline: "owner:repo:test",
-// 				events:   []string{"uri:test:1", "uri:test:2"},
-// 			},
-// 			false,
-// 			redisErrors{false, false, false, false},
-// 		},
-// 		{
-// 			"delete single event trigger for pipeline",
-// 			args{
-// 				pipeline: "owner:repo:test",
-// 				events:   []string{"uri:test"},
-// 			},
-// 			false,
-// 			redisErrors{false, false, false, false},
-// 		},
-// 		{
-// 			"fail start transaction",
-// 			args{
-// 				pipeline: "owner:repo:test",
-// 				events:   []string{"uri:test:1", "uri:test:2"},
-// 			},
-// 			true,
-// 			redisErrors{true, false, false, false},
-// 		},
-// 		{
-// 			"fail remove pipeline from Triggers map",
-// 			args{
-// 				pipeline: "owner:repo:test",
-// 				events:   []string{"uri:test:1", "uri:test:2"},
-// 			},
-// 			true,
-// 			redisErrors{false, true, false, false},
-// 		},
-// 		{
-// 			"fail remove events from Pipelines map",
-// 			args{
-// 				pipeline: "owner:repo:test",
-// 				events:   []string{"uri:test:1", "uri:test:2"},
-// 			},
-// 			true,
-// 			redisErrors{false, false, true, false},
-// 		},
-// 		{
-// 			"fail exec transaction",
-// 			args{
-// 				pipeline: "owner:repo:test",
-// 				events:   []string{"uri:test:1", "uri:test:2"},
-// 			},
-// 			true,
-// 			redisErrors{false, false, false, true},
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			r := &RedisStore{
-// 				redisPool: &RedisPoolMock{},
-// 			}
-// 			// expect Redis transaction open
-// 			var params []interface{}
-// 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
-// 			if tt.errs.multi {
-// 				cmd.ExpectError(errors.New("MULTI error"))
-// 				goto Invoke
-// 			} else {
-// 				cmd.Expect("OK!")
-// 			}
-// 			// remove pipeline from Triggers
-// 			for _, event := range tt.args.events {
-// 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(event), tt.args.pipeline)
-// 				if tt.errs.zrem1 {
-// 					cmd.ExpectError(errors.New("ZREM error"))
-// 					goto EndTransaction
-// 				}
-// 			}
-// 			// remove events from Pipelines
-// 			params = []interface{}{getPipelineKey(tt.args.pipeline)}
-// 			params = append(params, util.InterfaceSlice(tt.args.events)...)
-// 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", params...)
-// 			if tt.errs.zrem2 {
-// 				cmd.ExpectError(errors.New("ZREM error"))
-// 			}
+			got, err := r.GetTriggerPipelines(setContext(tt.args.account), tt.args.event)
+			if err != nil && err.Error() != tt.wantErr.Error() {
+				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if (len(got) > 0 || len(tt.pipelines) > 0) && !reflect.DeepEqual(got, tt.pipelines) {
+				t.Errorf("RedisStore.GetPipelinesForTriggers() = %v, want %v", got, tt.pipelines)
+			}
+		})
+	}
+}
 
-// 		EndTransaction:
-// 			// discard transaction on error
-// 			if tt.wantErr && !tt.errs.exec {
-// 				// expect transaction discard on error
-// 				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
-// 			} else {
-// 				// expect Redis transaction exec
-// 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
-// 				if tt.errs.exec {
-// 					cmd.ExpectError(errors.New("EXEC error"))
-// 				} else {
-// 					cmd.Expect("OK!")
-// 				}
-// 			}
+func TestRedisStore_DeleteTrigger(t *testing.T) {
+	type Errors struct {
+		mismatch         bool
+		nonexisting      bool
+		pipelinemismatch bool
+		multi            bool
+		zrem1            bool
+		zrem2            bool
+		exec             bool
+	}
+	type args struct {
+		account  string
+		event    string
+		pipeline string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errs    Errors
+	}{
+		{
+			name: "delete trigger: private event <-> pipeline",
+			args: args{
+				account:  model.PublicAccount,
+				event:    "uri:test:" + model.PublicAccountHash,
+				pipeline: "owner:repo:test",
+			},
+		},
+		{
+			name: "delete trigger: public event <-> pipeline",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.PublicAccountHash,
+				pipeline: "owner:repo:test",
+			},
+		},
+		{
+			name: "account mismatch",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("B"),
+				pipeline: "owner:repo:test",
+			},
+			errs:    Errors{mismatch: true},
+			wantErr: true,
+		},
+		{
+			name: "pipeline account mismatch",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			errs:    Errors{pipelinemismatch: true},
+			wantErr: true,
+		},
+		{
+			name: "non-existing pipeline",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			errs:    Errors{nonexisting: true},
+			wantErr: true,
+		},
+		{
+			name: "fail start transaction",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{multi: true},
+		},
+		{
+			name: "fail deleting pipeline from Triggers",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{zrem1: true},
+		},
+		{
+			name: "fail deleting event from Pipelines",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{zrem2: true},
+		},
+		{
+			name: "fail exec transaction",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{exec: true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := codefresh.NewCodefreshMockEndpoint()
+			r := &RedisStore{
+				redisPool:   &RedisPoolMock{},
+				pipelineSvc: mock,
+			}
+			var cmd *redigomock.Cmd
+			// check mismatch account
+			if tt.errs.mismatch {
+				goto Invoke
+			}
+			// mock Codefresh API call
+			if tt.errs.nonexisting {
+				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNotFound)
+				goto Invoke
+			} else if tt.errs.pipelinemismatch {
+				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNoMatch)
+				goto Invoke
+			} else {
+				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(&codefresh.Pipeline{
+					ID:      tt.args.pipeline,
+					Account: tt.args.account,
+				}, nil)
+			}
+			// expect Redis transaction open
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
+			if tt.errs.multi {
+				cmd.ExpectError(errors.New("MULTI error"))
+				goto Invoke
+			} else {
+				cmd.Expect("OK!")
+			}
+			// remove pipeline from Triggers
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(tt.args.account, tt.args.event), tt.args.pipeline)
+			if tt.errs.zrem1 {
+				cmd.ExpectError(errors.New("ZREM error"))
+				goto EndTransaction
+			}
 
-// 			// invoke method
-// 		Invoke:
-// 			if err := r.DeleteTriggersForPipeline(tt.args.pipeline, tt.args.events); (err != nil) != tt.wantErr {
-// 				t.Errorf("RedisStore.DeleteTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
-// 			}
-// 		})
-// 	}
-// }
+			// remove event from Pipelines
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pipeline), tt.args.event)
+			if tt.errs.zrem2 {
+				cmd.ExpectError(errors.New("ZREM error"))
+			}
 
-// func TestRedisStore_DeleteTriggersForEvent(t *testing.T) {
-// 	type redisErrors struct {
-// 		multi bool
-// 		zrem1 bool
-// 		zrem2 bool
-// 		exec  bool
-// 	}
-// 	type args struct {
-// 		event     string
-// 		pipelines []string
-// 	}
-// 	tests := []struct {
-// 		name    string
-// 		args    args
-// 		wantErr bool
-// 		errs    redisErrors
-// 	}{
-// 		{
-// 			"delete triggers for event",
-// 			args{
-// 				event:     "uri",
-// 				pipelines: []string{"p1", "p2", "p3"},
-// 			},
-// 			false,
-// 			redisErrors{false, false, false, false},
-// 		},
-// 		{
-// 			"delete single pipeline trigger",
-// 			args{
-// 				event:     "uri",
-// 				pipelines: []string{"pipeline"},
-// 			},
-// 			false,
-// 			redisErrors{false, false, false, false},
-// 		},
-// 		{
-// 			"fail start transaction",
-// 			args{
-// 				event:     "uri",
-// 				pipelines: []string{"p1", "p2", "p3"},
-// 			},
-// 			true,
-// 			redisErrors{true, false, false, false},
-// 		},
-// 		{
-// 			"fail remove pipeline from Pipelines",
-// 			args{
-// 				event:     "uri",
-// 				pipelines: []string{"p1", "p2", "p3"},
-// 			},
-// 			true,
-// 			redisErrors{false, true, false, false},
-// 		},
-// 		{
-// 			"fail remove events from Triggers",
-// 			args{
-// 				event:     "uri",
-// 				pipelines: []string{"p1", "p2", "p3"},
-// 			},
-// 			true,
-// 			redisErrors{false, false, true, false},
-// 		},
-// 		{
-// 			"fail exec transaction",
-// 			args{
-// 				event:     "uri",
-// 				pipelines: []string{"p1", "p2", "p3"},
-// 			},
-// 			true,
-// 			redisErrors{false, false, false, true},
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			r := &RedisStore{
-// 				redisPool: &RedisPoolMock{},
-// 			}
-// 			// expect Redis transaction open
-// 			var params []interface{}
-// 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
-// 			if tt.errs.multi {
-// 				cmd.ExpectError(errors.New("MULTI error"))
-// 				goto Invoke
-// 			} else {
-// 				cmd.Expect("OK!")
-// 			}
-// 			// remove event from Pipelines
-// 			for _, pipeline := range tt.args.pipelines {
-// 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(pipeline), tt.args.event)
-// 				if tt.errs.zrem1 {
-// 					cmd.ExpectError(errors.New("ZREM error"))
-// 					goto EndTransaction
-// 				}
-// 			}
-// 			// remove pipelines from Triggers
-// 			params = []interface{}{getTriggerKey(tt.args.event)}
-// 			params = append(params, util.InterfaceSlice(tt.args.pipelines)...)
-// 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", params...)
-// 			if tt.errs.zrem2 {
-// 				cmd.ExpectError(errors.New("ZREM error"))
-// 			}
+		EndTransaction:
+			// discard transaction on error
+			if tt.wantErr && !tt.errs.exec {
+				// expect transaction discard on error
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
+			} else {
+				// expect Redis transaction exec
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
+				if tt.errs.exec {
+					cmd.ExpectError(errors.New("EXEC error"))
+				} else {
+					cmd.Expect("OK!")
+				}
+			}
 
-// 		EndTransaction:
-// 			// discard transaction on error
-// 			if tt.wantErr && !tt.errs.exec {
-// 				// expect transaction discard on error
-// 				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
-// 			} else {
-// 				// expect Redis transaction exec
-// 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
-// 				if tt.errs.exec {
-// 					cmd.ExpectError(errors.New("EXEC error"))
-// 				} else {
-// 					cmd.Expect("OK!")
-// 				}
-// 			}
+			// invoke method
+		Invoke:
+			if err := r.DeleteTrigger(setContext(tt.args.account), tt.args.event, tt.args.pipeline); (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.DeleteTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			// assert mock
+			mock.AssertExpectations(t)
+		})
+	}
+}
 
-// 			// invoke method
-// 		Invoke:
-// 			if err := r.DeleteTriggersForEvent(tt.args.event, tt.args.pipelines); (err != nil) != tt.wantErr {
-// 				t.Errorf("RedisStore.DeleteTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
-// 			}
-// 		})
-// 	}
-// }
+func TestRedisStore_CreateTrigger(t *testing.T) {
+	type Errors struct {
+		mismatch         bool
+		nonexisting      bool
+		pipelinemismatch bool
+		multi            bool
+		zadd1            bool
+		zadd2            bool
+		exec             bool
+	}
+	type args struct {
+		account  string
+		event    string
+		pipeline string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errs    Errors
+	}{
+		{
+			name: "create trigger: private event <-> pipeline",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+		},
+		{
+			name: "create trigger: public event <-> pipeline",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.PublicAccountHash,
+				pipeline: "owner:repo:test",
+			},
+		},
+		{
+			name: "account mismatch",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("B"),
+				pipeline: "owner:repo:test",
+			},
+			errs:    Errors{mismatch: true},
+			wantErr: true,
+		},
+		{
+			name: "pipeline account mismatch",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			errs:    Errors{pipelinemismatch: true},
+			wantErr: true,
+		},
+		{
+			name: "non-existing pipeline",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			errs:    Errors{nonexisting: true},
+			wantErr: true,
+		},
+		{
+			name: "fail start transaction",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{multi: true},
+		},
+		{
+			name: "fail adding pipeline to Triggers",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{zadd1: true},
+		},
+		{
+			name: "fail adding event to Pipelines",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{zadd2: true},
+		},
+		{
+			name: "fail exec transaction",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{exec: true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := codefresh.NewCodefreshMockEndpoint()
+			r := &RedisStore{
+				redisPool:   &RedisPoolMock{},
+				pipelineSvc: mock,
+			}
+			var cmd *redigomock.Cmd
+			// check mismatch account
+			if tt.errs.mismatch {
+				goto Invoke
+			}
+			// mock Codefresh API call
+			if tt.errs.nonexisting {
+				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNotFound)
+				goto Invoke
+			} else if tt.errs.pipelinemismatch {
+				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNoMatch)
+				goto Invoke
+			} else {
+				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(&codefresh.Pipeline{
+					ID:      tt.args.pipeline,
+					Account: tt.args.account,
+				}, nil)
+			}
+			// expect Redis transaction open
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
+			if tt.errs.multi {
+				cmd.ExpectError(errors.New("MULTI error"))
+				goto Invoke
+			} else {
+				cmd.Expect("OK!")
+			}
+			// add event to the Pipelines set
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(tt.args.pipeline), 0, tt.args.event)
+			if tt.errs.zadd1 {
+				cmd.ExpectError(errors.New("ZADD error"))
+				goto EndTransaction
+			}
 
-// func TestRedisStore_CreateTriggersForEvent(t *testing.T) {
-// 	type redisErrors struct {
-// 		multi bool
-// 		zadd1 bool
-// 		zadd2 bool
-// 		exec  bool
-// 	}
-// 	type args struct {
-// 		event     string
-// 		pipelines []string
-// 	}
-// 	tests := []struct {
-// 		name    string
-// 		args    args
-// 		wantErr bool
-// 		errs    redisErrors
-// 	}{
-// 		{
-// 			"create event trigger for multiple pipelines",
-// 			args{
-// 				event:     "uri:test",
-// 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
-// 			},
-// 			false,
-// 			redisErrors{false, false, false, false},
-// 		},
-// 		{
-// 			"create event trigger for non-existing pipeline",
-// 			args{
-// 				event:     "uri:test",
-// 				pipelines: []string{"non-existing-pipeline", "owner:repo:test"},
-// 			},
-// 			true,
-// 			redisErrors{false, false, false, false},
-// 		},
-// 		{
-// 			"fail start transaction",
-// 			args{
-// 				event:     "uri:test",
-// 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
-// 			},
-// 			true,
-// 			redisErrors{true, false, false, false},
-// 		},
-// 		{
-// 			"fail adding pipeline to Triggers map",
-// 			args{
-// 				event:     "uri:test",
-// 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
-// 			},
-// 			true,
-// 			redisErrors{false, true, false, false},
-// 		},
-// 		{
-// 			"fail adding events to Pipelines map",
-// 			args{
-// 				event:     "uri:test",
-// 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
-// 			},
-// 			true,
-// 			redisErrors{false, false, true, false},
-// 		},
-// 		{
-// 			"fail exec transaction",
-// 			args{
-// 				event:     "uri:test",
-// 				pipelines: []string{"owner:repo:test:1", "owner:repo:test:2"},
-// 			},
-// 			true,
-// 			redisErrors{false, false, false, true},
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			mock := codefresh.NewCodefreshMockEndpoint()
-// 			r := &RedisStore{
-// 				redisPool:   &RedisPoolMock{},
-// 				pipelineSvc: mock,
-// 			}
-// 			// expect Redis transaction open
-// 			var params []interface{}
-// 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
-// 			if tt.errs.multi {
-// 				cmd.ExpectError(errors.New("MULTI error"))
-// 				goto Invoke
-// 			} else {
-// 				cmd.Expect("OK!")
-// 			}
-// 			// add pipeline to event(s)
-// 			for _, pipeline := range tt.args.pipelines {
-// 				// mock Codefresh API call
-// 				if pipeline == "non-existing-pipeline" {
-// 					mock.On("CheckPipelineExists", pipeline).Return(false, codefresh.ErrPipelineNotFound)
-// 					goto Invoke
-// 				} else {
-// 					mock.On("CheckPipelineExists", pipeline).Return(true, nil)
-// 				}
-// 				// add events to the Pipelines map
-// 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getPipelineKey(pipeline), 0, tt.args.event)
-// 				if tt.errs.zadd1 {
-// 					cmd.ExpectError(errors.New("ZADD error"))
-// 					goto EndTransaction
-// 				}
-// 			}
-// 			// add events to the Pipelines map
-// 			params = []interface{}{getTriggerKey(tt.args.event), 0}
-// 			params = append(params, util.InterfaceSlice(tt.args.pipelines)...)
-// 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", params...)
-// 			if tt.errs.zadd2 {
-// 				cmd.ExpectError(errors.New("ZADD error"))
-// 			}
+			// add pipeline to the Triggers map
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.args.account, tt.args.event), tt.args.pipeline)
+			if tt.errs.zadd2 {
+				cmd.ExpectError(errors.New("ZADD error"))
+			}
 
-// 		EndTransaction:
-// 			// discard transaction on error
-// 			if tt.wantErr && !tt.errs.exec {
-// 				// expect transaction discard on error
-// 				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
-// 			} else {
-// 				// expect Redis transaction exec
-// 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
-// 				if tt.errs.exec {
-// 					cmd.ExpectError(errors.New("EXEC error"))
-// 				} else {
-// 					cmd.Expect("OK!")
-// 				}
-// 			}
+		EndTransaction:
+			// discard transaction on error
+			if tt.wantErr && !tt.errs.exec {
+				// expect transaction discard on error
+				r.redisPool.GetConn().(*redigomock.Conn).Command("DISCARD").Expect("OK!")
+			} else {
+				// expect Redis transaction exec
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXEC")
+				if tt.errs.exec {
+					cmd.ExpectError(errors.New("EXEC error"))
+				} else {
+					cmd.Expect("OK!")
+				}
+			}
 
-// 		Invoke:
-// 			if err := r.CreateTriggersForEvent(tt.args.event, tt.args.pipelines); (err != nil) != tt.wantErr {
-// 				t.Errorf("RedisStore.CreateTriggersForEvent() error = %v, wantErr %v", err, tt.wantErr)
-// 			}
-// 			// assert mock
-// 			mock.AssertExpectations(t)
-// 		})
-// 	}
-// }
+		Invoke:
+			if err := r.CreateTrigger(setContext(tt.args.account), tt.args.event, tt.args.pipeline); (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.CreateTriggersForEvent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			// assert mock
+			mock.AssertExpectations(t)
+		})
+	}
+}
 
 func TestRedisStore_GetEventTriggers(t *testing.T) {
 	type redisErrors struct {
@@ -1306,6 +1226,8 @@ func TestRedisStore_GetEvents(t *testing.T) {
 
 func TestRedisStore_DeleteEvent(t *testing.T) {
 	type redisErrors struct {
+		exists     bool
+		hget       bool
 		multi      bool
 		zrange     bool
 		delEvent   bool
@@ -1332,36 +1254,84 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 	}{
 		{
 			name: "delete existing trigger event",
-			args: args{account: model.PublicAccount, event: "uri:test:" + model.PublicAccountHash},
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			expected: expected{
+				account: model.PublicAccount,
+			},
 		},
 		{
-			name:     "delete existing private trigger event",
-			args:     args{event: "uri:test:" + model.CalculateAccountHash("A"), account: "A"},
-			expected: expected{account: "A"},
+			name: "delete existing private trigger event",
+			args: args{
+				event:   "uri:test:" + model.CalculateAccountHash("A"),
+				account: "A",
+			},
+			expected: expected{
+				account: "A",
+			},
 		},
 		{
-			name:     "error deleting existing private trigger event",
-			args:     args{event: "uri:test:" + model.CalculateAccountHash("A"), account: "A"},
-			expected: expected{account: "B"},
-			wantErr:  model.ErrEventNotFound,
+			name: "error deleting existing private trigger event",
+			args: args{
+				event:   "uri:test:" + model.CalculateAccountHash("A"),
+				account: "A",
+			},
+			expected: expected{
+				account: "B",
+			},
+			wantErr: model.ErrEventNotFound,
 		},
 		{
 			name: "try to delete existing trigger event linked to pipelines",
-			args: args{account: model.PublicAccount, event: "uri:test:" + model.PublicAccountHash},
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
 			expected: expected{
+				account:   model.PublicAccount,
 				pipelines: []string{"p1", "p2", "p3"},
 			},
 			wantErr: model.ErrEventDeleteWithTriggers,
 		},
 		{
-			name:      "try deleting event with invalid key",
-			args:      args{event: "bad-key"},
+			name: "try deleting event with invalid key",
+			args: args{
+				account: "test-account",
+				event:   "bad-key",
+			},
 			notExists: true,
 			wantErr:   model.ErrEventNotFound,
 		},
 		{
-			name:    "zrange error",
-			args:    args{event: "uri:test"},
+			name: "exists error",
+			args: args{
+				account: "test-account",
+				event:   "uri:test",
+			},
+			notExists: true,
+			wantErr:   errors.New("REDIS error"),
+			errs:      redisErrors{exists: true},
+		},
+		{
+			name: "hget error",
+			args: args{
+				account: "test-account",
+				event:   "uri:test",
+			},
+			wantErr: errors.New("REDIS error"),
+			errs:    redisErrors{hget: true},
+		},
+		{
+			name: "zrange error",
+			args: args{
+				account: "test-account",
+				event:   "uri:test",
+			},
+			expected: expected{
+				account: "test-account",
+			},
 			wantErr: errors.New("REDIS error"),
 			errs:    redisErrors{zrange: true},
 		},
@@ -1403,17 +1373,24 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			// check existence
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", eventKey)
 			if tt.notExists {
-				cmd.Expect(int64(0))
+				if tt.errs.exists {
+					cmd.ExpectError(tt.wantErr)
+				} else {
+					cmd.Expect(int64(0))
+				}
 				goto Invoke
 			} else {
 				cmd.Expect(int64(1))
 			}
 			// get account
-			if tt.args.account != "" {
-				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", eventKey, "account").Expect(tt.expected.account)
-				if tt.anotherAccount {
-					goto Invoke
-				}
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", eventKey, "account")
+			if tt.errs.hget {
+				cmd.ExpectError(tt.wantErr)
+			} else {
+				cmd.Expect(tt.expected.account)
+			}
+			if tt.anotherAccount {
+				goto Invoke
 			}
 			// get trigger event pipelines
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", triggerKey, 0, -1)

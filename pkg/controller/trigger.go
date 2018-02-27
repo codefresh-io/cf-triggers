@@ -63,37 +63,36 @@ func (c *TriggerController) ListPipelineTriggers(ctx *gin.Context) {
 	}
 }
 
-// LinkEvent create triggers, adding multiple pipelines to the trigger event
-func (c *TriggerController) LinkEvent(ctx *gin.Context) {
+// CreateTrigger create triggers, adding multiple pipelines to the trigger event
+func (c *TriggerController) CreateTrigger(ctx *gin.Context) {
 	// trigger event (event-uri)
 	event := getParam(ctx, "event")
-	// get pipelines from body
-	var pipelines []string
-	ctx.Bind(&pipelines)
+	// get pipeline
+	pipeline := ctx.Param("pipeline")
 	// perform action
-	if err := c.trigger.CreateTriggersForEvent(event, pipelines); err != nil {
+	if err := c.trigger.CreateTrigger(getContext(ctx), event, pipeline); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, ErrorResult{status, "failed to link trigger event to the pipelines", err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to create trigger: event <-> pipeline", err.Error()})
 	} else {
 		ctx.Status(http.StatusOK)
 	}
 }
 
-// UnlinkEvent delete pipeline from trigger
-func (c *TriggerController) UnlinkEvent(ctx *gin.Context) {
+// DeleteTrigger delete pipeline from trigger
+func (c *TriggerController) DeleteTrigger(ctx *gin.Context) {
 	// get trigger event (event-uri)
 	event := getParam(ctx, "event")
 	// get pipeline
 	pipeline := ctx.Param("pipeline")
-	if err := c.trigger.DeleteTriggersForPipeline(pipeline, []string{event}); err != nil {
+	if err := c.trigger.DeleteTrigger(getContext(ctx), event, pipeline); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
 		}
-		ctx.JSON(status, ErrorResult{status, "failed to unlink pipeline from trigger event", err.Error()})
+		ctx.JSON(status, ErrorResult{status, "failed to delete trigger: event <-X-> pipeline", err.Error()})
 	} else {
 		ctx.Status(http.StatusOK)
 	}

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
+	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/urfave/cli"
 )
 
@@ -41,8 +43,9 @@ func runTrigger(c *cli.Context) error {
 		vars[kv[0]] = kv[1]
 	}
 
-	// get trigger pipelines
-	pipelines, err := triggerReaderWriter.GetPipelinesForTriggers([]string{c.Args().First()}, "")
+	// get trigger pipelines for specified event (skip account check)
+	ctx := context.WithValue(context.Background(), model.ContextKeyAccount, "-")
+	pipelines, err := triggerReaderWriter.GetTriggerPipelines(ctx, c.Args().First())
 	if err != nil {
 		return err
 	}

@@ -76,8 +76,8 @@ func runServer(c *cli.Context) error {
 		triggersAPI.Handle("GET", "/", triggerController.ListTriggers)
 		triggersAPI.Handle("GET", "/:event", triggerController.ListEventTriggers)
 		triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.ListPipelineTriggers)
-		triggersAPI.Handle("POST", "/:event", triggerController.LinkEvent)
-		triggersAPI.Handle("DELETE", "/:event", triggerController.UnlinkEvent)
+		triggersAPI.Handle("POST", "/:event", triggerController.CreateTrigger)
+		triggersAPI.Handle("DELETE", "/:event", triggerController.DeleteTrigger)
 	}
 
 	// list trigger types

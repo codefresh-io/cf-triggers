@@ -37,10 +37,9 @@ type (
 		// triggers
 		GetEventTriggers(ctx context.Context, event string) ([]Trigger, error)
 		GetPipelineTriggers(ctx context.Context, pipeline string) ([]Trigger, error)
-		CreateTriggersForEvent(event string, pipelines []string) error
-		DeleteTriggersForEvent(event string, pipelines []string) error
-		GetPipelinesForTriggers(events []string, account string) ([]string, error)
-		DeleteTriggersForPipeline(pipeline string, events []string) error
+		DeleteTrigger(ctx context.Context, event, pipeline string) error
+		CreateTrigger(ctx context.Context, event, pipeline string) error
+		GetTriggerPipelines(ctx context.Context, event string) ([]string, error)
 	}
 
 	// Runner pipeline runner

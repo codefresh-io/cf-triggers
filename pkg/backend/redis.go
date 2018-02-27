@@ -157,7 +157,8 @@ func getPrefixKey(prefix, id string) string {
 func getAccountSuffixKey(account, id string) string {
 	suffix := model.CalculateAccountHash(account)
 	// if id already has private ot public account suffix, return it as is
-	if strings.HasSuffix(id, suffix) || strings.HasSuffix(id, model.PublicAccountHash) {
+	// also skip adding suffix to id for "-" account
+	if account == "-" || strings.HasSuffix(id, suffix) || strings.HasSuffix(id, model.PublicAccountHash) {
 		return id
 	}
 	return fmt.Sprintf("%s:%s", id, suffix)
@@ -278,41 +279,43 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string) (
 	return triggers, nil
 }
 
-// DeleteTriggersForPipeline delete trigger: unlink multiple events from pipeline
-func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string) error {
+// DeleteTrigger delete trigger: unlink event from pipeline
+func (r *RedisStore) DeleteTrigger(ctx context.Context, event, pipeline string) error {
+	account := getAccount(ctx)
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
-		"pipeline":     pipeline,
-		"event-uri(s)": events,
-	}).Debug("Deleting triggers for pipeline")
+		"pipeline": pipeline,
+		"event":    event,
+		"account":  account,
+	}).Debug("deleting trigger")
+
+	// check event account match: public or private
+	if !model.MatchPublicAccount(event) && !model.MatchAccount(account, event) {
+		return model.ErrTriggerNotFound
+	}
+
+	// check Codefresh pipeline match; ignore all errors beside "no match"
+	_, err := r.pipelineSvc.GetPipeline(account, pipeline)
+	if err == codefresh.ErrPipelineNoMatch {
+		log.WithError(err).Error("attempt to remove pipeline from another account")
+		return err
+	}
 
 	// start Redis transaction
-	_, err := con.Do("MULTI")
+	_, err = con.Do("MULTI")
 	if err != nil {
-		log.WithError(err).Error("Failed to start Redis transaction")
+		log.WithError(err).Error("failed to start Redis transaction")
 		return err
 	}
 
 	// remove pipeline from Triggers
-	for _, event := range events {
-		log.WithFields(log.Fields{
-			"event-uri": event,
-			"pipeline":  pipeline,
-		}).Debug("Removing pipeline from the Triggers")
-		_, err = con.Do("ZREM", getTriggerKey("TODO", event), pipeline)
-		if err != nil {
-			return discardOnError(con, err)
-		}
+	_, err = con.Do("ZREM", getTriggerKey(account, event), pipeline)
+	if err != nil {
+		return discardOnError(con, err)
 	}
 
 	// remove trigger(s) from Pipelines
-	log.WithFields(log.Fields{
-		"pipeline":     pipeline,
-		"event-uri(s)": events,
-	}).Debug("Removing triggers from the Pipelines")
-	params := []interface{}{getPipelineKey(pipeline)}
-	params = append(params, util.InterfaceSlice(events)...)
-	_, err = con.Do("ZREM", params...)
+	_, err = con.Do("ZREM", getPipelineKey(pipeline), event)
 	if err != nil {
 		return discardOnError(con, err)
 	}
@@ -325,93 +328,42 @@ func (r *RedisStore) DeleteTriggersForPipeline(pipeline string, events []string)
 	return err
 }
 
-// DeleteTriggersForEvent delete trigger: unlink multiple pipelines from event
-func (r *RedisStore) DeleteTriggersForEvent(event string, pipelines []string) error {
+// CreateTrigger create trigger: link event <-> multiple pipelines
+func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string) error {
+	account := getAccount(ctx)
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
-		"event-uri":   event,
-		"pipeline(s)": pipelines,
-	}).Debug("Deleting triggers for event")
-
-	// start Redis transaction
-	_, err := con.Do("MULTI")
-	if err != nil {
-		log.WithError(err).Error("Failed to start Redis transaction")
-		return err
-	}
-
-	// remove event from Pipelines
-	for _, pipeline := range pipelines {
-		log.WithFields(log.Fields{
-			"event-uri": event,
-			"pipeline":  pipeline,
-		}).Debug("Removing event from the Pipelines")
-		_, err = con.Do("ZREM", getPipelineKey(pipeline), event)
-		if err != nil {
-			return discardOnError(con, err)
-		}
-	}
-
-	// remove trigger(s) from Triggers
-	log.WithFields(log.Fields{
-		"event-uri":    event,
-		"pipelines(s)": pipelines,
-	}).Debug("Removing triggers from the Triggers")
-	params := []interface{}{getTriggerKey("TODO", event)}
-	params = append(params, util.InterfaceSlice(pipelines)...)
-	_, err = con.Do("ZREM", params...)
-	if err != nil {
-		return discardOnError(con, err)
-	}
-
-	// submit transaction
-	_, err = con.Do("EXEC")
-	if err != nil {
-		log.WithError(err).Error("Failed to execute transaction")
-	}
-	return err
-}
-
-// CreateTriggersForEvent create trigger: link event <-> multiple pipelines
-func (r *RedisStore) CreateTriggersForEvent(event string, pipelines []string) error {
-	con := r.redisPool.GetConn()
-	log.WithFields(log.Fields{
-		"event-uri": event,
-		"pipelines": pipelines,
+		"event":    event,
+		"pipeline": pipeline,
+		"account":  account,
 	}).Debug("Creating triggers")
 
-	// start Redis transaction
-	_, err := con.Do("MULTI")
+	// check event account match: public or private
+	if !model.MatchPublicAccount(event) && !model.MatchAccount(account, event) {
+		return model.ErrTriggerNotFound
+	}
+
+	// check Codefresh pipeline existence
+	_, err := r.pipelineSvc.GetPipeline(account, pipeline)
 	if err != nil {
-		log.WithError(err).Error("Failed to start Redis transaction")
 		return err
 	}
 
-	for _, pipeline := range pipelines {
-		// check Codefresh pipeline existence
-		_, err = r.pipelineSvc.CheckPipelineExists(pipeline)
-		if err != nil {
-			return discardOnError(con, err)
-		}
-
-		// add trigger to Pipelines
-		log.WithFields(log.Fields{
-			"pipeline":  pipeline,
-			"event-uri": event,
-		}).Debug("Adding trigger to Pipelines")
-		_, err = con.Do("ZADD", getPipelineKey(pipeline), 0, event)
-		if err != nil {
-			return discardOnError(con, err)
-		}
+	// start Redis transaction
+	_, err = con.Do("MULTI")
+	if err != nil {
+		log.WithError(err).Error("failed to start Redis transaction")
+		return err
 	}
-	// add pipelines to Triggers
-	log.WithFields(log.Fields{
-		"event-uri": event,
-		"pipelines": pipelines,
-	}).Debug("Adding pipeline to the Triggers")
-	params := []interface{}{getTriggerKey("TODO", event), 0}
-	params = append(params, util.InterfaceSlice(pipelines)...)
-	_, err = con.Do("ZADD", params...)
+
+	// add trigger to Pipelines
+	_, err = con.Do("ZADD", getPipelineKey(pipeline), 0, event)
+	if err != nil {
+		return discardOnError(con, err)
+	}
+
+	// add pipeline to Triggers
+	_, err = con.Do("ZADD", getTriggerKey(account, event), pipeline)
 	if err != nil {
 		return discardOnError(con, err)
 	}
@@ -419,59 +371,34 @@ func (r *RedisStore) CreateTriggersForEvent(event string, pipelines []string) er
 	// submit transaction
 	_, err = con.Do("EXEC")
 	if err != nil {
-		log.WithError(err).Error("Failed to execute transaction")
+		log.WithError(err).Error("failed to execute transaction")
 	}
 	return err
 }
 
-// GetPipelinesForTriggers get pipelines that have trigger defined
+// GetTriggerPipelines get pipelines that have trigger defined
 // can be filtered by event-uri(s)
-func (r *RedisStore) GetPipelinesForTriggers(events []string, account string) ([]string, error) {
+func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string) ([]string, error) {
+	account := getAccount(ctx)
 	con := r.redisPool.GetConn()
 
-	// accumulator array
-	var all []string
-
-	// scan through all events
-	for _, event := range events {
-		log.WithFields(log.Fields{
-			"event-uri": event,
-			"account":   account,
-		}).Debug("Getting pipelines for trigger filter")
-		// handle account
-		if account != "" {
-			// get account from trigger event
-			a, err := con.Do("HGET", getTriggerKey("TODO", event), "account")
-			if err != nil && err != redis.ErrNil {
-				log.WithError(err).Error("failed to get pipelines")
-				return nil, err
-			}
-			// if this is a private trigger event -> compare accounts
-			if a != "" {
-				if account != a {
-					log.Error("trigger event account does not match")
-					return nil, model.ErrEventNotFound
-				}
-			}
-		}
-		// get pipelines from Trigger Set
-		pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey("TODO", event), 0, -1))
-		if err != nil && err != redis.ErrNil {
-			log.WithError(err).Error("Failed to get pipelines")
-			return nil, err
-		} else if err == redis.ErrNil {
-			log.Warning("No trigger found")
-			return nil, model.ErrTriggerNotFound
-		}
-		if len(pipelines) == 0 {
-			log.Warning("No pipelines found")
-			return nil, model.ErrPipelineNotFound
-		}
-		// aggregate pipelines
-		all = util.MergeStrings(all, pipelines)
+	log.WithFields(log.Fields{
+		"event":   event,
+		"account": account,
+	}).Debug("getting pipelines for trigger event")
+	// get pipelines from Triggers
+	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(account, event), 0, -1))
+	if err != nil && err != redis.ErrNil {
+		log.WithError(err).Error("failed to get pipelines")
+		return nil, err
+	} else if err == redis.ErrNil {
+		return nil, model.ErrTriggerNotFound
+	}
+	if len(pipelines) == 0 {
+		return nil, model.ErrPipelineNotFound
 	}
 
-	return all, nil
+	return pipelines, nil
 }
 
 // CreateEvent new trigger event
@@ -652,22 +579,20 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 		log.WithError(err).Error("failed to check trigger event existence")
 		return err
 	}
-	if n != 1 {
+	if n == 0 {
 		log.Error("trigger event key does not exist")
 		return model.ErrEventNotFound
 	}
 	// check trigger event account vs passed account; skip 'public' events
-	if account != "" {
-		a, err := redis.String(con.Do("HGET", eventKey, "account"))
-		if err != nil && err != redis.ErrNil {
-			log.WithError(err).Error("failed to get trigger event account")
-			return err
-		}
-		// if not public and belongs to different account - return not exists error
-		if a != "" && a != account {
-			log.Error("trigger event account does not match")
-			return model.ErrEventNotFound
-		}
+	a, err := redis.String(con.Do("HGET", eventKey, "account"))
+	if err != nil && err != redis.ErrNil {
+		log.WithError(err).Error("failed to get trigger event account")
+		return err
+	}
+	// if not public and belongs to different account - return not exists error
+	if a != model.PublicAccount && a != account {
+		log.Error("trigger event account does not match")
+		return model.ErrEventNotFound
 	}
 
 	// TODO: get credentials from Codefresh context

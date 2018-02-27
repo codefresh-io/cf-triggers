@@ -87,3 +87,14 @@ func CalculateAccountHash(account string) string {
 	runes := []rune(hex)
 	return string(runes[0:12])
 }
+
+// MatchAccount match account for passed uri
+func MatchAccount(account, uri string) bool {
+	hash := CalculateAccountHash(account)
+	return strings.HasSuffix(uri, hash)
+}
+
+// MatchPublicAccount match public account for passed uri
+func MatchPublicAccount(uri string) bool {
+	return strings.HasSuffix(uri, PublicAccountHash)
+}
