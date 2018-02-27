@@ -48,7 +48,7 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 	{
 		eventsAPI.Handle("GET", "/", eventController.ListEvents)
 		eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
-		eventsAPI.Handle("DELETE", "/event/:event/*context", eventController.DeleteEvent)
+		eventsAPI.Handle("DELETE", "/:event/*context", eventController.DeleteEvent)
 		eventsAPI.Handle("POST", "/", eventController.CreateEvent)
 	}
 
