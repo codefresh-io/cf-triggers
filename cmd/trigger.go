@@ -36,14 +36,28 @@ var triggerCommand = cli.Command{
 			Action:      listTriggers,
 		},
 		{
-			Name:        "create",
+			Name: "create",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "account",
+					Usage: "Codefresh account ID",
+					Value: model.PublicAccount,
+				},
+			},
 			Usage:       "create trigger",
 			ArgsUsage:   "<event-uri> <pipeline>",
 			Description: "Create a new trigger, linking the trigger event to the specified pipeline",
 			Action:      createTrigger,
 		},
 		{
-			Name:        "delete",
+			Name: "delete",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "account",
+					Usage: "Codefresh account ID",
+					Value: model.PublicAccount,
+				},
+			},
 			Usage:       "delete trigger",
 			ArgsUsage:   "<event-uri> <pipeline>",
 			Description: "Delete trigger, by removing link between the trigger event and the specified pipeline",
