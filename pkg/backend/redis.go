@@ -540,14 +540,13 @@ func (r *RedisStore) GetEvents(ctx context.Context, eventType, kind, filter stri
 		"account": account,
 		"filter":  filter,
 	}).Debug("Getting trigger events")
-	// get all events URIs
+	// get all events URIs for account
 	uris, err := redis.Strings(con.Do("KEYS", getEventKey(account, filter)))
 	if err != nil {
-		log.WithError(err).Error("Failed to get trigger events")
+		log.WithError(err).Error("failed to get trigger events")
 		return nil, err
 	}
 	// scan through all events and select matching to non-empty type and kind
-	// and matching account or all public events
 	events := make([]model.Event, 0)
 	for _, uri := range uris {
 		event, err := r.GetEvent(ctx, uri)

@@ -59,8 +59,8 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 		triggersAPI.Handle("GET", "/", triggerController.ListTriggers)
 		triggersAPI.Handle("GET", "/event/:event", triggerController.ListEventTriggers)
 		triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.ListPipelineTriggers)
-		triggersAPI.Handle("POST", "/:event", triggerController.CreateTrigger)
-		triggersAPI.Handle("DELETE", "/:event", triggerController.DeleteTrigger)
+		triggersAPI.Handle("POST", "/:event/:pipeline", triggerController.CreateTrigger)
+		triggersAPI.Handle("DELETE", "/:event/:pipeline", triggerController.DeleteTrigger)
 	}
 
 	// list trigger types
