@@ -6,7 +6,6 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 )
 
 // TriggerEventController trigger controller
@@ -32,7 +31,7 @@ func (c *TriggerEventController) GetEvents(ctx *gin.Context) {
 	}
 
 	// list trigger events, optionally filtered by type/kind and event uri filter
-	if events, err := c.svc.GetEvents(getContext(ctx), eventType, kind, filter); err != nil {
+	if events, err := c.svc.GetEvents(actionContext, eventType, kind, filter); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
@@ -72,7 +71,6 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 	// for public event create new context
 	actionContext := getContext(ctx)
 	if ctx.Query("public") == "true" {
-		log.Debug("setting public context from query")
 		actionContext = context.WithValue(actionContext, model.ContextKeyPublic, true)
 	}
 
