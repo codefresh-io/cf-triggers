@@ -1060,38 +1060,52 @@ func TestRedisStore_GetEvent(t *testing.T) {
 }
 
 func TestRedisStore_GetEvents(t *testing.T) {
+	type Errors struct {
+		keys       bool
+		pubKeys    bool
+		pubKeysNil bool
+		exists     bool
+		hgetall    bool
+	}
 	type expect struct {
-		keys   []string
-		fields []map[string]string
+		keys    []string
+		pubKeys []string
+		fields  []map[string]string
 	}
 	type args struct {
 		eventType string
 		kind      string
 		account   string
 		filter    string
+		public    bool
 	}
 	tests := []struct {
 		name    string
 		args    args
 		expect  expect
 		want    []model.Event
+		errs    Errors
 		wantErr bool
 	}{
 		{
 			name: "get all trigger events",
-			args: args{},
+			args: args{account: "A"},
 			expect: expect{
-				keys: []string{"uri:1", "uri:2", "uri:3"},
+				keys: []string{
+					"uri:1:" + model.CalculateAccountHash("A"),
+					"uri:2:" + model.CalculateAccountHash("A"),
+					"uri:3:" + model.CalculateAccountHash("A"),
+				},
 				fields: []map[string]string{
-					{"type": "t1", "kind": "k1", "secret": "s1"},
-					{"type": "t2", "kind": "k2", "secret": "s2"},
-					{"type": "t3", "kind": "k3", "secret": "s3"},
+					{"type": "t1", "kind": "k1", "secret": "s1", "account": "A"},
+					{"type": "t2", "kind": "k2", "secret": "s2", "account": "A"},
+					{"type": "t3", "kind": "k3", "secret": "s3", "account": "A"},
 				},
 			},
 			want: []model.Event{
-				{URI: "uri:1", Type: "t1", Kind: "k1", Secret: "s1"},
-				{URI: "uri:2", Type: "t2", Kind: "k2", Secret: "s2"},
-				{URI: "uri:3", Type: "t3", Kind: "k3", Secret: "s3"},
+				{URI: "uri:1:" + model.CalculateAccountHash("A"), Type: "t1", Kind: "k1", Secret: "s1", Account: "A"},
+				{URI: "uri:2:" + model.CalculateAccountHash("A"), Type: "t2", Kind: "k2", Secret: "s2", Account: "A"},
+				{URI: "uri:3:" + model.CalculateAccountHash("A"), Type: "t3", Kind: "k3", Secret: "s3", Account: "A"},
 			},
 		},
 		{
@@ -1112,24 +1126,48 @@ func TestRedisStore_GetEvents(t *testing.T) {
 		},
 		{
 			name: "get trigger events by account and public",
-			args: args{account: "A"},
+			args: args{account: "A", public: true},
 			expect: expect{
 				keys: []string{
 					"uri:1:" + model.CalculateAccountHash("A"),
 					"uri:2:" + model.CalculateAccountHash("A"),
+				},
+				pubKeys: []string{
 					"uri:3:" + model.PublicAccountHash,
+					"uri:4:" + model.PublicAccountHash,
 				},
 				fields: []map[string]string{
 					{"type": "t1", "kind": "k1", "secret": "s1", "account": "A"},
 					{"type": "t1", "kind": "k2", "secret": "s2", "account": "A"},
 					{"type": "t2", "kind": "k3", "secret": "s3", "account": model.PublicAccount},
+					{"type": "t3", "kind": "k2", "secret": "s4", "account": model.PublicAccount},
 				},
 			},
 			want: []model.Event{
 				{URI: "uri:1:" + model.CalculateAccountHash("A"), Type: "t1", Kind: "k1", Secret: "s1", Account: "A"},
 				{URI: "uri:2:" + model.CalculateAccountHash("A"), Type: "t1", Kind: "k2", Secret: "s2", Account: "A"},
 				{URI: "uri:3:" + model.PublicAccountHash, Type: "t2", Kind: "k3", Secret: "s3", Account: model.PublicAccount},
+				{URI: "uri:4:" + model.PublicAccountHash, Type: "t3", Kind: "k2", Secret: "s4", Account: model.PublicAccount},
 			},
+		},
+		{
+			name: "get trigger events by account and public empty",
+			args: args{account: "A", public: true},
+			expect: expect{
+				keys: []string{
+					"uri:1:" + model.CalculateAccountHash("A"),
+					"uri:2:" + model.CalculateAccountHash("A"),
+				},
+				fields: []map[string]string{
+					{"type": "t1", "kind": "k1", "secret": "s1", "account": "A"},
+					{"type": "t1", "kind": "k2", "secret": "s2", "account": "A"},
+				},
+			},
+			want: []model.Event{
+				{URI: "uri:1:" + model.CalculateAccountHash("A"), Type: "t1", Kind: "k1", Secret: "s1", Account: "A"},
+				{URI: "uri:2:" + model.CalculateAccountHash("A"), Type: "t1", Kind: "k2", Secret: "s2", Account: "A"},
+			},
+			errs: Errors{pubKeysNil: true},
 		},
 		{
 			name: "get trigger events by filter",
@@ -1185,6 +1223,53 @@ func TestRedisStore_GetEvents(t *testing.T) {
 			name:    "keys error",
 			args:    args{},
 			expect:  expect{},
+			errs:    Errors{keys: true},
+			wantErr: true,
+		},
+		{
+			name:    "public keys error",
+			args:    args{account: "A", public: true},
+			expect:  expect{},
+			errs:    Errors{pubKeys: true},
+			wantErr: true,
+		},
+		{
+			name: "public keys Nil error",
+			args: args{account: "test-account", public: true},
+			expect: expect{
+				keys: []string{
+					"uri:1:" + model.CalculateAccountHash("test-account"),
+				},
+				fields: []map[string]string{
+					{"type": "t1", "kind": "k1", "secret": "s1", "account": "test-account"},
+				},
+			},
+			want: []model.Event{
+				{URI: "uri:1:" + model.CalculateAccountHash("test-account"), Type: "t1", Kind: "k1", Secret: "s1", Account: "test-account"},
+			},
+			errs:    Errors{pubKeysNil: true},
+			wantErr: false,
+		},
+		{
+			name: "exists error",
+			args: args{account: "test-account"},
+			expect: expect{
+				keys: []string{
+					"uri:1:" + model.CalculateAccountHash("test-account"),
+				},
+			},
+			errs:    Errors{exists: true},
+			wantErr: true,
+		},
+		{
+			name: "hgetall error",
+			args: args{account: "test-account"},
+			expect: expect{
+				keys: []string{
+					"uri:1:" + model.CalculateAccountHash("test-account"),
+				},
+			},
+			errs:    Errors{hgetall: true},
 			wantErr: true,
 		},
 	}
@@ -1193,26 +1278,54 @@ func TestRedisStore_GetEvents(t *testing.T) {
 			r := &RedisStore{
 				redisPool: &RedisPoolMock{},
 			}
+			// keys includes both private and public keys
+			keys := append(tt.expect.keys, tt.expect.pubKeys...)
 			// mock getting trigger event keys
 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getEventKey(tt.args.account, tt.args.filter))
-			if tt.wantErr {
+			if tt.errs.keys {
 				cmd.ExpectError(errors.New("KEYS error"))
 				goto Invoke
 			} else {
 				cmd.Expect(util.InterfaceSlice(tt.expect.keys))
 			}
+			// add public keys
+			if tt.args.public {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("KEYS", getEventKey(model.PublicAccount, tt.args.filter))
+				if tt.errs.pubKeys {
+					cmd.ExpectError(errors.New("Public KEYS error"))
+					goto Invoke
+				} else if tt.errs.pubKeysNil {
+					cmd.ExpectError(redis.ErrNil)
+				} else {
+					cmd.Expect(util.InterfaceSlice(tt.expect.pubKeys))
+				}
+			}
 			// mock scanning trough all trigger events
-			for i, k := range tt.expect.keys {
+			for i, k := range keys {
 				eventKey := getEventKey(tt.args.account, k)
 				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", eventKey)
-				cmd.Expect(int64(1))
+				if tt.errs.exists {
+					cmd.Expect(int64(0))
+					goto Invoke
+				} else {
+					cmd.Expect(int64(1))
+				}
 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", eventKey)
-				cmd.ExpectMap(tt.expect.fields[i])
+				if tt.errs.hgetall {
+					cmd.ExpectError(errors.New("HGETALL error"))
+					goto Invoke
+				} else {
+					cmd.ExpectMap(tt.expect.fields[i])
+				}
 			}
 
 			// invoke
 		Invoke:
-			got, err := r.GetEvents(setContext(tt.args.account), tt.args.eventType, tt.args.kind, tt.args.filter)
+			ctx := setContext(tt.args.account)
+			if tt.args.public {
+				ctx = context.WithValue(ctx, model.ContextKeyPublic, true)
+			}
+			got, err := r.GetEvents(ctx, tt.args.eventType, tt.args.kind, tt.args.filter)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.GetEvents() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1478,6 +1591,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		kind      string
 		secret    string
 		account   string
+		public    bool
 		context   string
 		values    map[string]string
 	}
@@ -1492,7 +1606,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 	}{
 		{
 			name: "create public event",
-			args: args{account: model.PublicAccount, eventType: "type", kind: "kind", secret: "XXX"},
+			args: args{account: "A", public: true, eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test:" + model.PublicAccountHash,
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -1667,10 +1781,14 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 				redisPool:     &RedisPoolMock{},
 				eventProvider: mock,
 			}
+			account := tt.args.account
+			if tt.args.public {
+				account = model.PublicAccount
+			}
 			// prepare key
 			eventKey := getEventKey(tt.args.account, tt.expected.eventURI)
 			// mock EventProvider calls
-			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, tt.args.account, tt.args.values)
+			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, account, tt.args.values)
 			if tt.wantEventErr.uri != nil {
 				call.Return("", tt.wantEventErr.uri)
 				goto Invoke
@@ -1716,12 +1834,10 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 				goto EndTransaction
 			}
 			// store Event account
-			if tt.args.account != "" {
-				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", eventKey, "account", tt.args.account)
-				if tt.errs.hsetnxAccount {
-					cmd.ExpectError(errors.New("HSETNX error"))
-					goto EndTransaction
-				}
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", eventKey, "account", account)
+			if tt.errs.hsetnxAccount {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
 			}
 			// store Event secret
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", eventKey, "secret", tt.args.secret)
@@ -1771,7 +1887,11 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 
 		Invoke:
 			// invoke method under test
-			got, err := r.CreateEvent(setContext(tt.args.account), tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.values)
+			ctx := setContext(tt.args.account)
+			if tt.args.public {
+				ctx = context.WithValue(ctx, model.ContextKeyPublic, true)
+			}
+			got, err := r.CreateEvent(ctx, tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.values)
 			if (err != nil) != (tt.wantErr ||
 				tt.wantEventErr.info != nil ||
 				(tt.wantEventErr.subscribe != nil &&

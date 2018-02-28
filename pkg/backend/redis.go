@@ -87,6 +87,14 @@ func getAccount(ctx context.Context) string {
 	return ""
 }
 
+func getPublicFlag(ctx context.Context) bool {
+	v := ctx.Value(model.ContextKeyPublic)
+	if flag, ok := v.(bool); ok {
+		return flag
+	}
+	return false
+}
+
 // Redis connection pool
 func newPool(server string, port int, password string) *redis.Pool {
 	return &redis.Pool{
@@ -404,6 +412,12 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string) ([]s
 // CreateEvent new trigger event
 func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, context string, values map[string]string) (*model.Event, error) {
 	account := getAccount(ctx)
+	// replace account to public account for public event creation
+	public := getPublicFlag(ctx)
+	if public {
+		account = model.PublicAccount
+	}
+
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
 		"type":    eventType,
@@ -533,6 +547,7 @@ func (r *RedisStore) GetEvent(ctx context.Context, event string) (*model.Event, 
 // GetEvents get events by event type, kind and filter (can be URI or part of URI)
 func (r *RedisStore) GetEvents(ctx context.Context, eventType, kind, filter string) ([]model.Event, error) {
 	account := getAccount(ctx)
+	public := getPublicFlag(ctx)
 	con := r.redisPool.GetConn()
 	log.WithFields(log.Fields{
 		"type":    eventType,
@@ -545,6 +560,18 @@ func (r *RedisStore) GetEvents(ctx context.Context, eventType, kind, filter stri
 	if err != nil {
 		log.WithError(err).Error("failed to get trigger events")
 		return nil, err
+	}
+	// get public trigger events, if asked (through context)
+	if public {
+		// get all events URIs for account
+		publicURIs, err := redis.Strings(con.Do("KEYS", getEventKey(model.PublicAccount, filter)))
+		if err != nil && err != redis.ErrNil {
+			log.WithError(err).Error("failed to get public trigger events")
+			return nil, err
+		}
+		if len(publicURIs) > 0 {
+			uris = append(uris, publicURIs...)
+		}
 	}
 	// scan through all events and select matching to non-empty type and kind
 	events := make([]model.Event, 0)

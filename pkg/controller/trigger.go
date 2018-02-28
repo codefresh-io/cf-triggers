@@ -17,8 +17,8 @@ func NewTriggerController(trigger model.TriggerReaderWriter) *TriggerController 
 	return &TriggerController{trigger}
 }
 
-// ListEventTriggers list triggers for trigger event
-func (c *TriggerController) ListEventTriggers(ctx *gin.Context) {
+// GetEventTriggers list triggers for trigger event
+func (c *TriggerController) GetEventTriggers(ctx *gin.Context) {
 	// get event
 	event := getParam(ctx, "event")
 	// list trigger events, optionally filtered by type/kind and event uri filter
@@ -33,8 +33,8 @@ func (c *TriggerController) ListEventTriggers(ctx *gin.Context) {
 	}
 }
 
-// ListTriggers list triggers for trigger event
-func (c *TriggerController) ListTriggers(ctx *gin.Context) {
+// GetTriggers list triggers for trigger event
+func (c *TriggerController) GetTriggers(ctx *gin.Context) {
 	// list trigger events for all events
 	if triggers, err := c.trigger.GetEventTriggers(getContext(ctx), "*"); err != nil {
 		status := http.StatusInternalServerError
@@ -47,8 +47,8 @@ func (c *TriggerController) ListTriggers(ctx *gin.Context) {
 	}
 }
 
-// ListPipelineTriggers list triggers for pipeline
-func (c *TriggerController) ListPipelineTriggers(ctx *gin.Context) {
+// GetPipelineTriggers list triggers for pipeline
+func (c *TriggerController) GetPipelineTriggers(ctx *gin.Context) {
 	// get pipeline
 	pipeline := ctx.Param("pipeline")
 	// list trigger events, optionally filtered by type/kind and event uri filter

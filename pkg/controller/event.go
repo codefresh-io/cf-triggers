@@ -18,11 +18,18 @@ func NewTriggerEventController(svc model.TriggerEventReaderWriter) *TriggerEvent
 	return &TriggerEventController{svc}
 }
 
-// ListEvents get defined trigger events
-func (c *TriggerEventController) ListEvents(ctx *gin.Context) {
+// GetEvents get defined trigger events
+func (c *TriggerEventController) GetEvents(ctx *gin.Context) {
 	eventType := ctx.Query("type")
 	kind := ctx.Query("kind")
 	filter := ctx.Query("filter")
+
+	// for public event create new context
+	actionContext := getContext(ctx)
+	if ctx.Query("public") == "true" {
+		actionContext = context.WithValue(actionContext, model.ContextKeyPublic, true)
+	}
+
 	// list trigger events, optionally filtered by type/kind and event uri filter
 	if events, err := c.svc.GetEvents(getContext(ctx), eventType, kind, filter); err != nil {
 		status := http.StatusInternalServerError
@@ -54,7 +61,6 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 	type createReq struct {
 		Type    string            `json:"type"`
 		Kind    string            `json:"kind"`
-		Public  bool              `json:"public,omitempty"`
 		Secret  string            `json:"secret,omitempty"`
 		Context string            `json:"context,omitempty"`
 		Values  map[string]string `json:"values"`
@@ -64,8 +70,8 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 
 	// for public event create new context
 	actionContext := getContext(ctx)
-	if req.Public {
-		actionContext = context.WithValue(actionContext, model.ContextKeyAccount, "")
+	if ctx.Query("public") == "true" {
+		actionContext = context.WithValue(actionContext, model.ContextKeyPublic, true)
 	}
 
 	// create trigger event

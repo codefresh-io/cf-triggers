@@ -46,7 +46,7 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 	eventController := controller.NewTriggerEventController(eventReaderWriter)
 	eventsAPI := router.Group("/account/:account/events", gin.Logger())
 	{
-		eventsAPI.Handle("GET", "/", eventController.ListEvents)
+		eventsAPI.Handle("GET", "/", eventController.GetEvents)
 		eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
 		eventsAPI.Handle("DELETE", "/:event/*context", eventController.DeleteEvent)
 		eventsAPI.Handle("POST", "/", eventController.CreateEvent)
@@ -56,9 +56,9 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 	triggerController := controller.NewTriggerController(triggerReaderWriter)
 	triggersAPI := router.Group("/accounts/:account/triggers", gin.Logger())
 	{
-		triggersAPI.Handle("GET", "/", triggerController.ListTriggers)
-		triggersAPI.Handle("GET", "/event/:event", triggerController.ListEventTriggers)
-		triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.ListPipelineTriggers)
+		triggersAPI.Handle("GET", "/", triggerController.GetTriggers)
+		triggersAPI.Handle("GET", "/event/:event", triggerController.GetEventTriggers)
+		triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.GetPipelineTriggers)
 		triggersAPI.Handle("POST", "/:event/:pipeline", triggerController.CreateTrigger)
 		triggersAPI.Handle("DELETE", "/:event/:pipeline", triggerController.DeleteTrigger)
 	}

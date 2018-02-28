@@ -65,6 +65,7 @@ type (
 var (
 	ContextKeyAccount = contextKey("account")
 	ContextKeyUser    = contextKey("user")
+	ContextKeyPublic  = contextKey("public")
 )
 
 // ErrTriggerNotFound error when trigger not found

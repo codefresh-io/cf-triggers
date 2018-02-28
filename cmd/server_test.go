@@ -103,7 +103,7 @@ func TestHealthRouteCodefreshError(t *testing.T) {
 	assert.Equal(t, expectedErr, err)
 }
 
-func Test_ListTriggers(t *testing.T) {
+func Test_GetTriggers(t *testing.T) {
 	type args struct {
 		account string
 	}
