@@ -84,7 +84,7 @@ func getAccount(ctx context.Context) string {
 	if str, ok := v.(string); ok {
 		return str
 	}
-	return ""
+	return model.PublicAccount
 }
 
 func getPublicFlag(ctx context.Context) bool {
@@ -554,7 +554,8 @@ func (r *RedisStore) GetEvents(ctx context.Context, eventType, kind, filter stri
 		"kind":    kind,
 		"account": account,
 		"filter":  filter,
-	}).Debug("Getting trigger events")
+		"public":  public,
+	}).Debug("getting trigger events")
 	// get all events URIs for account
 	uris, err := redis.Strings(con.Do("KEYS", getEventKey(account, filter)))
 	if err != nil {
