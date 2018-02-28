@@ -551,7 +551,7 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 			}
 
 			// add pipeline to the Triggers map
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.args.account, tt.args.event), tt.args.pipeline)
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZADD", getTriggerKey(tt.args.account, tt.args.event), 0, tt.args.pipeline)
 			if tt.errs.zadd2 {
 				cmd.ExpectError(errors.New("ZADD error"))
 			}

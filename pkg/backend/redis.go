@@ -371,7 +371,7 @@ func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string) 
 	}
 
 	// add pipeline to Triggers
-	_, err = con.Do("ZADD", getTriggerKey(account, event), pipeline)
+	_, err = con.Do("ZADD", getTriggerKey(account, event), 0, pipeline)
 	if err != nil {
 		return discardOnError(con, err)
 	}
