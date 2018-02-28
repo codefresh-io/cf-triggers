@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"net/http"
+
+	"github.com/codefresh-io/hermes/pkg/model"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
@@ -30,71 +31,94 @@ var serverCommand = cli.Command{
 	Action:      runServer,
 }
 
+func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
+	triggerReaderWriter model.TriggerReaderWriter,
+	eventProvider provider.EventProvider,
+	runner model.Runner,
+	checker model.SecretChecker,
+	pinger model.Pinger,
+	pipelineService codefresh.PipelineService) *gin.Engine {
+	// Creates a router without any middleware by default
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	// manage trigger events
+	eventController := controller.NewTriggerEventController(eventReaderWriter)
+	eventsAPI := router.Group("/accounts/:account/events", gin.Logger())
+	{
+		eventsAPI.Handle("GET", "/", eventController.GetEvents)
+		eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
+		eventsAPI.Handle("DELETE", "/:event/*context", eventController.DeleteEvent)
+		eventsAPI.Handle("POST", "/", eventController.CreateEvent)
+	}
+
+	// manage triggers
+	triggerController := controller.NewTriggerController(triggerReaderWriter)
+	triggersAPI := router.Group("/accounts/:account/triggers", gin.Logger())
+	{
+		triggersAPI.Handle("GET", "/", triggerController.GetTriggers)
+		triggersAPI.Handle("GET", "/event/:event", triggerController.GetEventTriggers)
+		triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.GetPipelineTriggers)
+		triggersAPI.Handle("POST", "/:event/:pipeline", triggerController.CreateTrigger)
+		triggersAPI.Handle("DELETE", "/:event/:pipeline", triggerController.DeleteTrigger)
+	}
+
+	// list trigger types
+	typesController := controller.NewTriggerTypeController(eventProvider)
+	typesAPI := router.Group("/types", gin.Logger())
+	{
+		typesAPI.Handle("GET", "/", typesController.ListTypes)
+		typesAPI.Handle("GET", "/:type/:kind", typesController.GetType)
+	}
+
+	// invoke trigger with event payload
+	runAPI := router.Group("/run", gin.Logger())
+	runnerController := controller.NewRunnerController(runner, eventReaderWriter, triggerReaderWriter, checker)
+	{
+		runAPI.Handle("POST", "/:event", runnerController.RunTrigger)
+	}
+
+	// status handlers (without logging)
+	statusController := controller.NewStatusController(pinger, pipelineService)
+	{
+		router.GET("/health", statusController.GetHealth)
+		router.GET("/version", statusController.GetVersion)
+		router.GET("/ping", statusController.Ping)
+	}
+
+	return router
+}
+
 // start trigger manager server
 func runServer(c *cli.Context) error {
 	fmt.Println()
 	fmt.Println(version.ASCIILogo)
 
-	// Creates a router without any middleware by default
-	router := gin.New()
-	router.Use(gin.Recovery())
-
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("codefresh"), c.GlobalString("token"))
-	log.WithField("cfapi", c.GlobalString("codefresh")).Debug("Using Codefresh API")
+	log.WithField("cfapi", c.GlobalString("codefresh")).Debug("using Codefresh API")
 
 	// get event provider manager
 	eventProvider := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
-	log.WithField("config", c.GlobalString("config")).Debug("Monitoring types config file")
+	log.WithField("config", c.GlobalString("config")).Debug("monitoring types config file")
 
 	// get trigger backend service
 	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, eventProvider)
 	log.WithFields(log.Fields{
 		"redis server": c.GlobalString("redis"),
 		"redis port":   c.GlobalInt("redis-port"),
-	}).Debug("Using Redis backend server")
+	}).Debug("using Redis backend server")
 
 	// get pipeline runner service
 	runner := backend.NewRunner(codefreshService)
 
 	// get secret checker
-	secretChecker := backend.NewSecretChecker()
+	checker := backend.NewSecretChecker()
 
-	// trigger management API
-	router.Handle("GET", "/", func(c *gin.Context) {
-		c.Redirect(http.StatusFound, "/triggers")
-	})
+	// setup router
+	router := setupRouter(triggerBackend, triggerBackend, eventProvider, runner, checker, triggerBackend, codefreshService)
 
-	// manage trigger events
-	eventsAPI := router.Group("/events", gin.Logger())
-	eventController := controller.NewTriggerEventController(triggerBackend)
-	eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
-	// ?type=xxx,kind=xxx,filter=xxx
-	eventsAPI.Handle("GET", "/", eventController.ListEvents)
-	eventsAPI.Handle("DELETE", "/event/:event/*context", eventController.DeleteEvent)
-	eventsAPI.Handle("POST", "/", eventController.CreateEvent)
-	eventsAPI.Handle("POST", "/trigger/:event", eventController.LinkEvent)
-	eventsAPI.Handle("DELETE", "/trigger/:event", eventController.UnlinkEvent)
-
-	// list trigger types
-	typesAPI := router.Group("/types", gin.Logger())
-	typesController := controller.NewTriggerTypeController(eventProvider)
-	typesAPI.Handle("GET", "/", typesController.ListTypes)
-	typesAPI.Handle("GET", "/:type/:kind", typesController.GetType)
-
-	// invoke trigger with event payload
-	triggersAPI := router.Group("/triggers", gin.Logger())
-	runnerController := controller.NewTriggerController(runner, triggerBackend, secretChecker)
-	triggersAPI.Handle("GET", "/event/:event", runnerController.ListEventTriggers)
-	triggersAPI.Handle("GET", "/pipeline/:pipeline", runnerController.ListPipelineTriggers)
-	triggersAPI.Handle("POST", "/:event", runnerController.RunTrigger)
-
-	// status handlers (without logging)
-	statusController := controller.NewStatusController(triggerBackend, codefreshService)
-	router.GET("/health", statusController.GetHealth)
-	router.GET("/version", statusController.GetVersion)
-	router.GET("/ping", statusController.Ping)
-
+	// start router
 	port := c.Int("port")
 	log.WithField("port", port).Debug("starting hermes server")
 	return router.Run(fmt.Sprintf(":%d", port))

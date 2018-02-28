@@ -1,6 +1,8 @@
 package model
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -29,11 +31,19 @@ type (
 		// event type
 		Type string `json:"type" yaml:"type"`
 		// event kind
-		Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
+		Kind string `json:"kind" yaml:"kind"`
+		// event account
+		Account string `json:"account" yaml:"account"`
 		// event secret, used for event validation
 		Secret string `json:"secret" yaml:"secret"`
 	}
 )
+
+// PublicAccount public account ID [0]{12}
+var PublicAccount = strings.Repeat("0", 12)
+
+// PublicAccountHash calculated sha1 hash
+var PublicAccountHash = CalculateAccountHash(PublicAccount)
 
 // String retrun event info as YAML string
 func (t EventInfo) String() string {
@@ -56,10 +66,11 @@ func (t Event) String() string {
 // StringsMapToEvent convert map[string]string to Event
 func StringsMapToEvent(event string, fields map[string]string) *Event {
 	return &Event{
-		URI:    strings.TrimPrefix(event, "event:"),
-		Type:   fields["type"],
-		Kind:   fields["kind"],
-		Secret: fields["secret"],
+		URI:     strings.TrimPrefix(event, "event:"),
+		Type:    fields["type"],
+		Kind:    fields["kind"],
+		Account: fields["account"],
+		Secret:  fields["secret"],
 		EventInfo: EventInfo{
 			Endpoint:    fields["endpoint"],
 			Description: fields["description"],
@@ -67,4 +78,23 @@ func StringsMapToEvent(event string, fields map[string]string) *Event {
 			Status:      fields["status"],
 		},
 	}
+}
+
+// CalculateAccountHash return first 12 of account SHA1 hash
+// return empty string for empty account
+func CalculateAccountHash(account string) string {
+	hex := fmt.Sprintf("%x", sha1.Sum([]byte(account)))
+	runes := []rune(hex)
+	return string(runes[0:12])
+}
+
+// MatchAccount match account for passed uri
+func MatchAccount(account, uri string) bool {
+	hash := CalculateAccountHash(account)
+	return strings.HasSuffix(uri, hash)
+}
+
+// MatchPublicAccount match public account for passed uri
+func MatchPublicAccount(uri string) bool {
+	return strings.HasSuffix(uri, PublicAccountHash)
 }

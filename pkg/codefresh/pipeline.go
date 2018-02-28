@@ -14,10 +14,16 @@ import (
 )
 
 type (
+	// Pipeline codefresh pipeline identifier
+	Pipeline struct {
+		ID      string
+		Account string
+	}
+
 	// PipelineService Codefresh Service
 	PipelineService interface {
-		CheckPipelineExists(pipelineUID string) (bool, error)
-		RunPipeline(pipelineUID string, vars map[string]string) (string, error)
+		GetPipeline(account, id string) (*Pipeline, error)
+		RunPipeline(id string, vars map[string]string) (string, error)
 		Ping() error
 	}
 
@@ -30,6 +36,9 @@ type (
 
 // ErrPipelineNotFound error when pipeline not found
 var ErrPipelineNotFound = errors.New("codefresh: pipeline not found")
+
+// ErrPipelineNoMatch error when pipeline not found
+var ErrPipelineNoMatch = errors.New("codefresh: pipeline account does not match")
 
 func checkResponse(text string, err error, resp *http.Response) error {
 	if err != nil {
@@ -88,7 +97,7 @@ func (api *APIEndpoint) ping() error {
 }
 
 // find Codefresh pipeline by name and repo details (owner and name)
-func (api *APIEndpoint) checkPipelineExists(id string) (bool, error) {
+func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 	log.WithField("pipeline", id).Debug("getting pipeline")
 	// GET pipelines for repository
 	type CFAccount struct {
@@ -112,7 +121,7 @@ func (api *APIEndpoint) checkPipelineExists(id string) (bool, error) {
 	}
 	err = checkResponse("get pipelines", err, resp)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	// scan for pipeline ID
@@ -121,11 +130,17 @@ func (api *APIEndpoint) checkPipelineExists(id string) (bool, error) {
 			"pipeline":   pipeline.ID,
 			"account-id": pipeline.Account.ID,
 		}).Debug("found pipeline by id")
-		return true, nil
+
+		// check account match
+		if account != pipeline.Account.ID {
+			return nil, ErrPipelineNoMatch
+		}
+		// return pipeline
+		return &Pipeline{ID: pipeline.ID, Account: pipeline.Account.ID}, nil
 	}
 
 	log.WithField("pipeline", id).Error("failed to find pipeline with id")
-	return false, ErrPipelineNotFound
+	return nil, ErrPipelineNotFound
 }
 
 // run Codefresh pipeline
@@ -174,10 +189,10 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 	return runID, nil
 }
 
-// CheckPipelineExists check pipeline exists
-func (api *APIEndpoint) CheckPipelineExists(pipelineUID string) (bool, error) {
+// GetPipeline get existing pipeline
+func (api *APIEndpoint) GetPipeline(account, pipelineUID string) (*Pipeline, error) {
 	// invoke pipeline by id
-	return api.checkPipelineExists(pipelineUID)
+	return api.getPipeline(account, pipelineUID)
 }
 
 // RunPipeline run Codefresh pipeline

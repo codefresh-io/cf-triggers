@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 
 	log "github.com/sirupsen/logrus"
@@ -11,7 +12,7 @@ type (
 	// PipelineRun pipeline run with ID (can be empty on error) and error (when failed)
 	PipelineRun struct {
 		ID    string `json:"id" yaml:"id"`
-		Error error  `json:"error, omitempty" yaml:"error,omitempty"`
+		Error error  `json:"error,omitempty" yaml:"error,omitempty"`
 	}
 
 	// Trigger a single link between event and pipeline
@@ -22,23 +23,23 @@ type (
 		Pipeline string `json:"pipeline" yaml:"pipeline"`
 	}
 
+	// TriggerEventReaderWriter interface
+	TriggerEventReaderWriter interface {
+		// trigger events
+		GetEvent(ctx context.Context, event string) (*Event, error)
+		GetEvents(ctx context.Context, eventType, kind, filter string) ([]Event, error)
+		CreateEvent(ctx context.Context, eventType, kind, secret, context string, values map[string]string) (*Event, error)
+		DeleteEvent(ctx context.Context, event, context string) error
+	}
+
 	// TriggerReaderWriter interface
 	TriggerReaderWriter interface {
-		// trigger events
-		GetEvent(event string) (*Event, error)
-		GetEvents(eventType, kind, filter string) ([]Event, error)
-		CreateEvent(eventType, kind, secret string, context string, values map[string]string) (*Event, error)
-		DeleteEvent(event string, context string) error
-		GetSecret(eventURI string) (string, error)
 		// triggers
-		ListTriggersForEvents(events []string) ([]Trigger, error)
-		CreateTriggersForEvent(event string, pipelines []string) error
-		DeleteTriggersForEvent(event string, pipelines []string) error
-		// pipelines
-		ListTriggersForPipelines(pipelines []string) ([]Trigger, error)
-		GetPipelinesForTriggers(events []string) ([]string, error)
-		CreateTriggersForPipeline(pipeline string, events []string) error
-		DeleteTriggersForPipeline(pipeline string, events []string) error
+		GetEventTriggers(ctx context.Context, event string) ([]Trigger, error)
+		GetPipelineTriggers(ctx context.Context, pipeline string) ([]Trigger, error)
+		DeleteTrigger(ctx context.Context, event, pipeline string) error
+		CreateTrigger(ctx context.Context, event, pipeline string) error
+		GetTriggerPipelines(ctx context.Context, event string) ([]string, error)
 	}
 
 	// Runner pipeline runner
@@ -55,6 +56,16 @@ type (
 	SecretChecker interface {
 		Validate(message string, secret string, key string) error
 	}
+
+	// contextKey type
+	contextKey string
+)
+
+// Context keys
+var (
+	ContextKeyAccount = contextKey("account")
+	ContextKeyUser    = contextKey("user")
+	ContextKeyPublic  = contextKey("public")
 )
 
 // ErrTriggerNotFound error when trigger not found
