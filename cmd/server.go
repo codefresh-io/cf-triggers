@@ -44,7 +44,7 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 
 	// manage trigger events
 	eventController := controller.NewTriggerEventController(eventReaderWriter)
-	eventsAPI := router.Group("/account/:account/events", gin.Logger())
+	eventsAPI := router.Group("/accounts/:account/events", gin.Logger())
 	{
 		eventsAPI.Handle("GET", "/", eventController.GetEvents)
 		eventsAPI.Handle("GET", "/:event", eventController.GetEvent)
