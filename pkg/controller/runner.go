@@ -77,7 +77,7 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		// it's possible to have trigger event defined and not connected to any pipeline
 		if err == model.ErrPipelineNotFound || err == model.ErrTriggerNotFound {
 			log.WithField("event", event).Debug("there are no pipelines associated with trigger event")
-			ctx.Status(http.StatusOK)
+			ctx.Status(http.StatusNoContent)
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, ErrorResult{http.StatusInternalServerError, "failed to run trigger pipelines", err.Error()})
