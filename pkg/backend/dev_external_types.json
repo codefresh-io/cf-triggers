@@ -20,21 +20,21 @@
             ]
         },
         {
-            "type": "registry",
-            "kind": "cfcr",
-            "service-url": "http://local.codefresh.io:10001",
-            "uri-template": "registry:cfcr:{{namespace}}:{{name}}:push",
-            "uri-regex": "^registry:cfcr:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "type": "cron",
+            "kind": "codefresh",
+            "service-url": "http://local.codefresh.io:10002",
+            "uri-template": "cron:codefresh:{{expression}}:{{message}}",
+            "uri-regex": "^cron:codefresh:@yearly|@annually|@monthly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6}:[a-zA-Z0-9_-]{2,64}$",
             "config": [{
-                    "name": "namespace",
-                    "type": "string",
-                    "validator": "^[a-z0-9_-]+$",
-                    "required": true
+                  "name": "expression",
+                  "type": "cron",
+                  "validator": "^@yearly|@annually|@monthly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6}$",
+                  "required": true
                 },
                 {
-                    "name": "name",
+                    "name": "message",
                     "type": "string",
-                    "validator": "^[a-z0-9_-]+$",
+                    "validator": "^[a-zA-Z0-9_-]{2,64}$",
                     "required": true
                 }
             ]

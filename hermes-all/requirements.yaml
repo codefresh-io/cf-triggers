@@ -13,7 +13,7 @@ dependencies:
     tags:
       - event-provider
       - dockerhub
-    # dockerhub event provider
+    # cron job event provider
   - name: cronus
     version: 0.1.1
     repository: alias:hermes
