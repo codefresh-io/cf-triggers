@@ -14,6 +14,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
+	"github.com/stretchr/testify/mock"
 )
 
 func setContext(account string) context.Context {
@@ -1348,8 +1349,9 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		exec       bool
 	}
 	type expected struct {
-		account   string
-		pipelines []string
+		account     string
+		pipelines   []string
+		credentials map[string]string
 	}
 	type args struct {
 		event   string
@@ -1364,6 +1366,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 		notExists      bool
 		anotherAccount bool
 		wantErr        error
+		wantEventErr   error
 	}{
 		{
 			name: "delete existing trigger event",
@@ -1374,6 +1377,29 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			expected: expected{
 				account: model.PublicAccount,
 			},
+		},
+		{
+			name: "delete existing trigger event with context",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+				context: `{"apikey": "1234567890"}`,
+			},
+			expected: expected{
+				account:     model.PublicAccount,
+				credentials: map[string]string{"apikey": "1234567890"},
+			},
+		},
+		{
+			name: "delete existing trigger event unsubscribe not implemented",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			expected: expected{
+				account: model.PublicAccount,
+			},
+			wantEventErr: provider.ErrNotImplemented,
 		},
 		{
 			name: "delete existing private trigger event",
@@ -1394,7 +1420,8 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			expected: expected{
 				account: "B",
 			},
-			wantErr: model.ErrEventNotFound,
+			anotherAccount: true,
+			wantErr:        model.ErrEventNotFound,
 		},
 		{
 			name: "try to delete existing trigger event linked to pipelines",
@@ -1475,9 +1502,14 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			epMock := provider.NewEventProviderMock()
+			var call *mock.Call
 			r := &RedisStore{
-				redisPool: &RedisPoolMock{},
+				redisPool:     &RedisPoolMock{},
+				eventProvider: epMock,
 			}
+			// set context
+			ctx := setContext(tt.args.account)
 			// mock Redis
 			eventKey := getEventKey(tt.args.account, tt.args.event)
 			triggerKey := getTriggerKey(tt.args.account, tt.args.event)
@@ -1499,6 +1531,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", eventKey, "account")
 			if tt.errs.hget {
 				cmd.ExpectError(tt.wantErr)
+				goto Invoke
 			} else {
 				cmd.Expect(tt.expected.account)
 			}
@@ -1552,13 +1585,25 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 					cmd.ExpectError(tt.wantErr)
 				} else {
 					cmd.Expect("OK!")
+
+					// mock event provider call
+					call = epMock.On("UnsubscribeFromEvent", ctx, tt.args.event, tt.expected.credentials)
+					if tt.wantEventErr != nil {
+						call.Return(tt.wantEventErr)
+						if tt.wantEventErr != provider.ErrNotImplemented {
+							goto Invoke
+						}
+					} else {
+						call.Return(nil)
+					}
 				}
 			}
 
 		Invoke:
-			if err := r.DeleteEvent(setContext(tt.args.account), tt.args.event, tt.args.context); err != tt.wantErr {
+			if err := r.DeleteEvent(ctx, tt.args.event, tt.args.context); err != tt.wantErr {
 				t.Errorf("RedisStore.DeleteEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			epMock.AssertExpectations(t)
 		})
 	}
 }
@@ -1625,6 +1670,22 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			expected: expected{
 				eventURI: "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			want: &model.Event{
+				URI:       "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
+				Type:      "type",
+				Kind:      "kind",
+				Account:   "5672d8deb6724b6e359adf62",
+				Secret:    "XXX",
+				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
+		},
+		{
+			name: "create private event (per account) with credentials",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62", context: `{"apikey": "1234567890"}`},
+			expected: expected{
+				eventURI:    "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
+				info:        &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+				credentials: map[string]string{"apikey": "1234567890"},
 			},
 			want: &model.Event{
 				URI:       "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
@@ -1785,6 +1846,10 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			if tt.args.public {
 				account = model.PublicAccount
 			}
+			ctx := setContext(tt.args.account)
+			if tt.args.public {
+				ctx = context.WithValue(ctx, model.ContextKeyPublic, true)
+			}
 			// prepare key
 			eventKey := getEventKey(tt.args.account, tt.expected.eventURI)
 			// mock EventProvider calls
@@ -1795,11 +1860,11 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			} else {
 				call.Return(tt.expected.eventURI, nil)
 			}
-			call = mock.On("SubscribeToEvent", tt.expected.eventURI, tt.args.secret, tt.expected.credentials)
+			call = mock.On("SubscribeToEvent", ctx, tt.expected.eventURI, tt.args.secret, tt.expected.credentials)
 			if tt.wantEventErr.subscribe != nil {
 				call.Return(nil, tt.wantEventErr.subscribe)
 				if tt.wantEventErr.subscribe == provider.ErrNotImplemented {
-					call = mock.On("GetEventInfo", tt.expected.eventURI, tt.args.secret)
+					call = mock.On("GetEventInfo", ctx, tt.expected.eventURI, tt.args.secret)
 					if tt.wantEventErr.info != nil {
 						call.Return(nil, tt.wantEventErr.info)
 						goto Invoke
@@ -1887,10 +1952,6 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 
 		Invoke:
 			// invoke method under test
-			ctx := setContext(tt.args.account)
-			if tt.args.public {
-				ctx = context.WithValue(ctx, model.ContextKeyPublic, true)
-			}
 			got, err := r.CreateEvent(ctx, tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.values)
 			if (err != nil) != (tt.wantErr ||
 				tt.wantEventErr.info != nil ||

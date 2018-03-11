@@ -34,6 +34,13 @@ type (
 	}
 )
 
+var (
+	// RequestID request ID for logging
+	RequestID = "X-Request-ID"
+	// AuthEntity Codefresh authenticated entity JSON
+	AuthEntity = "X-Authenticated-Entity-Json"
+)
+
 // ErrPipelineNotFound error when pipeline not found
 var ErrPipelineNotFound = errors.New("codefresh: pipeline not found")
 

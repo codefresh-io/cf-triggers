@@ -16,14 +16,14 @@
 [[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
-  revision = "629574ca2a5df945712d3079857300b5e4da0236"
-  version = "v1.4.2"
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
 
 [[projects]]
   name = "github.com/garyburd/redigo"
   packages = ["internal","redis"]
-  revision = "47dc60e71eed504e3ef8e77ee3c6fe720f3be57f"
-  version = "v1.3.0"
+  revision = "a69d19351219b6dd56f274f96d85a7014a2ec34e"
+  version = "v1.6.0"
 
 [[projects]]
   branch = "master"
@@ -38,10 +38,10 @@
   version = "v1.2"
 
 [[projects]]
-  branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
+  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -71,37 +71,43 @@
   branch = "master"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
-  revision = "881bee4e20a5d11a6a88a5667c6f292072ac1963"
+  revision = "f4ee69125072b22721efbe639bd0da9c9d19b8cc"
 
 [[projects]]
-  branch = "master"
   name = "github.com/stretchr/objx"
   packages = ["."]
-  revision = "1a9d0bb9f541897e62256577b352fdbc1fb4fd94"
+  revision = "facf9a85c22f48d2f52f2380e4efce1768749a89"
+  version = "v0.1"
 
 [[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert","mock"]
-  revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
-  version = "v1.1.4"
+  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
+  version = "v1.2.1"
 
 [[projects]]
-  branch = "master"
   name = "github.com/ugorji/go"
   packages = ["codec"]
-  revision = "f57d8945648dbfe4c332cff9c50fb57548958e3f"
+  revision = "9831f2c3ac1068a78f50999a30db84270f647af6"
+  version = "v1.1"
 
 [[projects]]
   branch = "master"
   name = "github.com/urfave/cli"
   packages = ["."]
-  revision = "119bb6564841921ce6f1401e0f5d75317bdd9f4d"
+  revision = "8e01ec4cd3e2d84ab2fe90d8210528ffbb06d8ff"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/crypto"
+  packages = ["ssh/terminal"]
+  revision = "c7dcf104e3a7a1417abc0230cb0d5240d764159d"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix"]
-  revision = "d75a52659825e75fff6158388dddc6a5b04f9ba5"
+  packages = ["unix","windows"]
+  revision = "7dca6fe1f43775aa6d1334576870ff63f978f539"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v8"
@@ -110,14 +116,14 @@
   version = "v8.18.2"
 
 [[projects]]
-  branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "287cf08546ab5e7e37d55a84f7ed3fd1db036de5"
+  revision = "7f97868eec74b32b0982dd158a51a446d1da7eb5"
+  version = "v2.1.1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c3eb2e6f9c50626278dd1dbfd752220eca2c23f30d1ff2f1105aa870e9d39044"
+  inputs-digest = "7d9d5eff481504bcac4ed114cda210224ea146a5ff1a039b896c97e0579fa498"
   solver-name = "gps-cdcl"
   solver-version = 1

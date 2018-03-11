@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dghubble/sling"
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/codefresh-io/hermes/pkg/util"
@@ -25,6 +28,9 @@ type (
 		configFile string
 		eventTypes model.EventTypes
 		watcher    *util.FileWatcher
+		// test related fields
+		testMode bool
+		testDoer sling.Doer
 	}
 
 	// EventProvider describes installed and configured Trigger Event Providers
@@ -32,9 +38,9 @@ type (
 		GetTypes() []model.EventType
 		MatchType(eventURI string) (*model.EventType, error)
 		GetType(t string, k string) (*model.EventType, error)
-		GetEventInfo(eventURI string, secret string) (*model.EventInfo, error)
-		SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error)
-		UnsubscribeFromEvent(event string, credentials map[string]string) error
+		GetEventInfo(ctx context.Context, eventURI string, secret string) (*model.EventInfo, error)
+		SubscribeToEvent(ctx context.Context, event, secret string, credentials map[string]string) (*model.EventInfo, error)
+		UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error
 		ConstructEventURI(t string, k string, a string, values map[string]string) (string, error)
 	}
 )
@@ -45,12 +51,15 @@ var (
 )
 
 // non singleton - for test only
-func newTestEventProviderManager(configFile string) *EventProviderManager {
+func newTestEventProviderManager(configFile string, doer sling.Doer) *EventProviderManager {
 	instance = new(EventProviderManager)
 	instance.configFile = configFile
 	// start monitoring
 	instance.eventTypes, _ = loadEventHandlerTypes(configFile)
 	instance.watcher = instance.monitorConfigFile()
+	// set test mode
+	instance.testMode = true
+	instance.testDoer = doer
 	// return it
 	return instance
 }
@@ -196,7 +205,7 @@ func (m *EventProviderManager) MatchType(event string) (*model.EventType, error)
 }
 
 // GetEventInfo get event info from event provider
-func (m *EventProviderManager) GetEventInfo(event string, secret string) (*model.EventInfo, error) {
+func (m *EventProviderManager) GetEventInfo(ctx context.Context, event string, secret string) (*model.EventInfo, error) {
 	log.WithField("event", event).Debug("getting event info from event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
@@ -204,8 +213,13 @@ func (m *EventProviderManager) GetEventInfo(event string, secret string) (*model
 	}
 
 	// call Event Provider service to get event info
-	provider := NewEventProviderEndpoint(et.ServiceURL)
-	info, err := provider.GetEventInfo(event, secret)
+	var provider EventProviderService
+	if m.testMode {
+		provider = newTestEventProviderEndpoint(m.testDoer, et.ServiceURL)
+	} else {
+		provider = NewEventProviderEndpoint(et.ServiceURL)
+	}
+	info, err := provider.GetEventInfo(ctx, event, secret)
 	if err != nil {
 		log.WithError(err).Error("Failed to get event info")
 		return nil, err
@@ -215,7 +229,7 @@ func (m *EventProviderManager) GetEventInfo(event string, secret string) (*model
 }
 
 // SubscribeToEvent subscribe to remote event through event provider
-func (m *EventProviderManager) SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error) {
+func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, event, secret string, credentials map[string]string) (*model.EventInfo, error) {
 	log.WithField("event", event).Debug("subscribe to remote event trough event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
@@ -223,8 +237,13 @@ func (m *EventProviderManager) SubscribeToEvent(event, secret string, credential
 	}
 
 	// call Event Provider service to subscribe to remote event
-	provider := NewEventProviderEndpoint(et.ServiceURL)
-	info, err := provider.SubscribeToEvent(event, secret, credentials)
+	var provider EventProviderService
+	if m.testMode {
+		provider = newTestEventProviderEndpoint(m.testDoer, et.ServiceURL)
+	} else {
+		provider = NewEventProviderEndpoint(et.ServiceURL)
+	}
+	info, err := provider.SubscribeToEvent(ctx, event, secret, credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +252,7 @@ func (m *EventProviderManager) SubscribeToEvent(event, secret string, credential
 }
 
 // UnsubscribeFromEvent unsubscribe from remote event through event provider
-func (m *EventProviderManager) UnsubscribeFromEvent(event string, credentials map[string]string) error {
+func (m *EventProviderManager) UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error {
 	log.WithField("event", event).Debug("unsubscribe from remote event trough event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
@@ -241,8 +260,13 @@ func (m *EventProviderManager) UnsubscribeFromEvent(event string, credentials ma
 	}
 
 	// call Event Provider service to subscribe to remote event
-	provider := NewEventProviderEndpoint(et.ServiceURL)
-	return provider.UnsubscribeFromEvent(event, credentials)
+	var provider EventProviderService
+	if m.testMode {
+		provider = newTestEventProviderEndpoint(m.testDoer, et.ServiceURL)
+	} else {
+		provider = NewEventProviderEndpoint(et.ServiceURL)
+	}
+	return provider.UnsubscribeFromEvent(ctx, event, credentials)
 }
 
 // ConstructEventURI construct event URI from type/kind, account and values map

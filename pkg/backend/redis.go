@@ -67,6 +67,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -438,15 +439,21 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 		secret = util.RandomString(16)
 	}
 
-	// TODO: get credentials from Codefresh context
+	// get credentials from Codefresh context (simple key:value map)
 	var credentials map[string]string
+	if context != "" {
+		err = json.Unmarshal([]byte(context), &credentials)
+		if err != nil {
+			log.WithError(err).WithField("context", context).Warning("failed to get credentials from context")
+		}
+	}
 
 	// try subscribing to event - create event in remote system through event provider
-	eventInfo, err := r.eventProvider.SubscribeToEvent(eventURI, secret, credentials)
+	eventInfo, err := r.eventProvider.SubscribeToEvent(ctx, eventURI, secret, credentials)
 	if err != nil {
 		if err == provider.ErrNotImplemented {
 			// try to get event info (required method)
-			eventInfo, err = r.eventProvider.GetEventInfo(eventURI, secret)
+			eventInfo, err = r.eventProvider.GetEventInfo(ctx, eventURI, secret)
 			if err != nil {
 				return nil, err
 			}
@@ -622,9 +629,6 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 		return model.ErrEventNotFound
 	}
 
-	// TODO: get credentials from Codefresh context
-	// credentials := make(map[string]string)
-
 	// get pipelines linked to the trigger event
 	pipelines, err := redis.Strings(con.Do("ZRANGE", triggerKey, 0, -1))
 	if err != nil {
@@ -663,9 +667,27 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 	_, err = con.Do("EXEC")
 	if err != nil {
 		log.WithError(err).Error("Failed to execute transaction")
+		return err
 	}
 
-	return err
+	// get credentials from Codefresh context (simple key:value map)
+	var credentials map[string]string
+	if context != "" {
+		err = json.Unmarshal([]byte(context), &credentials)
+		if err != nil {
+			log.WithError(err).WithField("context", context).Warning("failed to get credentials from context")
+		}
+	}
+
+	// try unsubscribing from event - delete event in remote system through event provider
+	err = r.eventProvider.UnsubscribeFromEvent(ctx, event, credentials)
+	if err != nil {
+		if err != provider.ErrNotImplemented {
+			return err
+		}
+	}
+
+	return nil
 }
 
 //-------------------------- Pinger Interface -------------------------

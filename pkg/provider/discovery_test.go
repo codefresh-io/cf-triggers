@@ -1,11 +1,19 @@
 package provider
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
+	"reflect"
 	"testing"
 	"time"
+
+	"github.com/codefresh-io/hermes/pkg/codefresh"
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	log "github.com/sirupsen/logrus"
@@ -89,7 +97,7 @@ func Test_NewEventProviderManagerInvalid(t *testing.T) {
 	config := createInvalidConfig()
 	defer os.Remove(config)
 	// create manager; ignores file error
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	manager.Close()
 }
 
@@ -98,7 +106,7 @@ func Test_loadInvalidConfig(t *testing.T) {
 	config := createInvalidConfig()
 	defer os.Remove(config)
 	// create manager; ignores file error
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// try to load config explicitly
 	types, err := loadEventHandlerTypes(config)
@@ -115,7 +123,7 @@ func Test_loadNonExistingConfig(t *testing.T) {
 	config := "non-existing.file.json"
 	defer os.Remove(config)
 	// create manager; ignores file error
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// try to load config explicitly
 	types, err := loadEventHandlerTypes(config)
@@ -132,7 +140,7 @@ func Test_loadValidConfig(t *testing.T) {
 	config := createValidConfig("valid")
 	defer os.Remove(config)
 	// create manager; ignores file error
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// try to load config explicitly
 	types, err := loadEventHandlerTypes(config)
@@ -149,7 +157,7 @@ func Test_monitorConfigFile(t *testing.T) {
 	config := createValidConfig("monitor")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 
 	// update config file
@@ -179,7 +187,7 @@ func Test_GetType(t *testing.T) {
 	config := createValidConfig("get_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// get type
 	_, err := manager.GetType("registry", "dockerhub")
@@ -193,7 +201,7 @@ func Test_NonExistingGetType(t *testing.T) {
 	config := createValidConfig("get_ne_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// get type
 	_, err := manager.GetType("registry", "non-existing")
@@ -207,7 +215,7 @@ func TestEventProviderManager_MatchExistingType(t *testing.T) {
 	config := createValidConfig("match_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// match type
 	_, err := manager.MatchType("registry:dockerhub:codefresh:fortune:push:" + model.CalculateAccountHash("A"))
@@ -221,7 +229,7 @@ func TestEventProviderManager_MatchExistingTypeAccount(t *testing.T) {
 	config := createValidConfig("match_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// match type
 	_, err := manager.MatchType("registry:dockerhub:codefresh:fortune:push:cb1e73c5215b")
@@ -235,7 +243,7 @@ func TestEventProviderManager_MatchTypeNil(t *testing.T) {
 	config := createValidConfig("match_type")
 	defer os.Remove(config)
 	// create manager; and start monitoring
-	manager := newTestEventProviderManager(config)
+	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// match type
 	_, err := manager.MatchType("registry:dockerhub:not-valid:push")
@@ -306,7 +314,7 @@ func TestEventProviderManager_ConstructEventURI(t *testing.T) {
 			config := createValidConfig("get_type")
 			defer os.Remove(config)
 			// create manager; and start monitoring
-			manager := newTestEventProviderManager(config)
+			manager := newTestEventProviderManager(config, nil)
 			defer manager.Close()
 			got, err := manager.ConstructEventURI(tt.args.t, tt.args.k, tt.args.a, tt.args.values)
 			if (err != nil) != tt.wantErr {
@@ -317,5 +325,115 @@ func TestEventProviderManager_ConstructEventURI(t *testing.T) {
 				t.Errorf("EventProviderManager.ConstructEventURI() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
+	type args struct {
+		event       string
+		secret      string
+		credentials map[string]string
+		requestID   string
+		authEntity  string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *model.EventInfo
+		wantErr bool
+	}{
+		{
+			name: "subscribe to valid event",
+			args: args{
+				event:      "registry:dockerhub:test:image:push:" + model.CalculateAccountHash("A"),
+				secret:     "XXX",
+				requestID:  "1234",
+				authEntity: `{"user": "test"}`,
+			},
+			want: &model.EventInfo{
+				Endpoint:    "https://webhook/endpoint",
+				Status:      "active",
+				Description: "desc",
+				Help:        "help",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// create valid config file
+			config := createValidConfig("valid")
+			defer os.Remove(config)
+
+			client, mux, server := testServer()
+			defer server.Close()
+
+			// encode credentials to pass them in url
+			creds, _ := json.Marshal(tt.args.credentials)
+			encoded := base64.StdEncoding.EncodeToString(creds)
+			// handle function
+			mux.HandleFunc("/event/"+tt.args.event+"/"+tt.args.secret+"/"+encoded,
+				func(w http.ResponseWriter, r *http.Request) {
+					assertMethod(t, "POST", r)
+					assertHeader(t, map[string]string{
+						codefresh.AuthEntity: tt.args.authEntity,
+						codefresh.RequestID:  tt.args.requestID}, r)
+					w.Header().Set("Content-Type", "application/json")
+					data, _ := json.Marshal(tt.want)
+					w.Write(data)
+				})
+
+			// create manager; ignores file error
+			manager := newTestEventProviderManager(config, client)
+			defer manager.Close()
+
+			// prepare context
+			ctx := context.WithValue(context.Background(), model.ContextRequestID, tt.args.requestID)
+			ctx = context.WithValue(ctx, model.ContextAuthEntity, `{"user": "test"}`)
+
+			// subscribe to event in event provider
+			got, err := manager.SubscribeToEvent(ctx, tt.args.event, tt.args.secret, tt.args.credentials)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("EventProviderManager.SubscribeToEvent() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EventProviderManager.SubscribeToEvent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// Testing Utils
+
+// testServer returns an http Client, ServeMux, and Server. The client proxies
+// requests to the server and handlers can be registered on the mux to handle
+// requests. The caller must close the test server.
+func testServer() (*http.Client, *http.ServeMux, *httptest.Server) {
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	transport := &http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			return url.Parse(server.URL)
+		},
+	}
+	client := &http.Client{Transport: transport}
+	return client, mux, server
+}
+
+func assertMethod(t *testing.T, expectedMethod string, req *http.Request) {
+	if actualMethod := req.Method; actualMethod != expectedMethod {
+		t.Errorf("expected method %s, got %s", expectedMethod, actualMethod)
+	}
+}
+
+// assertHeader tests that the Request has the expected headers
+func assertHeader(t *testing.T, expected map[string]string, req *http.Request) {
+	// go over expected and validate header contains key value
+	for key, value := range expected {
+		val := req.Header.Get(key)
+		if val != value {
+			t.Errorf("Header '%s' does not contain '%s' value", key, value)
+			break
+		}
 	}
 }

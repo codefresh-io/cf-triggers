@@ -66,6 +66,8 @@ var (
 	ContextKeyAccount = contextKey("account")
 	ContextKeyUser    = contextKey("user")
 	ContextKeyPublic  = contextKey("public")
+	ContextRequestID  = contextKey("requestID")
+	ContextAuthEntity = contextKey("authEntity")
 )
 
 // ErrTriggerNotFound error when trigger not found

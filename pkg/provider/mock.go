@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"context"
+
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/stretchr/testify/mock"
 )
@@ -43,8 +45,8 @@ func (c *Mock) GetType(t string, k string) (*model.EventType, error) {
 }
 
 // GetEventInfo mock
-func (c *Mock) GetEventInfo(event string, secret string) (*model.EventInfo, error) {
-	args := c.Called(event, secret)
+func (c *Mock) GetEventInfo(ctx context.Context, event string, secret string) (*model.EventInfo, error) {
+	args := c.Called(ctx, event, secret)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -52,8 +54,8 @@ func (c *Mock) GetEventInfo(event string, secret string) (*model.EventInfo, erro
 }
 
 // SubscribeToEvent mock
-func (c *Mock) SubscribeToEvent(event, secret string, credentials map[string]string) (*model.EventInfo, error) {
-	args := c.Called(event, secret, credentials)
+func (c *Mock) SubscribeToEvent(ctx context.Context, event, secret string, credentials map[string]string) (*model.EventInfo, error) {
+	args := c.Called(ctx, event, secret, credentials)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -61,8 +63,8 @@ func (c *Mock) SubscribeToEvent(event, secret string, credentials map[string]str
 }
 
 // UnsubscribeFromEvent mock
-func (c *Mock) UnsubscribeFromEvent(event string, credentials map[string]string) error {
-	args := c.Called(event, credentials)
+func (c *Mock) UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error {
+	args := c.Called(ctx, event, credentials)
 	return args.Error(0)
 }
 
