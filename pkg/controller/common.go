@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
 
 	"github.com/gin-gonic/gin"
@@ -24,6 +25,19 @@ func getParam(c *gin.Context, name string) string {
 }
 
 func getContext(c *gin.Context) context.Context {
+	// get account ID from request URL parameter
 	account := c.Param("account")
-	return context.WithValue(context.Background(), model.ContextKeyAccount, account)
+	// get request ID for logging form header
+	requestID := c.GetHeader(codefresh.RequestID)
+	// get authenticated entity from header
+	authEntity := c.GetHeader(codefresh.AuthEntity)
+	// prepare context
+	ctx := context.WithValue(context.Background(), model.ContextKeyAccount, account)
+	if requestID != "" {
+		ctx = context.WithValue(ctx, model.ContextRequestID, requestID)
+	}
+	if authEntity != "" {
+		ctx = context.WithValue(ctx, model.ContextAuthEntity, authEntity)
+	}
+	return ctx
 }
