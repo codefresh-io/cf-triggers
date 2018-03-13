@@ -21,8 +21,8 @@
                 },
                 {
                     "name": "action",
-                    "type": "string",
-                    "validator": "^push$",
+                    "type": "list:push",
+                    "validator": "^(push)$",
                     "required": true
                 }
             ],
@@ -32,9 +32,6 @@
                     "type": "string",
                     "validator": "^.+$"
                 }
-            ],
-            "actions": [
-                "push"
             ]
         },
         {
@@ -57,8 +54,7 @@
                     "required": true
                 }
             ],
-            "filters": [],
-            "actions": []
+            "filters": []
         }
     ]
 }
