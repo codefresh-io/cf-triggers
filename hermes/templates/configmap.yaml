@@ -16,7 +16,7 @@ data:
             "type": "registry",
             "kind": "dockerhub",
             "service-url": "http://{{ printf "%s-nomios" .Release.Name }}",
-            "uri-template": "registry:dockerhub:{{"{{"}}namespace{{"}}"}}:{{"{{"}}name{{"}}"}}:push",
+            "uri-template": "registry:dockerhub:{{"{{"}}namespace{{"}}"}}:{{"{{"}}name{{"}}"}}:{{"{{"}}action{{"}}"}}",
             "uri-regex": "^registry:dockerhub:[a-z0-9_-]+:[a-z0-9_-]+:push$",
             "config": [
               {
@@ -30,6 +30,19 @@ data:
                 "type": "string",
                 "validator": "^[a-z0-9_-]+$",
                 "required": true
+              },
+              {
+                "name": "action",
+                "type": "list:push",
+                "validator": "^(push)$",
+                "required": true
+              }
+            ],
+            "filters": [
+              {
+                "name": "TAG",
+                "type": "string",
+                "validator": "^.+$"
               }
             ]
           },
@@ -51,7 +64,8 @@ data:
                     "validator": "^[a-zA-Z0-9_-]{2,64}$",
                     "required": true
                 }
-            ]
+            ],
+            "filters": []
           }
         ]
     }

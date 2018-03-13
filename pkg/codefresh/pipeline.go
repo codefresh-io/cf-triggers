@@ -36,7 +36,7 @@ type (
 
 var (
 	// RequestID request ID for logging
-	RequestID = "X-Request-ID"
+	RequestID = "X-Request-Id"
 	// AuthEntity Codefresh authenticated entity JSON
 	AuthEntity = "X-Authenticated-Entity-Json"
 )
