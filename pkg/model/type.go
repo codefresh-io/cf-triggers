@@ -18,6 +18,16 @@ type (
 		Required bool `json:"required,omitempty" yaml:"required,omitempty"`
 	}
 
+	// FilterField configuration field
+	FilterField struct {
+		// Name field name
+		Name string `json:"name" yaml:"name"`
+		// Type field type (default 'string'): string, int, date, list, crontab
+		Type string `json:"type,omitempty" yaml:"type,omitempty"`
+		// Validator validator for value: regex, '|' separated list, int range, date range, http-get
+		Validator string `json:"validator,omitempty" yaml:"validator,omitempty"`
+	}
+
 	// EventType event type
 	EventType struct {
 		// Event type name; e.g. registry, git
@@ -31,7 +41,12 @@ type (
 		// URI pattern; event uri match pattern - helps to detect type and kind from uri
 		URIPattern string `json:"uri-regex" yaml:"uri-regex"`
 		// Configuration Fields
-		Config []ConfigField `json:"config,omitempty" yaml:"config,omitempty"`
+		Config []ConfigField `json:"config" yaml:"config"`
+
+		Actions []string `json:"actions" yaml:"actions"`
+
+		Filters []FilterField `json:"filters" yaml:"filters"`
+
 	}
 
 	// EventTypes array of event types

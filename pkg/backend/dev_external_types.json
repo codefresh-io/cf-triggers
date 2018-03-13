@@ -4,7 +4,7 @@
             "type": "registry",
             "kind": "dockerhub",
             "service-url": "http://local.codefresh.io:10001",
-            "uri-template": "registry:dockerhub:{{namespace}}:{{name}}:push",
+            "uri-template": "registry:dockerhub:{{namespace}}:{{name}}:{{action}}",
             "uri-regex": "^registry:dockerhub:[a-z0-9_-]+:[a-z0-9_-]+:push$",
             "config": [
                 {
@@ -18,7 +18,23 @@
                     "type": "string",
                     "validator": "^[a-z0-9_-]+$",
                     "required": true
+                },
+                {
+                    "name": "action",
+                    "type": "string",
+                    "validator": "^push$",
+                    "required": true
                 }
+            ],
+            "filters": [
+                {
+                    "name": "TAG",
+                    "type": "string",
+                    "validator": "^.+$"
+                }
+            ],
+            "actions": [
+                "push"
             ]
         },
         {
@@ -26,7 +42,7 @@
             "kind": "codefresh",
             "service-url": "http://local.codefresh.io:10002",
             "uri-template": "cron:codefresh:{{expression}}:{{message}}",
-            "uri-regex": "^cron:codefresh:@yearly|@annually|@monthly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6}:[a-zA-Z0-9_-]{2,64}$",
+            "uri-regex": "^Zcron:codefresh:@yearly|@annually|@monthly|@weekly|@daily|@midnight|@hourly|([a-zA-0-9*/,-?]+\\s?){6}:[a-zA-Z0-9_-]{2,64}$",
             "config": [
                 {
                     "name": "expression",
@@ -40,7 +56,9 @@
                     "validator": "^[a-zA-Z0-9_-]{2,64}$",
                     "required": true
                 }
-            ]
+            ],
+            "filters": [],
+            "actions": []
         }
     ]
 }
