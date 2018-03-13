@@ -43,8 +43,6 @@ type (
 		// Configuration Fields
 		Config []ConfigField `json:"config" yaml:"config"`
 
-		Actions []string `json:"actions" yaml:"actions"`
-
 		Filters []FilterField `json:"filters" yaml:"filters"`
 
 	}
