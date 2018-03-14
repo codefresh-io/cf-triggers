@@ -36,7 +36,7 @@ type (
 
 var (
 	// RequestID request ID for logging
-	RequestID = "X-Request-ID"
+	RequestID = "X-Request-Id"
 	// AuthEntity Codefresh authenticated entity JSON
 	AuthEntity = "X-Authenticated-Entity-Json"
 )
@@ -111,7 +111,7 @@ func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 		ID string `json:"_id"`
 	}
 	type CFPipeline struct {
-		ID      string    `json:"_id"`
+		ID      string    `json:"id"`
 		Account CFAccount `json:"account"`
 	}
 	pipeline := new(CFPipeline)
@@ -120,7 +120,7 @@ func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 	if api.internal {
 		// use internal cfapi - another endpoint and need to ass account
 		log.Debug("using internal cfapi")
-		resp, err = api.endpoint.New().Get(fmt.Sprint("api/pipelines/", id)).ReceiveSuccess(pipeline)
+		resp, err = api.endpoint.New().Get(fmt.Sprint("api/pipelines/", account, "/", id)).ReceiveSuccess(pipeline)
 	} else {
 		// use public cfapi
 		log.Debug("using public cfapi")
