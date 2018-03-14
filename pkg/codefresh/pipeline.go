@@ -111,7 +111,7 @@ func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 		ID string `json:"_id"`
 	}
 	type CFPipeline struct {
-		ID      string    `json:"_id"`
+		ID      string    `json:"id"`
 		Account CFAccount `json:"account"`
 	}
 	pipeline := new(CFPipeline)
