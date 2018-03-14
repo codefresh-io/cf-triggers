@@ -6,6 +6,8 @@ steps:
     image: alpine:3.7
     commands:
       - cf_export VERSION=$(cat VERSION)
+      # SHORT_VERSION is version without PATCH numver
+      - cf_export SHORT_VERSION=$(v=$(cat VERSION); echo ${v%.*})
 
   multistage_build:
     type: build
@@ -21,10 +23,21 @@ steps:
       - CI_BUILD_URL=${{CF_BUILD_URL}}
       - CODECOV_TOKEN=${{CODECOV_TOKEN}}
 
-  dockerhub_push:
+  dockerhub_push_full:
     type: push
+    description: tag image with full SemVer version
     candidate: ${{multistage_build}}
     tag: ${{VERSION}}
+    when:
+      branch:
+        only:
+          - master
+
+  dockerhub_push_short:
+    type: push
+    description: tag image with version without patch verion number
+    candidate: ${{multistage_build}}
+    tag: ${{SHORT_VERSION}}
     when:
       branch:
         only:
