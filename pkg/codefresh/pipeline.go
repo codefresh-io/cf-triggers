@@ -120,7 +120,7 @@ func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 	if api.internal {
 		// use internal cfapi - another endpoint and need to ass account
 		log.Debug("using internal cfapi")
-		resp, err = api.endpoint.New().Get(fmt.Sprint("api/pipelines/", id)).ReceiveSuccess(pipeline)
+		resp, err = api.endpoint.New().Get(fmt.Sprint("api/pipelines/", account, "/", id)).ReceiveSuccess(pipeline)
 	} else {
 		// use public cfapi
 		log.Debug("using public cfapi")
