@@ -40,6 +40,7 @@ func TestPipelineRunner_Run(t *testing.T) {
 		mock *codefresh.Mock
 	}
 	type args struct {
+		account   string
 		pipelines []string
 		vars      map[string]string
 	}
@@ -87,7 +88,7 @@ func TestPipelineRunner_Run(t *testing.T) {
 			for i, p := range tt.args.pipelines {
 				tt.fields.mock.On("RunPipeline", p, tt.args.vars).Return(tt.want[i].ID, tt.want[i].Error)
 			}
-			got, err := r.Run(tt.args.pipelines, tt.args.vars)
+			got, err := r.Run(tt.args.account, tt.args.pipelines, tt.args.vars)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("PipelineRunner.Run() error = %v, wantErr %v", err, tt.wantErr)
 				return
