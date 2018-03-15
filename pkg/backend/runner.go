@@ -17,7 +17,7 @@ func NewRunner(ps codefresh.PipelineService) model.Runner {
 }
 
 // Run Codefresh pipelines: return arrays of runs and errors
-func (r *PipelineRunner) Run(pipelines []string, vars map[string]string) ([]model.PipelineRun, error) {
+func (r *PipelineRunner) Run(account string, pipelines []string, vars map[string]string) ([]model.PipelineRun, error) {
 	log.Debug("Running pipelines")
 	var runs []model.PipelineRun
 	for _, p := range pipelines {

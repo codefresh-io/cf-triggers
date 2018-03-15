@@ -84,7 +84,7 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		return
 	}
 	// run pipelines
-	runs, err := c.runnerSvc.Run(pipelines, vars)
+	runs, err := c.runnerSvc.Run(triggerEvent.Account, pipelines, vars)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, ErrorResult{http.StatusInternalServerError, "failed to run trigger pipelines", err.Error()})
 		return
