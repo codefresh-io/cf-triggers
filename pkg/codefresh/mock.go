@@ -24,8 +24,8 @@ func (c *Mock) GetPipeline(account, id string) (*Pipeline, error) {
 }
 
 // RunPipeline mock
-func (c *Mock) RunPipeline(id string, vars map[string]string) (string, error) {
-	args := c.Called(id, vars)
+func (c *Mock) RunPipeline(accountID string, id string, vars map[string]string) (string, error) {
+	args := c.Called(accountID, id, vars)
 	return args.String(0), args.Error(1)
 }
 
