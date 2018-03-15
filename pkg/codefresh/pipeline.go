@@ -23,7 +23,7 @@ type (
 	// PipelineService Codefresh Service
 	PipelineService interface {
 		GetPipeline(account, id string) (*Pipeline, error)
-		RunPipeline(id string, vars map[string]string) (string, error)
+		RunPipeline(accountID string, id string, vars map[string]string) (string, error)
 		Ping() error
 	}
 
@@ -151,7 +151,7 @@ func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 }
 
 // run Codefresh pipeline
-func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, error) {
+func (api *APIEndpoint) runPipeline(accountID string, id string, vars map[string]string) (string, error) {
 	log.WithField("pipeline", id).Debug("Going to run pipeline")
 	type BuildRequest struct {
 		Branch    string            `json:"branch,omitempty"`
@@ -163,7 +163,7 @@ func (api *APIEndpoint) runPipeline(id string, vars map[string]string) (string, 
 		Branch:    "master",
 		Variables: preprocessVariables(vars),
 	}
-	req, err := api.endpoint.New().Post(fmt.Sprint("api/builds/", id)).BodyJSON(body).Request()
+	req, err := api.endpoint.New().Post(fmt.Sprint("api/builds/", accountID, "/", id)).BodyJSON(body).Request()
 	if err != nil {
 		log.WithFields(log.Fields{
 			"pipeline": id,
@@ -203,9 +203,9 @@ func (api *APIEndpoint) GetPipeline(account, pipelineUID string) (*Pipeline, err
 }
 
 // RunPipeline run Codefresh pipeline
-func (api *APIEndpoint) RunPipeline(pipelineUID string, vars map[string]string) (string, error) {
+func (api *APIEndpoint) RunPipeline(accountId string, pipelineUID string, vars map[string]string) (string, error) {
 	// invoke pipeline by id
-	return api.runPipeline(pipelineUID, vars)
+	return api.runPipeline(accountId, pipelineUID, vars)
 }
 
 // Ping Codefresh API

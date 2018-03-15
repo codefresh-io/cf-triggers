@@ -22,8 +22,12 @@ func (r *PipelineRunner) Run(account string, pipelines []string, vars map[string
 	var runs []model.PipelineRun
 	for _, p := range pipelines {
 		var pr model.PipelineRun
-		log.WithField("pipeline", p).Debug("Running pipeline")
-		pr.ID, pr.Error = r.pipelineSvc.RunPipeline(p, vars)
+		log.WithFields(log.Fields{
+			"pipeline": p,
+			"account":  account,
+		}).Debug("Running pipeline")
+
+		pr.ID, pr.Error = r.pipelineSvc.RunPipeline(account, p, vars)
 		if pr.Error != nil {
 			log.WithError(pr.Error).Error("Failed to run pipeline")
 		}
