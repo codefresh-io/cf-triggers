@@ -45,13 +45,20 @@ func runTrigger(c *cli.Context) error {
 
 	// get trigger pipelines for specified event (skip account check)
 	ctx := context.WithValue(context.Background(), model.ContextKeyAccount, "-")
-	pipelines, err := triggerReaderWriter.GetTriggerPipelines(ctx, c.Args().First())
+	eventUri := c.Args().First()
+	pipelines, err := triggerReaderWriter.GetTriggerPipelines(ctx, eventUri)
 	if err != nil {
 		return err
 	}
 
+	ev, err := triggerReaderWriter.GetEvent(ctx, eventUri)
+	if err != nil {
+		return err
+	}
+	account := ev.Account
+
 	// run pipelines
-	runs, err := runner.Run("000000000000", pipelines, vars)
+	runs, err := runner.Run(account, pipelines, vars)
 	if err != nil {
 		return err
 	}
