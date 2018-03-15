@@ -49,8 +49,9 @@ func runTrigger(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
 	// run pipelines
-	runs, err := runner.Run(pipelines, vars)
+	runs, err := runner.Run("000000000000", pipelines, vars)
 	if err != nil {
 		return err
 	}

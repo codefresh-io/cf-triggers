@@ -44,7 +44,7 @@ type (
 
 	// Runner pipeline runner
 	Runner interface {
-		Run(pipelines []string, vars map[string]string) ([]PipelineRun, error)
+		Run(account string, pipelines []string, vars map[string]string) ([]PipelineRun, error)
 	}
 
 	// Pinger ping response
