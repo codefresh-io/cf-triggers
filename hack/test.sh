@@ -9,6 +9,7 @@
 #     --html  Additionally create HTML report and open it in browser
 #
 set -e
+set -o pipefail
 
 [ -z "$COVER" ] && COVER=.cover
 profile="$COVER/cover.out"
