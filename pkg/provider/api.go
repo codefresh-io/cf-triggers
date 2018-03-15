@@ -93,12 +93,15 @@ func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, event, secret stri
 	log.WithField("path", path).Debug("POST event to event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Post(path).ReceiveSuccess(&info)
 	if err != nil {
+		log.WithError(err).Error("failed to invoke method")
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusNotImplemented {
+		log.Warn("method not implemented")
 		return nil, ErrNotImplemented
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
+		log.WithField("http.status", resp.StatusCode).Error("event-provider api method failed")
 		return nil, fmt.Errorf("event-provider api error %s", http.StatusText(resp.StatusCode))
 	}
 
@@ -115,12 +118,15 @@ func (api *APIEndpoint) UnsubscribeFromEvent(ctx context.Context, event string, 
 	log.WithField("path", path).Debug("DELETE event from event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Delete(path).Receive(nil, nil)
 	if err != nil {
+		log.WithError(err).Error("failed to invoke method")
 		return err
 	}
 	if resp.StatusCode == http.StatusNotImplemented {
+		log.Warn("method not implemented")
 		return ErrNotImplemented
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
+		log.WithField("http.status", resp.StatusCode).Error("event-provider api method failed")
 		return fmt.Errorf("event-provider api error %s", http.StatusText(resp.StatusCode))
 	}
 

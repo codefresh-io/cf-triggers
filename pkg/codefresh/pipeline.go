@@ -60,6 +60,7 @@ func checkResponse(text string, err error, resp *http.Response) error {
 			details := string(respData)
 			msg = fmt.Sprintf("%s; more details: %s", msg, details)
 		}
+		log.Error(msg)
 		return fmt.Errorf(msg)
 	}
 	return nil
@@ -99,6 +100,7 @@ func NewCodefreshEndpoint(url, token string) PipelineService {
 
 // find Codefresh pipeline by name and repo details (owner and name)
 func (api *APIEndpoint) ping() error {
+	log.Debug("ping cfapi")
 	resp, err := api.endpoint.New().Get("api/ping").ReceiveSuccess(nil)
 	return checkResponse("ping", err, resp)
 }
@@ -119,15 +121,16 @@ func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 	var err error
 	if api.internal {
 		// use internal cfapi - another endpoint and need to ass account
-		log.Debug("using internal cfapi")
+		log.Debug("get pipelines, using internal cfapi")
 		resp, err = api.endpoint.New().Get(fmt.Sprint("api/pipelines/", account, "/", id)).ReceiveSuccess(pipeline)
 	} else {
 		// use public cfapi
-		log.Debug("using public cfapi")
+		log.Debug("get pipelines, using public cfapi")
 		resp, err = api.endpoint.New().Get(fmt.Sprint("api/pipelines/", id)).ReceiveSuccess(pipeline)
 	}
 	err = checkResponse("get pipelines", err, resp)
 	if err != nil {
+		log.WithError(err).Error("failed to get pipelines")
 		return nil, err
 	}
 
@@ -140,6 +143,7 @@ func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 
 		// check account match
 		if account != pipeline.Account.ID {
+			log.Error("pipeline does not match account")
 			return nil, ErrPipelineNoMatch
 		}
 		// return pipeline
@@ -176,13 +180,14 @@ func (api *APIEndpoint) runPipeline(accountID string, id string, vars map[string
 	resp, err := http.DefaultClient.Do(req)
 	err = checkResponse("run pipeline", err, resp)
 	if err != nil {
+		log.WithError(err).Error("failed to run pipeline")
 		return "", err
 	}
 
 	defer resp.Body.Close()
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Error("close response body error")
+		log.WithError(err).Error("close response body error")
 		return "", err
 	}
 	runID := string(respData)
@@ -203,9 +208,9 @@ func (api *APIEndpoint) GetPipeline(account, pipelineUID string) (*Pipeline, err
 }
 
 // RunPipeline run Codefresh pipeline
-func (api *APIEndpoint) RunPipeline(accountId string, pipelineUID string, vars map[string]string) (string, error) {
+func (api *APIEndpoint) RunPipeline(accountID string, pipelineUID string, vars map[string]string) (string, error) {
 	// invoke pipeline by id
-	return api.runPipeline(accountId, pipelineUID, vars)
+	return api.runPipeline(accountID, pipelineUID, vars)
 }
 
 // Ping Codefresh API
