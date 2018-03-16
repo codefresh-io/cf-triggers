@@ -172,7 +172,7 @@ func createEvent(c *cli.Context) error {
 	for _, v := range valueFlag {
 		kv := strings.Split(v, "=")
 		if len(kv) != 2 {
-			return errors.New("Invalid value format, must be in form '--value key=val'")
+			return errors.New("invalid value format, must be in form '--value key=val'")
 		}
 		values[kv[0]] = kv[1]
 	}
