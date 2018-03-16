@@ -40,6 +40,7 @@ func TestPipelineRunner_Run(t *testing.T) {
 		mock *codefresh.Mock
 	}
 	type args struct {
+		account   string
 		pipelines []string
 		vars      map[string]string
 	}
@@ -56,6 +57,7 @@ func TestPipelineRunner_Run(t *testing.T) {
 			args{
 				vars:      map[string]string{"V1": "AAA", "V2": "BBB"},
 				pipelines: []string{"puid-1", "puid-2", "puid-3"},
+				account:   "test",
 			},
 			[]model.PipelineRun{
 				{ID: "run1", Error: nil},
@@ -70,6 +72,7 @@ func TestPipelineRunner_Run(t *testing.T) {
 			args{
 				vars:      map[string]string{"V1": "AAA", "V2": "BBB"},
 				pipelines: []string{"puid-1", "puid-2", "puid-3"},
+				account:   "test",
 			},
 			[]model.PipelineRun{
 				{ID: "run1", Error: nil},
@@ -85,9 +88,9 @@ func TestPipelineRunner_Run(t *testing.T) {
 				pipelineSvc: tt.fields.mock,
 			}
 			for i, p := range tt.args.pipelines {
-				tt.fields.mock.On("RunPipeline", p, tt.args.vars).Return(tt.want[i].ID, tt.want[i].Error)
+				tt.fields.mock.On("RunPipeline", tt.args.account, p, tt.args.vars).Return(tt.want[i].ID, tt.want[i].Error)
 			}
-			got, err := r.Run(tt.args.pipelines, tt.args.vars)
+			got, err := r.Run(tt.args.account, tt.args.pipelines, tt.args.vars)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("PipelineRunner.Run() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -24,6 +24,11 @@ type (
 		UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error
 	}
 
+	// APIError api error message
+	APIError struct {
+		Message string `json:"error,omitempty"`
+	}
+
 	// APIEndpoint Event Provider API endpoint
 	APIEndpoint struct {
 		endpoint *sling.Sling
@@ -69,14 +74,17 @@ func setContext(ctx context.Context, req *sling.Sling) *sling.Sling {
 // GetEventInfo get EventInfo from Event Provider passing event URI
 func (api *APIEndpoint) GetEventInfo(ctx context.Context, event string, secret string) (*model.EventInfo, error) {
 	var info model.EventInfo
+	var apiError APIError
 	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret)
 	log.WithField("path", path).Debug("GET event info from event provider")
-	resp, err := setContext(ctx, api.endpoint.New()).Get(path).ReceiveSuccess(&info)
+	resp, err := setContext(ctx, api.endpoint.New()).Get(path).Receive(&info, &apiError)
 	if err != nil {
+		log.WithError(err).Error("failed to set context for method call")
 		return nil, err
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("event-provider api error %s", http.StatusText(resp.StatusCode))
+		log.WithField("error", apiError.Message).Error("event-provider get info failed")
+		return nil, fmt.Errorf("event-provider api error %s, http-code: %d", apiError.Message, resp.StatusCode)
 	}
 
 	return &info, err
@@ -85,21 +93,28 @@ func (api *APIEndpoint) GetEventInfo(ctx context.Context, event string, secret s
 // SubscribeToEvent configure remote system through event provider to subscribe for desired event
 func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, event, secret string, credentials map[string]string) (*model.EventInfo, error) {
 	var info model.EventInfo
+	var apiError APIError
 	// encode credentials to pass them in url
 	creds, _ := json.Marshal(credentials)
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke POST method passing credentials as base64 encoded string; receive eventinfo on success
 	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret, "/", encoded)
 	log.WithField("path", path).Debug("POST event to event provider")
-	resp, err := setContext(ctx, api.endpoint.New()).Post(path).ReceiveSuccess(&info)
+	resp, err := setContext(ctx, api.endpoint.New()).Post(path).Receive(&info, &apiError)
 	if err != nil {
+		log.WithError(err).Error("failed to invoke method")
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusNotImplemented {
+		log.Warn("method not implemented")
 		return nil, ErrNotImplemented
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("event-provider api error %s", http.StatusText(resp.StatusCode))
+		log.WithFields(log.Fields{
+			"http.status": resp.StatusCode,
+			"error":       apiError.Message,
+		}).Error("event-provider api method failed")
+		return nil, fmt.Errorf("event-provider api error: %s, http-status: %s", apiError.Message, http.StatusText(resp.StatusCode))
 	}
 
 	return &info, err
@@ -107,21 +122,28 @@ func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, event, secret stri
 
 // UnsubscribeFromEvent configure remote system through event provider to unsubscribe for desired event
 func (api *APIEndpoint) UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error {
+	var apiError APIError
 	// encode credentials to pass them in url
 	creds, _ := json.Marshal(credentials)
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke DELETE method passing credentials as base64 encoded string
 	path := fmt.Sprint("/event/", escapeSlash(event), "/", encoded)
 	log.WithField("path", path).Debug("DELETE event from event provider")
-	resp, err := setContext(ctx, api.endpoint.New()).Delete(path).Receive(nil, nil)
+	resp, err := setContext(ctx, api.endpoint.New()).Delete(path).Receive(nil, &apiError)
 	if err != nil {
+		log.WithError(err).Error("failed to invoke method")
 		return err
 	}
 	if resp.StatusCode == http.StatusNotImplemented {
+		log.Warn("method not implemented")
 		return ErrNotImplemented
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest {
-		return fmt.Errorf("event-provider api error %s", http.StatusText(resp.StatusCode))
+		log.WithFields(log.Fields{
+			"http.status": resp.StatusCode,
+			"error":       apiError.Message,
+		}).Error("event-provider api method failed")
+		return fmt.Errorf("event-provider api error: %s ,http-status: %s", apiError.Message, http.StatusText(resp.StatusCode))
 	}
 
 	return err

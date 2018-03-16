@@ -96,13 +96,13 @@ func loadEventHandlerTypes(configFile string) (model.EventTypes, error) {
 
 	absConfigFilePath, err := filepath.Abs(configFile)
 	if err != nil {
-		log.WithError(err).Error("Failed to read config file (provided path is illegal)")
+		log.WithError(err).Error("failed to read config file (provided path is illegal)")
 		return eventTypes, err
 	}
 
 	eventTypesData, err := ioutil.ReadFile(absConfigFilePath)
 	if err != nil {
-		log.WithError(err).Error("Failed to read config file")
+		log.WithError(err).Error("failed to read config file")
 		return eventTypes, err
 	}
 
@@ -140,11 +140,11 @@ func (m *EventProviderManager) monitorConfigFile() *util.FileWatcher {
 		var err error
 		m.eventTypes, err = loadEventHandlerTypes(m.configFile)
 		if err != nil {
-			log.WithError(err).Error("Failed to load config file")
+			log.WithError(err).Error("failed to load config file")
 		}
 	})
 	if err != nil {
-		log.WithError(err).Error("Failed to watch file for changes")
+		log.WithError(err).Error("failed to watch file for changes")
 	}
 
 	return watcher
@@ -158,7 +158,7 @@ func (m *EventProviderManager) GetTypes() []model.EventType {
 		return m.eventTypes.Types
 	}
 
-	log.Error("Failed to fetch event types")
+	log.Error("failed to fetch event types")
 	return nil
 }
 
@@ -177,7 +177,7 @@ func (m *EventProviderManager) GetType(eventType string, eventKind string) (*mod
 			return &e, nil
 		}
 	}
-	return nil, errors.New("failed to find event type")
+	return nil, fmt.Errorf("failed to find event type '%s' kine '%s'", eventType, eventKind)
 }
 
 // MatchType match event type by uri
@@ -221,7 +221,7 @@ func (m *EventProviderManager) GetEventInfo(ctx context.Context, event string, s
 	}
 	info, err := provider.GetEventInfo(ctx, event, secret)
 	if err != nil {
-		log.WithError(err).Error("Failed to get event info")
+		log.WithError(err).Error("failed to get event info")
 		return nil, err
 	}
 
@@ -233,6 +233,7 @@ func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, event, secr
 	log.WithField("event", event).Debug("subscribe to remote event trough event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
+		log.WithError(err).Error("failed to match event type")
 		return nil, err
 	}
 
@@ -245,6 +246,7 @@ func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, event, secr
 	}
 	info, err := provider.SubscribeToEvent(ctx, event, secret, credentials)
 	if err != nil {
+		log.WithError(err).Error("failed to subscribe to event")
 		return nil, err
 	}
 
@@ -256,6 +258,7 @@ func (m *EventProviderManager) UnsubscribeFromEvent(ctx context.Context, event s
 	log.WithField("event", event).Debug("unsubscribe from remote event trough event provider")
 	et, err := m.MatchType(event)
 	if err != nil {
+		log.WithError(err).Error("failed to match event type")
 		return err
 	}
 
@@ -266,7 +269,11 @@ func (m *EventProviderManager) UnsubscribeFromEvent(ctx context.Context, event s
 	} else {
 		provider = NewEventProviderEndpoint(et.ServiceURL)
 	}
-	return provider.UnsubscribeFromEvent(ctx, event, credentials)
+	err = provider.UnsubscribeFromEvent(ctx, event, credentials)
+	if err != nil {
+		log.WithError(err).Error("failed to unsubscribe from the event")
+	}
+	return nil
 }
 
 // ConstructEventURI construct event URI from type/kind, account and values map
@@ -280,6 +287,7 @@ func (m *EventProviderManager) ConstructEventURI(t string, k string, a string, v
 	// get event type
 	eventType, err := m.GetType(t, k)
 	if err != nil {
+		log.WithError(err).Error("failed to find trigger type")
 		return "", err
 	}
 
@@ -297,10 +305,12 @@ func (m *EventProviderManager) ConstructEventURI(t string, k string, a string, v
 		}).Debug("validating field")
 		r, err := regexp.Compile(field.Validator)
 		if err != nil {
+			log.WithError(err).WithField("regex", field.Validator).Error("failed to compile validator regex")
 			return "", err
 		}
 		if !r.MatchString(val) {
-			return "", errors.New("field validation failed")
+			log.WithField("field", field.Name).Error("field validation failed")
+			return "", fmt.Errorf("field '%s' validation failed for validator '%s'", field.Name, field.Validator)
 		}
 		// substitute value for template string in URI template
 		event = strings.Replace(event, fmt.Sprintf("{{%s}}", field.Name), val, -1)
@@ -312,10 +322,12 @@ func (m *EventProviderManager) ConstructEventURI(t string, k string, a string, v
 	// do a final validation
 	r, err := regexp.Compile(eventType.URIPattern)
 	if err != nil {
+		log.WithError(err).WithField("regex", eventType.URIPattern).Error("failed to compile URI regex")
 		return "", err
 	}
 	if r.MatchString(event) {
 		return event, nil
 	}
-	return "", errors.New("event URI does not match URI pattern")
+	log.Error("event URI does not match URI pattern")
+	return "", fmt.Errorf("event '%s' does not match trigger type URI pattern", event)
 }
