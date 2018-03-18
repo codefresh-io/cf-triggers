@@ -14,7 +14,7 @@ steps:
     description: create Docker image with multi-stage build
     dockerfile: Dockerfile
     working_directory: ${{main_clone}}
-    image_name: codefresh/hermes
+    image_name: codefresh/${{CF_REPO_NAME}}
     build_arguments:
       - VCS_COMMIT_ID=${{CF_REVISION}}
       - VCS_BRANCH_NAME=${{CF_BRANCH}}
