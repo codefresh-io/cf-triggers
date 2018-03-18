@@ -11,7 +11,7 @@ steps:
 
   multistage_build:
     type: build
-    description: create Hermes trigger manager image with multi-stage build
+    description: create Docker image with multi-stage build
     dockerfile: Dockerfile
     working_directory: ${{main_clone}}
     image_name: codefresh/hermes
@@ -46,7 +46,7 @@ steps:
   dockerhub-push-others:
     type: push
     candidate: ${{multistage_build}}
-    tag: ${{CF_BRANCH}}
+    tag: ${{VERSION}}-${{CF_BRANCH}}
     when:
       branch:
         ignore:
