@@ -11,7 +11,7 @@ steps:
 
   multistage_build:
     type: build
-    description: create Docker image with multi-stage build
+    title: create Docker image with multi-stage build
     dockerfile: Dockerfile
     working_directory: ${{main_clone}}
     image_name: codefresh/${{CF_REPO_NAME}}
@@ -25,7 +25,7 @@ steps:
 
   dockerhub_push_full:
     type: push
-    description: tag image with full SemVer version
+    title: tag image with full SemVer version
     candidate: ${{multistage_build}}
     tag: ${{VERSION}}
     when:
@@ -35,7 +35,7 @@ steps:
 
   dockerhub_push_short:
     type: push
-    description: tag image with version without patch verion number
+    title: tag image with version without patch verion number
     candidate: ${{multistage_build}}
     tag: ${{SHORT_VERSION}}
     when:
@@ -43,8 +43,9 @@ steps:
         only:
           - master
 
-  dockerhub-push-others:
+  dockerhub_push_others:
     type: push
+    title: tag image with branch SemVer version
     candidate: ${{multistage_build}}
     tag: ${{VERSION}}-${{CF_BRANCH}}
     when:
