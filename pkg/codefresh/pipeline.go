@@ -100,7 +100,6 @@ func NewCodefreshEndpoint(url, token string) PipelineService {
 
 // find Codefresh pipeline by name and repo details (owner and name)
 func (api *APIEndpoint) ping() error {
-	log.Debug("ping cfapi")
 	resp, err := api.endpoint.New().Get("api/ping").ReceiveSuccess(nil)
 	return checkResponse("ping", err, resp)
 }
