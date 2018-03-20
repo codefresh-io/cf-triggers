@@ -39,7 +39,7 @@
             "kind": "codefresh",
             "service-url": "http://local.codefresh.io:10002",
             "uri-template": "cron:codefresh:{{expression}}:{{message}}",
-            "uri-regex": "^cron:codefresh:@yearly|@annually|@monthly|@weekly|@daily|@midnight|@hourly|([a-zA-0-9*/,-?]+\\s?){6}:[a-zA-Z0-9_-]{2,64}$",
+            "uri-regex": "^cron:codefresh:@yearly|@annually|@monthly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6}:[a-zA-Z0-9_-]{2,64}$",
             "config": [
                 {
                     "name": "expression",
