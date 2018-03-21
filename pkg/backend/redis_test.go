@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/codefresh-io/hermes/pkg/provider"
@@ -219,6 +221,168 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 			if (len(got) > 0 || len(tt.pipelines) > 0) && !reflect.DeepEqual(got, tt.pipelines) {
 				t.Errorf("RedisStore.GetPipelinesForTriggers() = %v, want %v", got, tt.pipelines)
 			}
+		})
+	}
+}
+
+func TestRedisStore_GetFilteredTriggerPipelines(t *testing.T) {
+	type args struct {
+		account string
+		event   string
+		vars    map[string]string
+	}
+	type filter struct {
+		filters map[string]string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		pipelines []string
+		filters   map[string]filter
+		want      []string
+		redisErr  error
+		redisErr2 error
+		wantErr   error
+	}{
+		{
+			name: "get pipelines for event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+			want:      []string{"pipeline1", "pipeline2", "pipeline3"},
+		},
+		{
+			name: "get filtered pipelines for event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+				vars:    map[string]string{"tag": "master"},
+			},
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+			filters: map[string]filter{
+				"pipeline1": filter{
+					filters: map[string]string{"tag": "^(master)$"},
+				},
+				"pipeline2": filter{
+					filters: map[string]string{"tag": "SKIP:^(master)$"},
+				},
+				"pipeline3": filter{
+					filters: map[string]string{"tag": "^.+$"},
+				},
+			},
+			want: []string{"pipeline1", "pipeline3"},
+		},
+		{
+			name: "get filtered pipelines for event bad regex",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+				vars:    map[string]string{"tag": "master"},
+			},
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+			filters: map[string]filter{
+				"pipeline1": filter{
+					filters: map[string]string{"tag": "^(master)$"},
+				},
+				"pipeline2": filter{
+					filters: map[string]string{"tag": "a(b"},
+				},
+				"pipeline3": filter{
+					filters: map[string]string{"tag": "^.+$"},
+				},
+			},
+			want: []string{"pipeline1", "pipeline2", "pipeline3"},
+		},
+		{
+			name: "get filter out all pipelines",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+				vars:    map[string]string{"tag": "master"},
+			},
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+			filters: map[string]filter{
+				"pipeline1": filter{
+					filters: map[string]string{"tag": "SKIP:^(master)$"},
+				},
+				"pipeline2": filter{
+					filters: map[string]string{"tag": "SKIP:^(master)$"},
+				},
+				"pipeline3": filter{
+					filters: map[string]string{"tag": "^(astra)$"},
+				},
+			},
+			wantErr: model.ErrPipelineNotFound,
+		},
+		{
+			name: "no pipelines for event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			wantErr: model.ErrPipelineNotFound,
+		},
+		{
+			name: "redis ZRANGE ErrNil error",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			redisErr: redis.ErrNil,
+			wantErr:  model.ErrTriggerNotFound,
+		},
+		{
+			name: "redis ZRANGE error",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			redisErr: redis.ErrPoolExhausted,
+			wantErr:  redis.ErrPoolExhausted,
+		},
+		{
+			name: "redis HGETALL error",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+				vars:    map[string]string{"tag": "master"},
+			},
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+			redisErr2: redis.ErrPoolExhausted,
+			wantErr:   redis.ErrPoolExhausted,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &RedisStore{
+				redisPool: &RedisPoolMock{},
+			}
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.account, tt.args.event), 0, -1)
+			if tt.redisErr != nil {
+				cmd.ExpectError(tt.redisErr)
+				goto Invoke
+			} else {
+				cmd.Expect(util.InterfaceSlice(tt.pipelines))
+			}
+			if len(tt.args.vars) > 0 {
+				for _, pipeline := range tt.pipelines {
+					cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getFilterKey(tt.args.event, pipeline))
+					if tt.redisErr2 != nil {
+						cmd.ExpectError(tt.redisErr2)
+					} else {
+						cmd.ExpectMap(tt.filters[pipeline].filters)
+					}
+				}
+			}
+		Invoke:
+			got, err := r.GetFilteredTriggerPipelines(setContext(tt.args.account), tt.args.event, tt.args.vars)
+			if err != nil && err.Error() != tt.wantErr.Error() {
+				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.ElementsMatch(t, got, tt.want)
 		})
 	}
 }

@@ -468,43 +468,51 @@ func (r *RedisStore) GetFilteredTriggerPipelines(ctx context.Context, event stri
 	}
 
 	// scan through pipelines and filter out pipelines that match filter
-	skipPipelines := make([]string, 0)
-	for _, pipeline := range pipelines {
-		// get hash values
-		filters, err := redis.StringMap(con.Do("HGETALL", getFilterKey(event, pipeline)))
-		if err != nil && err != redis.ErrNil {
-			log.WithError(err).Error("error getting trigger filter")
-			return nil, err
-		}
-		// filter out pipelines: for each filter condition find match
-		for name, validator := range filters {
-			// get matched value from vars
-			val := vars[name]
-			// for non-empty value validate
-			if val != "" {
-				log.WithFields(log.Fields{
-					"name":      name,
-					"value":     val,
-					"validator": validator,
-				}).Debug("filtering pipeline based on value")
-				r, err := regexp.Compile(validator)
-				if err != nil {
+	if vars != nil && len(vars) > 0 {
+		skipPipelines := make([]string, 0)
+		for _, pipeline := range pipelines {
+			// get hash values
+			filters, err := redis.StringMap(con.Do("HGETALL", getFilterKey(event, pipeline)))
+			if err != nil && err != redis.ErrNil {
+				log.WithError(err).Error("error getting trigger filter")
+				return nil, err
+			}
+			// filter out pipelines: for each filter condition find match
+			for name, validator := range filters {
+				// get matched value from vars
+				val := vars[name]
+				// for non-empty value validate
+				if val != "" {
 					log.WithFields(log.Fields{
 						"name":      name,
+						"value":     val,
 						"validator": validator,
-					}).Error("bad regex validator for filter")
-					continue // skip
-				}
-				// fail validation on not-matched values
-				if !r.MatchString(val) {
-					log.WithField("pipeline", pipeline).Debug("skipping pipeline as not matching filter")
-					skipPipelines = append(skipPipelines, pipeline)
+					}).Debug("filtering pipeline based on value")
+					// handle NOT on regex
+					skipMatch := false
+					if strings.HasPrefix(validator, "SKIP:") {
+						validator = strings.TrimPrefix(validator, "SKIP:")
+						skipMatch = true
+					}
+					r, err := regexp.Compile(validator)
+					if err != nil {
+						log.WithFields(log.Fields{
+							"name":      name,
+							"validator": validator,
+						}).Error("bad regex validator for filter")
+						continue // skip
+					}
+					// skip matching values (or not)
+					if r.MatchString(val) == skipMatch {
+						log.WithField("pipeline", pipeline).Debug("skipping pipeline with filter")
+						skipPipelines = append(skipPipelines, pipeline)
+					}
 				}
 			}
 		}
+		// remove pipelines that match filter
+		pipelines = util.DiffStrings(pipelines, skipPipelines)
 	}
-	// remove pipelines that match filter
-	pipelines = util.DiffStrings(pipelines, skipPipelines)
 
 	if len(pipelines) == 0 {
 		log.Error("failed to get pipelines, no pipelines found or all skipped")

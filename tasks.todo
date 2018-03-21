@@ -18,6 +18,7 @@ Project:
     ☐ CreateTrigger accepts filter for create
     ☐ GetPipelineTriggers respects filters
     ☐ GetTriggers should return also filters map for trigger
+    ☐ Implement CLI methods for create/get trigger with filters
 
 DevOps:
     ✔ Backup Redis Store periodically; consider [stash](https://github.com/appscode/stash/) @done (3/21/2018, 3:20:46 PM)
