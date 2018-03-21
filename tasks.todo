@@ -12,13 +12,16 @@ Project:
     ☐ Desing and write discovery job (read config, discover all,check update needed, update)
     ✔ update cfapi proxy if needed @done (1/7/2018, 5:01:53 PM)
     ✔ expose codefresh cui commands @done (2/7/2018, 7:00:49 PM)
-    ☐ unsubscribe from event through event provider when event is deleted (ignore not implemented)
+    ✔ unsubscribe from event through event provider when event is deleted (ignore not implemented) @done (3/21/2018, 3:20:59 PM)
     ☐ Return "Trigger Event Already Exists" trying to create duplicate trigger
     ☐ Return "Trigger Event Does not Exist" when deleting non existing trigger event
+    ☐ CreateTrigger accepts filter for create
+    ☐ GetPipelineTriggers respects filters
+    ☐ GetTriggers should return also filters map for trigger
 
 DevOps:
-    ☐ Backup Redis Store periodically; consider [stash](https://github.com/appscode/stash/)
-    ☐ Configure Restore procedure
+    ✔ Backup Redis Store periodically; consider [stash](https://github.com/appscode/stash/) @done (3/21/2018, 3:20:46 PM)
+    ✔ Configure Restore procedure @done (3/21/2018, 3:20:50 PM)
 
 Tests:
     ✔ Test `RedisStore.Add` @done (12/6/2017, 12:53:44 PM)

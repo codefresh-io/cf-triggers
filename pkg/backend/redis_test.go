@@ -573,7 +573,7 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 			}
 
 		Invoke:
-			if err := r.CreateTrigger(setContext(tt.args.account), tt.args.event, tt.args.pipeline); (err != nil) != tt.wantErr {
+			if err := r.CreateTrigger(setContext(tt.args.account), tt.args.event, tt.args.pipeline, nil); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.CreateTriggersForEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			// assert mock

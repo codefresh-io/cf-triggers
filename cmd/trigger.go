@@ -119,7 +119,7 @@ func createTrigger(c *cli.Context) error {
 	// get trigger service
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
 	// create triggers for event linking it to passed pipeline(s)
-	return triggerReaderWriter.CreateTrigger(getContext(c), args.First(), args.Get(1))
+	return triggerReaderWriter.CreateTrigger(getContext(c), args.First(), args.Get(1), nil)
 }
 
 func deleteTrigger(c *cli.Context) error {

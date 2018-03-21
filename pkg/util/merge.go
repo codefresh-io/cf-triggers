@@ -17,6 +17,21 @@ func MergeStrings(a, b []string) []string {
 	return a
 }
 
+// DiffStrings returns the elements in a that aren't in b
+func DiffStrings(a, b []string) []string {
+	mb := map[string]bool{}
+	for _, x := range b {
+		mb[x] = true
+	}
+	ab := []string{}
+	for _, x := range a {
+		if _, ok := mb[x]; !ok {
+			ab = append(ab, x)
+		}
+	}
+	return ab
+}
+
 // InterfaceSlice helper function to convert []string to []interface{}
 // see https://github.com/golang/go/wiki/InterfaceSlice
 func InterfaceSlice(slice []string) []interface{} {

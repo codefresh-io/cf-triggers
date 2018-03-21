@@ -38,7 +38,7 @@ type (
 		GetEventTriggers(ctx context.Context, event string) ([]Trigger, error)
 		GetPipelineTriggers(ctx context.Context, pipeline string) ([]Trigger, error)
 		DeleteTrigger(ctx context.Context, event, pipeline string) error
-		CreateTrigger(ctx context.Context, event, pipeline string) error
+		CreateTrigger(ctx context.Context, event, pipeline string, filters map[string]string) error
 		GetTriggerPipelines(ctx context.Context, event string) ([]string, error)
 	}
 
