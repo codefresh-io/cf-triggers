@@ -251,16 +251,17 @@ func (r *RedisStore) GetEventTriggers(ctx context.Context, event string) ([]mode
 			return nil, err
 		}
 		// for all linked pipelines ...
+		uri := strings.TrimPrefix(k, "trigger:")
 		for _, pipeline := range res {
 			// get filters
-			filters, err := redis.StringMap(con.Do("HGETALL", getFilterKey(event, pipeline)))
+			filters, err := redis.StringMap(con.Do("HGETALL", getFilterKey(uri, pipeline)))
 			if err != nil && err != redis.ErrNil {
 				log.WithError(err).Error("error getting trigger filter")
 				return nil, err
 			}
 			// populate trigger object
 			trigger := model.Trigger{
-				Event:    strings.TrimPrefix(k, "trigger:"),
+				Event:    uri,
 				Pipeline: pipeline,
 				Filters:  filters,
 			}
@@ -440,36 +441,9 @@ func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string, 
 	return err
 }
 
-// GetTriggerPipelines get pipelines that have trigger defined
+// GetTriggerPipelines get pipelines that have trigger defined with filter applied
 // can be filtered by event-uri(s)
-func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string) ([]string, error) {
-	account := getAccount(ctx)
-	con := r.redisPool.GetConn()
-
-	log.WithFields(log.Fields{
-		"event":   event,
-		"account": account,
-	}).Debug("getting pipelines for trigger event")
-	// get pipelines from Triggers
-	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(account, event), 0, -1))
-	if err != nil && err != redis.ErrNil {
-		log.WithError(err).Error("failed to get pipelines")
-		return nil, err
-	} else if err == redis.ErrNil {
-		log.WithError(err).Error("failed to get pipelines")
-		return nil, model.ErrTriggerNotFound
-	}
-	if len(pipelines) == 0 {
-		log.Error("failed to get pipelines, no pipelines found")
-		return nil, model.ErrPipelineNotFound
-	}
-
-	return pipelines, nil
-}
-
-// GetFilteredTriggerPipelines get pipelines that have trigger defined with filter applied
-// can be filtered by event-uri(s)
-func (r *RedisStore) GetFilteredTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error) {
+func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error) {
 	account := getAccount(ctx)
 	con := r.redisPool.GetConn()
 
@@ -499,28 +473,28 @@ func (r *RedisStore) GetFilteredTriggerPipelines(ctx context.Context, event stri
 				return nil, err
 			}
 			// filter out pipelines: for each filter condition find match
-			for name, validator := range filters {
+			for name, exp := range filters {
 				// get matched value from vars
 				val := vars[name]
 				// for non-empty value validate
 				if val != "" {
 					log.WithFields(log.Fields{
-						"name":      name,
-						"value":     val,
-						"validator": validator,
+						"name":       name,
+						"value":      val,
+						"expression": exp,
 					}).Debug("filtering pipeline based on value")
 					// handle NOT on regex
 					skipMatch := false
-					if strings.HasPrefix(validator, "SKIP:") {
-						validator = strings.TrimPrefix(validator, "SKIP:")
+					if strings.HasPrefix(exp, "SKIP:") {
+						exp = strings.TrimPrefix(exp, "SKIP:")
 						skipMatch = true
 					}
-					r, err := regexp.Compile(validator)
+					r, err := regexp.Compile(exp)
 					if err != nil {
 						log.WithFields(log.Fields{
-							"name":      name,
-							"validator": validator,
-						}).Error("bad regex validator for filter")
+							"name":       name,
+							"expression": exp,
+						}).Error("bad regex expression for filter")
 						continue // skip
 					}
 					// skip matching values (or not)

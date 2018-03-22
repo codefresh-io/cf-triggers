@@ -15,10 +15,10 @@ Project:
     ✔ unsubscribe from event through event provider when event is deleted (ignore not implemented) @done (3/21/2018, 3:20:59 PM)
     ☐ Return "Trigger Event Already Exists" trying to create duplicate trigger
     ☐ Return "Trigger Event Does not Exist" when deleting non existing trigger event
-    ☐ CreateTrigger accepts filter for create
-    ☐ GetPipelineTriggers respects filters
-    ☐ GetTriggers should return also filters map for trigger
-    ☐ Implement CLI methods for create/get trigger with filters
+    ✔ CreateTrigger accepts filter for create @done (3/22/2018, 3:28:13 PM)
+    ✔ GetPipelineTriggers respects filters @done (3/22/2018, 3:28:55 PM)
+    ✔ GetTriggers should return also filters map for trigger @done (3/22/2018, 3:29:03 PM)
+    ✔ Implement CLI methods for create/get trigger with filters @done (3/22/2018, 3:29:06 PM)
 
 DevOps:
     ✔ Backup Redis Store periodically; consider [stash](https://github.com/appscode/stash/) @done (3/21/2018, 3:20:46 PM)

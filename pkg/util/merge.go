@@ -1,5 +1,10 @@
 package util
 
+import (
+	"fmt"
+	"strings"
+)
+
 // MergeStrings merge string slices
 func MergeStrings(a, b []string) []string {
 	for _, bv := range b {
@@ -40,4 +45,17 @@ func InterfaceSlice(slice []string) []interface{} {
 		islice[i] = v
 	}
 	return islice
+}
+
+// StringSliceToMap convert string slice (with key=value strings) to map
+func StringSliceToMap(values []string) (map[string]string, error) {
+	result := make(map[string]string)
+	for _, v := range values {
+		kv := strings.Split(v, "=")
+		if len(kv) != 2 {
+			return nil, fmt.Errorf("unexpected 'value: %s ; should be in 'key=value' form", v)
+		}
+		result[kv[0]] = kv[1]
+	}
+	return result, nil
 }
