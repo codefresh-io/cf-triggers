@@ -21,6 +21,8 @@ type (
 		Event string `json:"event" yaml:"event"`
 		// pipeline
 		Pipeline string `json:"pipeline" yaml:"pipeline"`
+		// filter
+		Filters map[string]string `json:"filters,omitempty" yaml:"filters,omitempty"`
 	}
 
 	// TriggerEventReaderWriter interface

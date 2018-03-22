@@ -252,9 +252,17 @@ func (r *RedisStore) GetEventTriggers(ctx context.Context, event string) ([]mode
 		}
 		// for all linked pipelines ...
 		for _, pipeline := range res {
+			// get filters
+			filters, err := redis.StringMap(con.Do("HGETALL", getFilterKey(event, pipeline)))
+			if err != nil && err != redis.ErrNil {
+				log.WithError(err).Error("error getting trigger filter")
+				return nil, err
+			}
+			// populate trigger object
 			trigger := model.Trigger{
 				Event:    strings.TrimPrefix(k, "trigger:"),
 				Pipeline: pipeline,
+				Filters:  filters,
 			}
 			triggers = append(triggers, trigger)
 		}
@@ -293,9 +301,17 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string) (
 	// for all linked trigger events, check if event belongs to context account of it's a public event
 	for _, event := range res {
 		if strings.HasSuffix(event, suffix) || strings.HasSuffix(event, model.PublicAccountHash) {
+			// get filters
+			filters, err := redis.StringMap(con.Do("HGETALL", getFilterKey(event, pipeline)))
+			if err != nil && err != redis.ErrNil {
+				log.WithError(err).Error("error getting trigger filter")
+				return nil, err
+			}
+			// populate trigger object
 			trigger := model.Trigger{
 				Event:    event,
 				Pipeline: pipeline,
+				Filters:  filters,
 			}
 			triggers = append(triggers, trigger)
 		}
@@ -346,7 +362,12 @@ func (r *RedisStore) DeleteTrigger(ctx context.Context, event, pipeline string) 
 	// remove trigger(s) from Pipelines
 	_, err = con.Do("ZREM", getPipelineKey(pipeline), event)
 	if err != nil {
+		return discardOnError(con, err)
+	}
 
+	// remove trigger filters if any
+	_, err = con.Do("DEL", getFilterKey(event, pipeline))
+	if err != nil {
 		return discardOnError(con, err)
 	}
 

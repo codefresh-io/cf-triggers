@@ -395,6 +395,7 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 		multi            bool
 		zrem1            bool
 		zrem2            bool
+		del              bool
 		exec             bool
 	}
 	type args struct {
@@ -485,6 +486,16 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			errs:    Errors{zrem2: true},
 		},
 		{
+			name: "fail deleting filters from Filters",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			wantErr: true,
+			errs:    Errors{del: true},
+		},
+		{
 			name: "fail exec transaction",
 			args: args{
 				account:  "A",
@@ -539,6 +550,12 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pipeline), tt.args.event)
 			if tt.errs.zrem2 {
 				cmd.ExpectError(errors.New("ZREM error"))
+			}
+
+			// remove event from Pipelines
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getFilterKey(tt.args.event, tt.args.pipeline))
+			if tt.errs.del {
+				cmd.ExpectError(errors.New("DEL error"))
 			}
 
 		EndTransaction:
