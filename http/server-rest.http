@@ -12,3 +12,15 @@ GET http://localhost:8080/version
 ###
 # Get Version
 GET http://localhost:8080/ping
+
+
+###
+# Create TRigger
+POST http://localhost:8080/accounts/1234/triggers/event-uri/pipeline-id
+Content-Type: application/json
+
+{
+	"filters": {
+		"tag": "^(do)+{8}"
+	}
+}
