@@ -10,8 +10,8 @@ type MockTriggerReaderWriter struct {
 }
 
 // CreateTrigger provides a mock function with given fields: ctx, event, pipeline
-func (_m *MockTriggerReaderWriter) CreateTrigger(ctx context.Context, event string, pipeline string) error {
-	ret := _m.Called(ctx, event, pipeline)
+func (_m *MockTriggerReaderWriter) CreateTrigger(ctx context.Context, event string, pipeline string, filters map[string]string) error {
+	ret := _m.Called(ctx, event, pipeline, filters)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
@@ -84,8 +84,8 @@ func (_m *MockTriggerReaderWriter) GetPipelineTriggers(ctx context.Context, pipe
 }
 
 // GetTriggerPipelines provides a mock function with given fields: ctx, event
-func (_m *MockTriggerReaderWriter) GetTriggerPipelines(ctx context.Context, event string) ([]string, error) {
-	ret := _m.Called(ctx, event)
+func (_m *MockTriggerReaderWriter) GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error) {
+	ret := _m.Called(ctx, event, vars)
 
 	var r0 []string
 	if rf, ok := ret.Get(0).(func(context.Context, string) []string); ok {

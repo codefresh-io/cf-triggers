@@ -7,6 +7,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/urfave/cli"
 )
 
@@ -42,6 +43,10 @@ var triggerCommand = cli.Command{
 					Name:  "account",
 					Usage: "Codefresh account ID",
 					Value: model.PublicAccount,
+				},
+				cli.StringSliceFlag{
+					Name:  "filter",
+					Usage: "filter pairs (name=condition); can pass multiple pairs",
 				},
 			},
 			Usage:       "create trigger",
@@ -94,9 +99,11 @@ func listTriggers(c *cli.Context) error {
 	}
 
 	// get all triggers for all events (private and public)
-	triggers, err = triggerReaderWriter.GetEventTriggers(getContext(c), "*")
-	if err != nil {
-		return err
+	if event == "" && pipeline == "" {
+		triggers, err = triggerReaderWriter.GetEventTriggers(getContext(c), "*")
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(triggers) == 0 {
@@ -114,12 +121,17 @@ func createTrigger(c *cli.Context) error {
 	if len(args) != 2 {
 		return errors.New("wrong number of arguments")
 	}
+	// convert command line 'filter' variables (key=value) to map
+	filters, err := util.StringSliceToMap(c.StringSlice("filter"))
+	if err != nil {
+		return err
+	}
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
 	// create triggers for event linking it to passed pipeline(s)
-	return triggerReaderWriter.CreateTrigger(getContext(c), args.First(), args.Get(1))
+	return triggerReaderWriter.CreateTrigger(getContext(c), args.First(), args.Get(1), filters)
 }
 
 func deleteTrigger(c *cli.Context) error {

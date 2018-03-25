@@ -28,7 +28,7 @@
             ],
             "filters": [
                 {
-                    "name": "TAG",
+                    "name": "tag",
                     "type": "string",
                     "validator": "^.+$"
                 }

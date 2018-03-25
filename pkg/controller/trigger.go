@@ -69,8 +69,18 @@ func (c *TriggerController) CreateTrigger(ctx *gin.Context) {
 	event := getParam(ctx, "event")
 	// get pipeline
 	pipeline := ctx.Param("pipeline")
+	// get request data
+	type createRequest struct {
+		Filters map[string]string `json:"filters,omitempty"`
+	}
+	// get event payload
+	var request createRequest
+	if err := ctx.Bind(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResult{http.StatusBadRequest, "error in request JSON body", err.Error()})
+		return
+	}
 	// perform action
-	if err := c.trigger.CreateTrigger(getContext(ctx), event, pipeline); err != nil {
+	if err := c.trigger.CreateTrigger(getContext(ctx), event, pipeline, request.Filters); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
