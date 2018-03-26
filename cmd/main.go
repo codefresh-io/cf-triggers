@@ -87,8 +87,9 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			Usage: "do not execute commands, just log",
 		},
 		cli.BoolFlag{
-			Name:  "json, j",
-			Usage: "produce log in JSON format: Logstash and Splunk friendly",
+			Name:   "json, j",
+			Usage:  "produce log in JSON format: Codefresh friendly",
+			EnvVar: "LOG_JSON",
 		},
 	}
 
