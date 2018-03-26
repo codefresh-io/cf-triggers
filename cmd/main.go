@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
+	"github.com/codefresh-io/hermes/pkg/logger"
 	"github.com/codefresh-io/hermes/pkg/version"
 )
 
@@ -115,10 +116,17 @@ func before(c *cli.Context) error {
 	default:
 		log.SetLevel(log.WarnLevel)
 	}
-	// set log formatter to JSON
+	// set log formatter to Codefresh JSON
 	if c.GlobalBool("json") {
-		log.SetFormatter(&log.JSONFormatter{})
+		log.SetFormatter(&logger.CFFormatter{})
 	}
+	// trace function calls
+	traceHook := logger.NewHook()
+	traceHook.Prefix = "codefresh:hermes:"
+	traceHook.AppName = "hermes"
+	traceHook.FunctionField = logger.FieldNamespace
+	traceHook.AppField = logger.FieldService
+	log.AddHook(traceHook)
 
 	return nil
 }
