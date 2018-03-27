@@ -1987,6 +1987,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 	}
 	type expected struct {
 		eventURI    string
+		existing    int64
 		info        *model.EventInfo
 		credentials map[string]string
 	}
@@ -2027,6 +2028,22 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			name: "create private event (per account)",
 			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62"},
 			expected: expected{
+				eventURI: "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
+				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+			},
+			want: &model.Event{
+				URI:       "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
+				Type:      "type",
+				Kind:      "kind",
+				Account:   "5672d8deb6724b6e359adf62",
+				Secret:    "XXX",
+				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
+		},
+		{
+			name: "try to create already existing private event (per account)",
+			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62"},
+			expected: expected{
+				existing: 1,
 				eventURI: "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
 			},
@@ -2219,6 +2236,27 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			} else {
 				call.Return(tt.expected.eventURI, nil)
 			}
+
+			// check existence by calling GetEvent
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", eventKey)
+			cmd.Expect(tt.expected.existing)
+			if tt.expected.existing == 1 {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", eventKey)
+				fields := map[string]string{
+					"type":        tt.want.Type,
+					"kind":        tt.want.Kind,
+					"account":     tt.want.Account,
+					"secret":      tt.want.Secret,
+					"endpoint":    tt.want.Endpoint,
+					"description": tt.want.Description,
+					"status":      tt.want.Status,
+					"help":        tt.want.Help,
+				}
+				cmd.ExpectMap(fields)
+				goto Invoke
+			}
+
+			// subscribe to event
 			call = mock.On("SubscribeToEvent", ctx, tt.expected.eventURI, tt.args.secret, tt.expected.credentials)
 			if tt.wantEventErr.subscribe != nil {
 				call.Return(nil, tt.wantEventErr.subscribe)

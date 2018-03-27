@@ -582,6 +582,12 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 		return nil, err
 	}
 
+	// first, try to get existing event, continue on error
+	if event, err := r.GetEvent(ctx, eventURI); err == nil {
+		lg.WithField("event-uri", eventURI).Debug("event already exists, reusing trigger-event")
+		return event, nil
+	}
+
 	// generate random secret if required
 	if secret == model.GenerateKeyword {
 		lg.Debug("auto generating trigger secret")
