@@ -505,13 +505,6 @@ func register(kq int, fds []int, flags int, fflags uint32) error {
 	return nil
 }
 
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
 // read retrieves pending events, or waits until an event occurs.
 // A timeout of nil blocks indefinitely, while 0 polls the queue.
 func read(kq int, events []unix.Kevent_t, timeout *unix.Timespec) ([]unix.Kevent_t, error) {
@@ -519,7 +512,6 @@ func read(kq int, events []unix.Kevent_t, timeout *unix.Timespec) ([]unix.Kevent
 	if err != nil {
 		return nil, err
 	}
-	n = min(n, len(events)-1) // new
 	return events[0:n], nil
 }
 

@@ -71,7 +71,7 @@
   branch = "master"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
-  revision = "f4ee69125072b22721efbe639bd0da9c9d19b8cc"
+  revision = "90150a8ed11b6ce285e77e8af2b0109559ce4777"
 
 [[projects]]
   name = "github.com/stretchr/objx"
@@ -101,13 +101,13 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "c7dcf104e3a7a1417abc0230cb0d5240d764159d"
+  revision = "88942b9c40a4c9d203b82b3731787b672d6e809b"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix","windows"]
-  revision = "7dca6fe1f43775aa6d1334576870ff63f978f539"
+  revision = "91ee8cde435411ca3f1cd365e8f20131aed4d0a1"
 
 [[projects]]
   name = "gopkg.in/go-playground/validator.v8"
@@ -118,8 +118,8 @@
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "7f97868eec74b32b0982dd158a51a446d1da7eb5"
-  version = "v2.1.1"
+  revision = "86f5ed62f8a0ee96bd888d2efdfd6d4fb100a4eb"
+  version = "v2.2.0"
 
 [solve-meta]
   analyzer-name = "dep"
