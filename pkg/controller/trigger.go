@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
@@ -51,8 +52,10 @@ func (c *TriggerController) GetTriggers(ctx *gin.Context) {
 func (c *TriggerController) GetPipelineTriggers(ctx *gin.Context) {
 	// get pipeline
 	pipeline := ctx.Param("pipeline")
+	// get with-event flag
+	withEvent, _ := strconv.ParseBool(ctx.Query("with-event"))
 	// list trigger events, optionally filtered by type/kind and event uri filter
-	if triggers, err := c.trigger.GetPipelineTriggers(getContext(ctx), pipeline); err != nil {
+	if triggers, err := c.trigger.GetPipelineTriggers(getContext(ctx), pipeline, withEvent); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound

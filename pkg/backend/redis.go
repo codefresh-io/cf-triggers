@@ -179,11 +179,17 @@ func (rp *RedisPool) GetConn() redis.Conn {
 	return rp.pool.Get()
 }
 
+// RedisEventGetter implements GetEvent used internally in RedisStore
+type RedisEventGetter struct {
+	redisPool RedisPoolService
+}
+
 // RedisStore in memory trigger map store
 type RedisStore struct {
 	redisPool     RedisPoolService
 	pipelineSvc   codefresh.PipelineService
 	eventProvider provider.EventProvider
+	eventGetter   model.TriggerEventGetter
 }
 
 // helper function - discard Redis transaction and return error
@@ -244,6 +250,8 @@ func NewRedisStore(server string, port int, password string, pipelineSvc codefre
 	r.redisPool = &RedisPool{newPool(server, port, password)}
 	r.pipelineSvc = pipelineSvc
 	r.eventProvider = eventProvider
+	// create
+	r.eventGetter = &RedisEventGetter{r.redisPool}
 	// return RedisStore
 	return r
 }
@@ -309,7 +317,7 @@ func (r *RedisStore) GetEventTriggers(ctx context.Context, event string) ([]mode
 }
 
 // GetPipelineTriggers get list of defined triggers for specified pipeline
-func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string) ([]model.Trigger, error) {
+func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, withEvent bool) ([]model.Trigger, error) {
 	account := getAccount(ctx)
 	lg := log.WithFields(getContextLogFields(ctx))
 	lg.WithFields(log.Fields{
@@ -350,6 +358,16 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string) (
 				Pipeline: pipeline,
 				Filters:  filters,
 			}
+			// get event object, if asked
+			if withEvent {
+				eventData, err := r.GetEvent(ctx, event)
+				if err != nil {
+					lg.WithField("event-uri", event).WithError(err).Error("error getting event details")
+					return nil, err
+				}
+				trigger.EventData = *eventData
+			}
+			// add trigger to result list
 			triggers = append(triggers, trigger)
 		}
 	}
@@ -678,6 +696,11 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 
 // GetEvent get event by event URI
 func (r *RedisStore) GetEvent(ctx context.Context, event string) (*model.Event, error) {
+	return r.eventGetter.GetEvent(ctx, event)
+}
+
+// GetEvent get event by event URI
+func (r *RedisEventGetter) GetEvent(ctx context.Context, event string) (*model.Event, error) {
 	account := getAccount(ctx)
 	lg := log.WithFields(getContextLogFields(ctx))
 	lg.WithFields(log.Fields{

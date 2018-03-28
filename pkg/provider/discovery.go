@@ -177,7 +177,7 @@ func (m *EventProviderManager) GetType(eventType string, eventKind string) (*mod
 			return &e, nil
 		}
 	}
-	return nil, fmt.Errorf("failed to find event type '%s' kine '%s'", eventType, eventKind)
+	return nil, fmt.Errorf("failed to find event type '%s' kind '%s'", eventType, eventKind)
 }
 
 // MatchType match event type by uri

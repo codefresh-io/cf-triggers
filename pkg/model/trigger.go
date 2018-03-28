@@ -23,12 +23,19 @@ type (
 		Pipeline string `json:"pipeline" yaml:"pipeline"`
 		// filter
 		Filters map[string]string `json:"filters,omitempty" yaml:"filters,omitempty"`
+		// event details (optional)
+		EventData Event `json:"event-data,omitempty" yaml:"event-data,omitempty"`
+	}
+
+	// TriggerEventGetter interface
+	TriggerEventGetter interface {
+		GetEvent(ctx context.Context, event string) (*Event, error)
 	}
 
 	// TriggerEventReaderWriter interface
 	TriggerEventReaderWriter interface {
 		// trigger events
-		GetEvent(ctx context.Context, event string) (*Event, error)
+		TriggerEventGetter
 		GetEvents(ctx context.Context, eventType, kind, filter string) ([]Event, error)
 		CreateEvent(ctx context.Context, eventType, kind, secret, context string, values map[string]string) (*Event, error)
 		DeleteEvent(ctx context.Context, event, context string) error
@@ -38,7 +45,7 @@ type (
 	TriggerReaderWriter interface {
 		// triggers
 		GetEventTriggers(ctx context.Context, event string) ([]Trigger, error)
-		GetPipelineTriggers(ctx context.Context, pipeline string) ([]Trigger, error)
+		GetPipelineTriggers(ctx context.Context, pipeline string, withEvent bool) ([]Trigger, error)
 		DeleteTrigger(ctx context.Context, event, pipeline string) error
 		CreateTrigger(ctx context.Context, event, pipeline string, filters map[string]string) error
 		GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error)
