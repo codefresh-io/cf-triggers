@@ -10,8 +10,10 @@ type (
 	ConfigField struct {
 		// Name field name
 		Name string `json:"name" yaml:"name"`
-		// Type field type (default 'string'): string, int, date, list, crontab
+		// Type field type (default 'string'): string, int, date, list, cron
 		Type string `json:"type,omitempty" yaml:"type,omitempty"`
+		// Options an options map (key: value) for list type
+		Options map[string]string `json:"options,omitempty" yaml:"options,omitempty"`
 		// Validator validator for value: regex, '|' separated list, int range, date range, http-get
 		Validator string `json:"validator,omitempty" yaml:"validator,omitempty"`
 		// Required required flag (default: false)
