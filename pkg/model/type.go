@@ -42,9 +42,8 @@ type (
 		URIPattern string `json:"uri-regex" yaml:"uri-regex"`
 		// Configuration Fields
 		Config []ConfigField `json:"config" yaml:"config"`
-		
+		// Filters - fields that support filtering
 		Filters []FilterField `json:"filters" yaml:"filters"`
-
 	}
 
 	// EventTypes array of event types

@@ -31,6 +31,10 @@ var triggerCommand = cli.Command{
 					Usage: "Codefresh account ID",
 					Value: model.PublicAccount,
 				},
+				cli.BoolFlag{
+					Name:  "with-event",
+					Usage: "also fetch trigger event data (use with --pipeline)",
+				},
 			},
 			Usage:       "list defined triggers",
 			Description: "List triggers filtered by trigger event or pipeline",
@@ -92,7 +96,7 @@ func listTriggers(c *cli.Context) error {
 
 	// list by pipeline
 	if pipeline != "" {
-		triggers, err = triggerReaderWriter.GetPipelineTriggers(getContext(c), pipeline)
+		triggers, err = triggerReaderWriter.GetPipelineTriggers(getContext(c), pipeline, c.Bool("with-event"))
 		if err != nil {
 			return err
 		}

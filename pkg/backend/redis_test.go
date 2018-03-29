@@ -1057,8 +1057,9 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 		filters map[string](map[string]string)
 	}
 	type args struct {
-		account  string
-		pipeline string
+		account   string
+		pipeline  string
+		withEvent bool
 	}
 	tests := []struct {
 		name     string
@@ -1090,6 +1091,55 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 					Event:    "event:2:" + model.PublicAccountHash,
 					Pipeline: "test-pipeline",
 					Filters:  make(map[string]string),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "list triggers for pipeline",
+			args: args{
+				account:   "A",
+				pipeline:  "test-pipeline",
+				withEvent: true,
+			},
+			expected: expected{
+				events: []string{
+					"event:1:" + model.CalculateAccountHash("A"),
+					"event:2:" + model.CalculateAccountHash("A"),
+				},
+			},
+			want: []model.Trigger{
+				model.Trigger{
+					Event:    "event:1:" + model.CalculateAccountHash("A"),
+					Pipeline: "test-pipeline",
+					Filters:  make(map[string]string),
+					EventData: model.Event{
+						URI:     "event:1:" + model.CalculateAccountHash("A"),
+						Type:    "T",
+						Kind:    "K",
+						Account: "A",
+						EventInfo: model.EventInfo{
+							Status:      "active",
+							Description: "test event 1",
+							Help:        "test help 1",
+						},
+					},
+				},
+				model.Trigger{
+					Event:    "event:2:" + model.CalculateAccountHash("A"),
+					Pipeline: "test-pipeline",
+					Filters:  make(map[string]string),
+					EventData: model.Event{
+						URI:     "event:2:" + model.CalculateAccountHash("A"),
+						Type:    "T2",
+						Kind:    "K2",
+						Account: "A",
+						EventInfo: model.EventInfo{
+							Status:      "active",
+							Description: "test event 2",
+							Help:        "test help 2",
+						},
+					},
 				},
 			},
 			wantErr: false,
@@ -1226,9 +1276,13 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockEventGetter := &model.MockTriggerEventGetter{}
 			r := &RedisStore{
-				redisPool: &RedisPoolMock{},
+				redisPool:   &RedisPoolMock{},
+				eventGetter: mockEventGetter,
 			}
+			// create context
+			ctx := setContext(tt.args.account)
 			// get keys from Pipelines Set
 			pipelineKey := getPipelineKey(tt.args.pipeline)
 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", pipelineKey)
@@ -1249,23 +1303,28 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 			}
 
 			// get filters for pipelines
-			for _, event := range tt.expected.events {
+			for i, event := range tt.expected.events {
 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", getFilterKey(event, tt.args.pipeline))
 				if tt.errs.hgetall {
 					cmd.ExpectError(errors.New("HGETALL error"))
 					goto Invoke
 				} else {
 					cmd.ExpectMap(tt.expected.filters[event])
+					// get event
+					if tt.args.withEvent {
+						mockEventGetter.On("GetEvent", ctx, event).Return(&tt.want[i].EventData, nil)
+					}
 				}
 			}
 
 		Invoke:
-			got, err := r.GetPipelineTriggers(setContext(tt.args.account), tt.args.pipeline)
+			got, err := r.GetPipelineTriggers(ctx, tt.args.pipeline, tt.args.withEvent)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.GetPipelineTriggers() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.ElementsMatch(t, got, tt.want)
+			mockEventGetter.AssertExpectations(t)
 		})
 	}
 }
@@ -1385,8 +1444,10 @@ func TestRedisStore_GetEvent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			redisMock := &RedisPoolMock{}
 			r := &RedisStore{
-				redisPool: &RedisPoolMock{},
+				redisPool:   redisMock,
+				eventGetter: &RedisEventGetter{redisMock},
 			}
 			eventKey := getEventKey(tt.args.account, tt.args.event)
 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", eventKey)
@@ -1424,8 +1485,7 @@ func TestRedisStore_GetEvents(t *testing.T) {
 		keys       bool
 		pubKeys    bool
 		pubKeysNil bool
-		exists     bool
-		hgetall    bool
+		getEvent   bool
 	}
 	type expect struct {
 		keys    []string
@@ -1611,32 +1671,29 @@ func TestRedisStore_GetEvents(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "exists error",
+			name: "fail to get event",
 			args: args{account: "test-account"},
 			expect: expect{
 				keys: []string{
 					"uri:1:" + model.CalculateAccountHash("test-account"),
 				},
 			},
-			errs:    Errors{exists: true},
-			wantErr: true,
-		},
-		{
-			name: "hgetall error",
-			args: args{account: "test-account"},
-			expect: expect{
-				keys: []string{
-					"uri:1:" + model.CalculateAccountHash("test-account"),
-				},
-			},
-			errs:    Errors{hgetall: true},
+			errs:    Errors{getEvent: true},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var call *mock.Call
+			mockEventGetter := &model.MockTriggerEventGetter{}
 			r := &RedisStore{
-				redisPool: &RedisPoolMock{},
+				redisPool:   &RedisPoolMock{},
+				eventGetter: mockEventGetter,
+			}
+			// prepare context
+			ctx := setContext(tt.args.account)
+			if tt.args.public {
+				ctx = context.WithValue(ctx, model.ContextKeyPublic, true)
 			}
 			// keys includes both private and public keys
 			keys := append(tt.expect.keys, tt.expect.pubKeys...)
@@ -1662,29 +1719,18 @@ func TestRedisStore_GetEvents(t *testing.T) {
 			}
 			// mock scanning trough all trigger events
 			for i, k := range keys {
-				eventKey := getEventKey(tt.args.account, k)
-				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", eventKey)
-				if tt.errs.exists {
-					cmd.Expect(int64(0))
+				call = mockEventGetter.On("GetEvent", ctx, k)
+				if tt.errs.getEvent {
+					call.Return(nil, errors.New("GetEvent ERROR"))
 					goto Invoke
 				} else {
-					cmd.Expect(int64(1))
-				}
-				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", eventKey)
-				if tt.errs.hgetall {
-					cmd.ExpectError(errors.New("HGETALL error"))
-					goto Invoke
-				} else {
-					cmd.ExpectMap(tt.expect.fields[i])
+					event := model.StringsMapToEvent(k, tt.expect.fields[i])
+					call.Return(event, nil)
 				}
 			}
 
 			// invoke
 		Invoke:
-			ctx := setContext(tt.args.account)
-			if tt.args.public {
-				ctx = context.WithValue(ctx, model.ContextKeyPublic, true)
-			}
 			got, err := r.GetEvents(ctx, tt.args.eventType, tt.args.kind, tt.args.filter)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.GetEvents() error = %v, wantErr %v", err, tt.wantErr)
@@ -1693,6 +1739,7 @@ func TestRedisStore_GetEvents(t *testing.T) {
 			if (len(got) != 0 || len(tt.want) != 0) && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("RedisStore.GetEvents() = %v, want %v", got, tt.want)
 			}
+			mockEventGetter.AssertExpectations(t)
 		})
 	}
 }
@@ -2214,9 +2261,11 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var cmd *redigomock.Cmd
 			mock := provider.NewEventProviderMock()
+			mockEventGetter := &model.MockTriggerEventGetter{}
 			r := &RedisStore{
 				redisPool:     &RedisPoolMock{},
 				eventProvider: mock,
+				eventGetter:   mockEventGetter,
 			}
 			account := tt.args.account
 			if tt.args.public {
@@ -2238,22 +2287,12 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			}
 
 			// check existence by calling GetEvent
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", eventKey)
-			cmd.Expect(tt.expected.existing)
+			call = mockEventGetter.On("GetEvent", ctx, tt.expected.eventURI)
 			if tt.expected.existing == 1 {
-				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGETALL", eventKey)
-				fields := map[string]string{
-					"type":        tt.want.Type,
-					"kind":        tt.want.Kind,
-					"account":     tt.want.Account,
-					"secret":      tt.want.Secret,
-					"endpoint":    tt.want.Endpoint,
-					"description": tt.want.Description,
-					"status":      tt.want.Status,
-					"help":        tt.want.Help,
-				}
-				cmd.ExpectMap(fields)
+				call.Return(tt.want, nil)
 				goto Invoke
+			} else {
+				call.Return(nil, errors.New("ERROR in GetEvent"))
 			}
 
 			// subscribe to event
@@ -2361,8 +2400,9 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("RedisStore.CreateEvent() = %v, want %v", got, tt.want)
 			}
-			// assert mock
+			// assert mocks
 			mock.AssertExpectations(t)
+			mockEventGetter.AssertExpectations(t)
 		})
 	}
 }

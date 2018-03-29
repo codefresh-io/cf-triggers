@@ -9,11 +9,11 @@ Project:
     ✔ Get event URI in human readable format @done (1/2/2018, 3:41:49 PM)
     ✔ Filter trigger by pipeline uri @done (12/21/2017, 12:28:17 PM)
     ✔ Switch to internal cfapi (need to update getPipeline call) @done (1/7/2018, 5:01:42 PM)
-    ☐ Desing and write discovery job (read config, discover all,check update needed, update)
+    ☐ Design and write discovery job (read config, discover all,check update needed, update)
     ✔ update cfapi proxy if needed @done (1/7/2018, 5:01:53 PM)
     ✔ expose codefresh cui commands @done (2/7/2018, 7:00:49 PM)
     ✔ unsubscribe from event through event provider when event is deleted (ignore not implemented) @done (3/21/2018, 3:20:59 PM)
-    ☐ Return "Trigger Event Already Exists" trying to create duplicate trigger
+    ✔ Return "Trigger Event Already Exists" trying to create duplicate trigger @done (3/28/2018, 3:03:22 PM)
     ☐ Return "Trigger Event Does not Exist" when deleting non existing trigger event
     ✔ CreateTrigger accepts filter for create @done (3/22/2018, 3:28:13 PM)
     ✔ GetPipelineTriggers respects filters @done (3/22/2018, 3:28:55 PM)
