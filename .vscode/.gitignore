@@ -1,0 +1,6 @@
+/*
+
+# keep launch.json and tasks.json only
+!.gitignore
+!launch.json
+!tasks.json

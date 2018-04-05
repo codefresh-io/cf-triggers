@@ -1,16 +1,19 @@
 # dev
 .cover
-.vscode
 .bin
 .env
+.idea
+
+# gtm
+/.gtm/
 
 # debug
 **/debug
 **/debug.test
+.debug/tmp-*
+telepresence.log
 
 # helm dev files
 hermes/charts
 *.tgz
 index.yaml
-/.gtm/
-.idea
