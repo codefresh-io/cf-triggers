@@ -6,21 +6,17 @@
 pipe=.debug/tmp-pipe
 teleout=.debug/tmp-tele.out
 telelogfile=.debug/tmp-tele.log
-k8sdeploy=hermes-debug
+k8sdeploy=${1:-triggers-hermes}
+ns=${2:-triggers}
 
 if [ ! -d ".debug" ]; then
   echo "This script expects to be run in the root directory of the project."
   exit 1
 fi
 
-trap "rm -f $pipe" EXIT
-trap "kubectl delete deploy $k8sdeploy" EXIT
-trap "kubectl delete service $k8sdeploy" EXIT
-trap "pkill -f $PWD/debug" EXIT
-trap "pkill -f runDelve.sh" EXIT
-
-kubectl delete deploy $k8sdeploy
-kubectl delete service $k8sdeploy
+trap 'rm -f $pipe' EXIT
+trap 'pkill -f $PWD/debug' EXIT
+trap 'pkill -f runDelve.sh' EXIT
 
 if [[ ! -p $pipe ]]; then
     mkfifo $pipe
@@ -44,10 +40,8 @@ do
 
         rm $teleout
 
-        kubectl delete deploy $k8sdeploy
-        kubectl delete service $k8sdeploy
-        echo "running teleprecense with $k8sdeploy"
-        telepresence --new-deployment $k8sdeploy --method=vpn-tcp --expose=8080 --run .debug/runDelve.sh --logfile $telelogfile | tee /dev/tty > $teleout &
+        echo "running teleprecense, swapping $k8sdeploy"
+        telepresence --swap-deployment $k8sdeploy --namespace $ns --method=vpn-tcp --expose=8080 --run .debug/runDelve.sh --logfile $telelogfile | tee /dev/tty > $teleout &
 
         until cat $teleout | grep "API server listening at:" > /dev/null; do sleep 1; done
 
