@@ -10,4 +10,4 @@ printf "\\tTYPES_CONFIG=%s\\n" "$TYPES_CONFIG"
 
 # run debugger
 # dlv debug --listen=localhost:2345 --headless=true --log=true ./cmd -- --log-level=debug --skip-monitor=true server --port=8080
-dlv debug --listen=localhost:2345 --headless=true --log=true ./cmd -- --log-level=debug --json=false --skip-monitor=true server
+dlv debug --listen=localhost:2345 --headless=true --log=true ./cmd -- --log-level=debug --json=false --skip-monitor=true --config="$TELEPRESENCE_ROOT/$TYPES_CONFIG" server

@@ -25,7 +25,7 @@
             "showLog": true
         },
         {
-            "name": "Kubernetes/Telepresence",
+            "name": "Telepresence",
             "type": "go",
             "request": "launch",
             "mode": "remote",
@@ -38,7 +38,7 @@
             // "args": ["--log-level", "debug", "server", "--port", "8080"],
         },
         {
-            "name": "Remote Debug",
+            "name": "Remote",
             "type": "go",
             "request": "launch",
             "mode": "remote",

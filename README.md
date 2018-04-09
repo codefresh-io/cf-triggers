@@ -99,3 +99,15 @@ helm install hermes --set cfapi.token="GET-CFAPI-TOKEN"
 1. Clone this repository into `$GOPATH/src/github.com/codefresh-io/hermes`
 1. Run `hack/build.sh` helper script or `go build cmd/main.go`
 1. Run `hack/test.sh` helper script to test
+
+
+## Debug with Telepresence
+
+1. Open Terminal and run Delve debugger with `telepresence`
+    ```sh
+    # Deployment: triggers-hermes, Namespace: triggers
+    telepresence --swap-deployment triggers-hermes --namespace triggers --method=vpn-tcp --expose=8080 --run .debug/runDelve.sh
+    ```
+1. Attach to remote debugger with `Remote` launch configuration
+
+Or you can run `.debug/background_swap.sh` in terminal and then start debugger with `Telepresence` launch configuration
