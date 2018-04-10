@@ -21,7 +21,7 @@
             "host": "127.0.0.1",
             "program": "${workspaceFolder}/cmd/",
             "env": {},
-            "args": ["--log-level", "debug", "server", "--port", "8080"],
+            "args": ["--log-level", "debug", "--skip-monitor=true", "server", "--port", "8080"],
             "showLog": true
         },
         {
