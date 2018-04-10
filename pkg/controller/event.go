@@ -66,7 +66,10 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 		Values  map[string]string `json:"values"`
 	}
 	var req createReq
-	ctx.Bind(&req)
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, ErrorResult{http.StatusBadRequest, "error in request JSON body", err.Error()})
+		return
+	}
 
 	// for public event create new context
 	actionContext := getContext(ctx)

@@ -78,7 +78,7 @@ func (c *TriggerController) CreateTrigger(ctx *gin.Context) {
 	}
 	// get event payload
 	var request createRequest
-	if err := ctx.Bind(&request); err != nil {
+	if err := ctx.BindJSON(&request); err != nil {
 		ctx.JSON(http.StatusBadRequest, ErrorResult{http.StatusBadRequest, "error in request JSON body", err.Error()})
 		return
 	}
