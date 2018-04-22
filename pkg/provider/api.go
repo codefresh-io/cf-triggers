@@ -95,13 +95,17 @@ func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, event, secret stri
 	var info model.EventInfo
 	var apiError APIError
 	// encode credentials to pass them in url
-	creds, _ := json.Marshal(credentials)
+	creds, err := json.Marshal(credentials)
+	if err != nil {
+		log.WithError(err).Error("failed to serialize credentials into JSON")
+		return nil, err
+	}
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke POST method passing credentials as base64 encoded string; receive eventinfo on success
 	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret, "/", encoded)
 	log.WithField("path", path).Debug("POST event to event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Post(path).Receive(&info, &apiError)
-	if err != nil && resp.StatusCode != http.StatusNotImplemented {
+	if err != nil {
 		log.WithError(err).Error("failed to invoke method")
 		return nil, err
 	}
@@ -124,13 +128,17 @@ func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, event, secret stri
 func (api *APIEndpoint) UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error {
 	var apiError APIError
 	// encode credentials to pass them in url
-	creds, _ := json.Marshal(credentials)
+	creds, err := json.Marshal(credentials)
+	if err != nil {
+		log.WithError(err).Error("failed to serialize credentials into JSON")
+		return err
+	}
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke DELETE method passing credentials as base64 encoded string
 	path := fmt.Sprint("/event/", escapeSlash(event), "/", encoded)
 	log.WithField("path", path).Debug("DELETE event from event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Delete(path).Receive(nil, &apiError)
-	if err != nil && resp.StatusCode != http.StatusNotImplemented {
+	if err != nil {
 		log.WithError(err).Error("failed to invoke method")
 		return err
 	}
