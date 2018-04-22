@@ -1,6 +1,7 @@
 package codefresh
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +11,7 @@ import (
 	"github.com/dghubble/sling"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/codefresh-io/hermes/pkg/version"
 )
 
@@ -22,7 +24,7 @@ type (
 
 	// PipelineService Codefresh Service
 	PipelineService interface {
-		GetPipeline(account, id string) (*Pipeline, error)
+		GetPipeline(ctx context.Context, account, id string) (*Pipeline, error)
 		RunPipeline(accountID string, id string, vars map[string]string) (string, error)
 		Ping() error
 	}
@@ -105,7 +107,7 @@ func (api *APIEndpoint) ping() error {
 }
 
 // find Codefresh pipeline by name and repo details (owner and name)
-func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
+func (api *APIEndpoint) getPipeline(ctx context.Context, account, id string) (*Pipeline, error) {
 	log.WithField("pipeline", id).Debug("getting pipeline")
 	// GET pipelines for repository
 	type CFAccount struct {
@@ -118,14 +120,21 @@ func (api *APIEndpoint) getPipeline(account, id string) (*Pipeline, error) {
 	pipeline := new(CFPipeline)
 	var resp *http.Response
 	var err error
+	// Sling API
+	apiClient := api.endpoint.New()
+	// set authenticated entity header from context
+	if authEntity, ok := ctx.Value(model.ContextAuthEntity).(string); ok {
+		apiClient = apiClient.Set(AuthEntity, authEntity)
+	}
+	// call codefresh API
 	if api.internal {
 		// use internal cfapi - another endpoint and need to ass account
 		log.Debug("get pipelines, using internal cfapi")
-		resp, err = api.endpoint.New().Get(fmt.Sprint("api/pipelines/", account, "/", id)).ReceiveSuccess(pipeline)
+		resp, err = apiClient.Get(fmt.Sprint("api/pipelines/", account, "/", id)).ReceiveSuccess(pipeline)
 	} else {
 		// use public cfapi
 		log.Debug("get pipelines, using public cfapi")
-		resp, err = api.endpoint.New().Get(fmt.Sprint("api/pipelines/", id)).ReceiveSuccess(pipeline)
+		resp, err = apiClient.Get(fmt.Sprint("api/pipelines/", id)).ReceiveSuccess(pipeline)
 	}
 	err = checkResponse("get pipelines", err, resp)
 	if err != nil {
@@ -201,9 +210,9 @@ func (api *APIEndpoint) runPipeline(accountID string, id string, vars map[string
 }
 
 // GetPipeline get existing pipeline
-func (api *APIEndpoint) GetPipeline(account, pipelineUID string) (*Pipeline, error) {
+func (api *APIEndpoint) GetPipeline(ctx context.Context, account, pipelineUID string) (*Pipeline, error) {
 	// invoke pipeline by id
-	return api.getPipeline(account, pipelineUID)
+	return api.getPipeline(ctx, account, pipelineUID)
 }
 
 // RunPipeline run Codefresh pipeline
