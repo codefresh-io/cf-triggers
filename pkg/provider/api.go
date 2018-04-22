@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -78,7 +79,7 @@ func (api *APIEndpoint) GetEventInfo(ctx context.Context, event string, secret s
 	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret)
 	log.WithField("path", path).Debug("GET event info from event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Get(path).Receive(&info, &apiError)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.WithError(err).Error("failed to set context for method call")
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, event, secret stri
 	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret, "/", encoded)
 	log.WithField("path", path).Debug("POST event to event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Post(path).Receive(&info, &apiError)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.WithError(err).Error("failed to invoke method")
 		return nil, err
 	}
@@ -138,7 +139,7 @@ func (api *APIEndpoint) UnsubscribeFromEvent(ctx context.Context, event string, 
 	path := fmt.Sprint("/event/", escapeSlash(event), "/", encoded)
 	log.WithField("path", path).Debug("DELETE event from event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Delete(path).Receive(nil, &apiError)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.WithError(err).Error("failed to invoke method")
 		return err
 	}
