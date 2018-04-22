@@ -191,13 +191,13 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 			},
 			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
 			filters: map[string]filter{
-				"pipeline1": filter{
+				"pipeline1": {
 					filters: map[string]string{"tag": "^(master)$"},
 				},
-				"pipeline2": filter{
+				"pipeline2": {
 					filters: map[string]string{"tag": "SKIP:^(master)$"},
 				},
-				"pipeline3": filter{
+				"pipeline3": {
 					filters: map[string]string{"tag": "^.+$"},
 				},
 			},
@@ -212,13 +212,13 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 			},
 			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
 			filters: map[string]filter{
-				"pipeline1": filter{
+				"pipeline1": {
 					filters: map[string]string{"tag": "^(master)$"},
 				},
-				"pipeline2": filter{
+				"pipeline2": {
 					filters: map[string]string{"tag": "a(b"},
 				},
-				"pipeline3": filter{
+				"pipeline3": {
 					filters: map[string]string{"tag": "^.+$"},
 				},
 			},
@@ -233,13 +233,13 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 			},
 			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
 			filters: map[string]filter{
-				"pipeline1": filter{
+				"pipeline1": {
 					filters: map[string]string{"tag": "SKIP:^(master)$"},
 				},
-				"pipeline2": filter{
+				"pipeline2": {
 					filters: map[string]string{"tag": "SKIP:^(master)$"},
 				},
-				"pipeline3": filter{
+				"pipeline3": {
 					filters: map[string]string{"tag": "^(astra)$"},
 				},
 			},
@@ -442,6 +442,9 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 				redisPool:   &RedisPoolMock{},
 				pipelineSvc: mock,
 			}
+			// prepare context
+			ctx := setContext(tt.args.account)
+			// redis command
 			var cmd *redigomock.Cmd
 			// check mismatch account
 			if tt.errs.mismatch {
@@ -449,13 +452,13 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			}
 			// mock Codefresh API call
 			if tt.errs.nonexisting {
-				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNotFound)
+				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNotFound)
 				goto Invoke
 			} else if tt.errs.pipelinemismatch {
-				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNoMatch)
+				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNoMatch)
 				goto Invoke
 			} else {
-				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(&codefresh.Pipeline{
+				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(&codefresh.Pipeline{
 					ID:      tt.args.pipeline,
 					Account: tt.args.account,
 				}, nil)
@@ -504,7 +507,7 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 
 			// invoke method
 		Invoke:
-			if err := r.DeleteTrigger(setContext(tt.args.account), tt.args.event, tt.args.pipeline); (err != nil) != tt.wantErr {
+			if err := r.DeleteTrigger(ctx, tt.args.event, tt.args.pipeline); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.DeleteTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			// assert mock
@@ -649,6 +652,9 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				redisPool:   &RedisPoolMock{},
 				pipelineSvc: mock,
 			}
+			// prepare context
+			ctx := setContext(tt.args.account)
+			// command
 			var cmd *redigomock.Cmd
 			// check mismatch account
 			if tt.errs.mismatch {
@@ -656,13 +662,13 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 			}
 			// mock Codefresh API call
 			if tt.errs.nonexisting {
-				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNotFound)
+				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNotFound)
 				goto Invoke
 			} else if tt.errs.pipelinemismatch {
-				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNoMatch)
+				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNoMatch)
 				goto Invoke
 			} else {
-				mock.On("GetPipeline", tt.args.account, tt.args.pipeline).Return(&codefresh.Pipeline{
+				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(&codefresh.Pipeline{
 					ID:      tt.args.pipeline,
 					Account: tt.args.account,
 				}, nil)
@@ -711,7 +717,7 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 			}
 
 		Invoke:
-			if err := r.CreateTrigger(setContext(tt.args.account), tt.args.event, tt.args.pipeline, tt.args.filters); (err != nil) != tt.wantErr {
+			if err := r.CreateTrigger(ctx, tt.args.event, tt.args.pipeline, tt.args.filters); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.CreateTriggersForEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			// assert mock
@@ -767,12 +773,12 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{
+				{
 					Event:    "uri:test:" + model.PublicAccountHash,
 					Pipeline: "pipeline-1",
 					Filters:  make(map[string]string),
 				},
-				model.Trigger{
+				{
 					Event:    "uri:test:" + model.PublicAccountHash,
 					Pipeline: "pipeline-2",
 					Filters:  map[string]string{"tag": "^+.$"},
@@ -799,12 +805,12 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{
+				{
 					Event:    "uri:test:bcd5ffa2db6e",
 					Pipeline: "pipeline-1",
 					Filters:  make(map[string]string),
 				},
-				model.Trigger{
+				{
 					Event:    "uri:test:bcd5ffa2db6e",
 					Pipeline: "pipeline-2",
 					Filters:  map[string]string{"tag": "^+.$"},
@@ -836,22 +842,22 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{
+				{
 					Event:    "uri:test:1:" + model.PublicAccountHash,
 					Pipeline: "pipeline-1",
 					Filters:  make(map[string]string),
 				},
-				model.Trigger{
+				{
 					Event:    "uri:test:1:" + model.PublicAccountHash,
 					Pipeline: "pipeline-2",
 					Filters:  map[string]string{"tag": "^+.$", "user": "^[a-z]+{10}$"},
 				},
-				model.Trigger{
+				{
 					Event:    "uri:test:2:" + model.PublicAccountHash,
 					Pipeline: "pipeline-2",
 					Filters:  map[string]string{"tag": "^+.$", "user": "^[a-z]+{10}$"},
 				},
-				model.Trigger{
+				{
 					Event:    "uri:test:2:" + model.PublicAccountHash,
 					Pipeline: "pipeline-3",
 					Filters:  make(map[string]string),
@@ -889,22 +895,22 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{
+				{
 					Event:    "uri:test:1:" + model.CalculateAccountHash("A"),
 					Pipeline: "pipeline-1",
 					Filters:  map[string]string{"tag": "^+.$", "user": "^[a-z]+{10}$"},
 				},
-				model.Trigger{
+				{
 					Event:    "uri:test:1:" + model.CalculateAccountHash("A"),
 					Pipeline: "pipeline-2",
 					Filters:  make(map[string]string),
 				},
-				model.Trigger{
+				{
 					Event:    "uri:test:2:" + model.PublicAccountHash,
 					Pipeline: "pipeline-2",
 					Filters:  make(map[string]string),
 				},
-				model.Trigger{
+				{
 					Event:    "uri:test:2:" + model.PublicAccountHash,
 					Pipeline: "pipeline-3",
 					Filters:  map[string]string{"tag": "^+.{12}$", "user": "^[a-z0-9]+{10}$"},
@@ -1082,12 +1088,12 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{
+				{
 					Event:    "event:1:" + model.PublicAccountHash,
 					Pipeline: "test-pipeline",
 					Filters:  make(map[string]string),
 				},
-				model.Trigger{
+				{
 					Event:    "event:2:" + model.PublicAccountHash,
 					Pipeline: "test-pipeline",
 					Filters:  make(map[string]string),
@@ -1109,7 +1115,7 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{
+				{
 					Event:    "event:1:" + model.CalculateAccountHash("A"),
 					Pipeline: "test-pipeline",
 					Filters:  make(map[string]string),
@@ -1125,7 +1131,7 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 						},
 					},
 				},
-				model.Trigger{
+				{
 					Event:    "event:2:" + model.CalculateAccountHash("A"),
 					Pipeline: "test-pipeline",
 					Filters:  make(map[string]string),
@@ -1166,12 +1172,12 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{
+				{
 					Event:    "event:1:" + model.PublicAccountHash,
 					Pipeline: "test-pipeline",
 					Filters:  map[string]string{"tag": "^+.$"},
 				},
-				model.Trigger{
+				{
 					Event:    "event:2:" + model.PublicAccountHash,
 					Pipeline: "test-pipeline",
 					Filters:  map[string]string{"val1": "^(hello|bye)$", "val2": "^[A-Z]+{12}$"},
@@ -1204,22 +1210,22 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 				},
 			},
 			want: []model.Trigger{
-				model.Trigger{
+				{
 					Event:    "event:1:" + model.PublicAccountHash,
 					Pipeline: "test-pipeline",
 					Filters:  map[string]string{"tag": "^+.$"},
 				},
-				model.Trigger{
+				{
 					Event:    "event:2:" + model.PublicAccountHash,
 					Pipeline: "test-pipeline",
 					Filters:  make(map[string]string),
 				},
-				model.Trigger{
+				{
 					Event:    "event:3:" + model.CalculateAccountHash("A"),
 					Pipeline: "test-pipeline",
 					Filters:  make(map[string]string),
 				},
-				model.Trigger{
+				{
 					Event:    "event:5:" + model.CalculateAccountHash("A"),
 					Pipeline: "test-pipeline",
 					Filters:  map[string]string{"val1": "^(hello|bye)$", "val2": "^[A-Z]+{12}$"},

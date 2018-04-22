@@ -1,6 +1,8 @@
 package codefresh
 
 import (
+	"context"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -15,8 +17,8 @@ type Mock struct {
 }
 
 // GetPipeline mock
-func (c *Mock) GetPipeline(account, id string) (*Pipeline, error) {
-	args := c.Called(account, id)
+func (c *Mock) GetPipeline(ctx context.Context, account, id string) (*Pipeline, error) {
+	args := c.Called(ctx, account, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

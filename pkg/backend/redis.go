@@ -397,7 +397,7 @@ func (r *RedisStore) DeleteTrigger(ctx context.Context, event, pipeline string) 
 	}
 
 	// check Codefresh pipeline match; ignore all errors beside "no match"
-	_, err := r.pipelineSvc.GetPipeline(account, pipeline)
+	_, err := r.pipelineSvc.GetPipeline(ctx, account, pipeline)
 	if err == codefresh.ErrPipelineNoMatch {
 		lg.WithError(err).Error("attempt to remove pipeline from another account")
 		return err
@@ -456,7 +456,7 @@ func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string, 
 	}
 
 	// check Codefresh pipeline existence
-	_, err := r.pipelineSvc.GetPipeline(account, pipeline)
+	_, err := r.pipelineSvc.GetPipeline(ctx, account, pipeline)
 	if err != nil {
 		lg.WithError(err).Error("failed to get pipelines")
 		return err
