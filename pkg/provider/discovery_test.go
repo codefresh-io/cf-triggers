@@ -26,7 +26,7 @@ const (
 var (
 	types = model.EventTypes{
 		Types: []model.EventType{
-			model.EventType{
+			{
 				Type:        "registry",
 				Kind:        "dockerhub",
 				ServiceURL:  "http://service:8080",
@@ -109,11 +109,11 @@ func Test_loadInvalidConfig(t *testing.T) {
 	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// try to load config explicitly
-	types, err := loadEventHandlerTypes(config)
+	testTypes, err := loadEventHandlerTypes(config)
 	if err == nil {
 		t.Error("should fail loading types from invalid file")
 	}
-	if types.Types != nil {
+	if testTypes.Types != nil {
 		t.Error("types should be nil on error")
 	}
 }
@@ -126,11 +126,11 @@ func Test_loadNonExistingConfig(t *testing.T) {
 	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// try to load config explicitly
-	types, err := loadEventHandlerTypes(config)
+	testTypes, err := loadEventHandlerTypes(config)
 	if err == nil {
 		t.Error("should fail loading types from non-existing file")
 	}
-	if types.Types != nil {
+	if testTypes.Types != nil {
 		t.Error("types should be nil on error")
 	}
 }
@@ -143,11 +143,11 @@ func Test_loadValidConfig(t *testing.T) {
 	manager := newTestEventProviderManager(config, nil)
 	defer manager.Close()
 	// try to load config explicitly
-	types, err := loadEventHandlerTypes(config)
+	testTypes, err := loadEventHandlerTypes(config)
 	if err != nil {
 		t.Errorf("unexpected error loading types from file %v", err)
 	}
-	if types.Types == nil && len(types.Types) != 1 {
+	if testTypes.Types == nil && len(types.Types) != 1 {
 		t.Error("types should have one properly defined type")
 	}
 }

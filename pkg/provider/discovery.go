@@ -303,10 +303,10 @@ func (m *EventProviderManager) ConstructEventURI(t string, k string, a string, v
 			"field": field.Name,
 			"regex": field.Validator,
 		}).Debug("validating field")
-		r, err := regexp.Compile(field.Validator)
-		if err != nil {
-			log.WithError(err).WithField("regex", field.Validator).Error("failed to compile validator regex")
-			return "", err
+		r, e := regexp.Compile(field.Validator)
+		if e != nil {
+			log.WithError(e).WithField("regex", field.Validator).Error("failed to compile validator regex")
+			return "", e
 		}
 		if !r.MatchString(val) {
 			log.WithField("field", field.Name).Error("field validation failed")
