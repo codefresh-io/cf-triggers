@@ -694,7 +694,7 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 			}
 			// add event to the Pipelines set
 			for k, v := range tt.args.filters {
-				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", getFilterKey(tt.args.event, tt.args.pipeline), k, v)
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSET", getFilterKey(tt.args.event, tt.args.pipeline), k, v)
 				if tt.errs.hsetnx {
 					cmd.ExpectError(errors.New("HSETNX error"))
 					goto EndTransaction
