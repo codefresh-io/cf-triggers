@@ -485,7 +485,7 @@ func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string, 
 	if filters != nil {
 		filterKey := getFilterKey(event, pipeline)
 		for k, v := range filters {
-			if _, err := con.Do("HSETNX", filterKey, k, v); err != nil {
+			if _, err = con.Do("HSET", filterKey, k, v); err != nil {
 				return discardOnError(con, err, lg)
 			}
 		}
