@@ -28,8 +28,8 @@ func TestTriggerEventController_GetEvent(t *testing.T) {
 		{
 			name: "get event",
 			args: args{
-				eventURI:        "cron:codefresh:0 30 10-13 ? * WED,FR:account",
-				eventURIEncoded: "cron%3Acodefresh%3A0+30+10-13+%3F+%2A+WED%2CFR%3Aaccount",
+				eventURI:        "cron:codefresh:0 0/30 10-13 ? * WED,FR:account",
+				eventURIEncoded: "cron:codefresh:0%200%2F30%2010-13%20%3F%20%2A%20WED%2CFR:account",
 			},
 			event: &model.Event{
 				Type: "cron",
@@ -39,8 +39,8 @@ func TestTriggerEventController_GetEvent(t *testing.T) {
 		{
 			name: "get event with error",
 			args: args{
-				eventURI:        "cron:codefresh:0 30 10-13 ? * WED,FR:account",
-				eventURIEncoded: "cron%3Acodefresh%3A0+30+10-13+%3F+%2A+WED%2CFR%3Aaccount",
+				eventURI:        "cron:codefresh:0 0/30 10-13 ? * WED,FR:account",
+				eventURIEncoded: "cron:codefresh:0%200%2F30%2010-13%20%3F%20%2A%20WED%2CFR:account",
 			},
 			wantErr:  errors.New("TEST ERROR"),
 			wantCode: http.StatusInternalServerError,
@@ -48,8 +48,8 @@ func TestTriggerEventController_GetEvent(t *testing.T) {
 		{
 			name: "get event with NotFound error",
 			args: args{
-				eventURI:        "cron:codefresh:0 30 10-13 ? * WED,FR:account",
-				eventURIEncoded: "cron%3Acodefresh%3A0+30+10-13+%3F+%2A+WED%2CFR%3Aaccount",
+				eventURI:        "cron:codefresh:0 0/30 10-13 ? * WED,FR:account",
+				eventURIEncoded: "cron:codefresh:0%200%2F30%2010-13%20%3F%20%2A%20WED%2CFR:account",
 			},
 			wantErr:  model.ErrTriggerNotFound,
 			wantCode: http.StatusNotFound,
