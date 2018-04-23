@@ -118,8 +118,11 @@ func runServer(c *cli.Context) error {
 	// setup router
 	router := setupRouter(triggerBackend, triggerBackend, eventProvider, runner, checker, triggerBackend, codefreshService)
 
-	// start router
+	// use server router port
 	port := c.Int("port")
 	log.WithField("port", port).Debug("starting hermes server")
+	// use RawPath: the url.RawPath will be used to find parameters
+	router.UseRawPath = true
+	// start router server
 	return router.Run(fmt.Sprintf(":%d", port))
 }

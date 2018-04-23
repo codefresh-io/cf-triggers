@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 
@@ -53,10 +53,6 @@ func newTestEventProviderEndpoint(doer sling.Doer, url string) EventProviderServ
 	return &APIEndpoint{endpoint}
 }
 
-func escapeSlash(v string) string {
-	return strings.Replace(v, "/", "_slash_", -1)
-}
-
 func setContext(ctx context.Context, req *sling.Sling) *sling.Sling {
 	// set request ID header
 	v := ctx.Value(model.ContextRequestID)
@@ -76,7 +72,7 @@ func setContext(ctx context.Context, req *sling.Sling) *sling.Sling {
 func (api *APIEndpoint) GetEventInfo(ctx context.Context, event string, secret string) (*model.EventInfo, error) {
 	var info model.EventInfo
 	var apiError APIError
-	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret)
+	path := fmt.Sprint("/event/", url.PathEscape(event), "/", secret)
 	log.WithField("path", path).Debug("GET event info from event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Get(path).Receive(&info, &apiError)
 	if err != nil && err != io.EOF {
@@ -103,7 +99,7 @@ func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, event, secret stri
 	}
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke POST method passing credentials as base64 encoded string; receive eventinfo on success
-	path := fmt.Sprint("/event/", escapeSlash(event), "/", secret, "/", encoded)
+	path := fmt.Sprint("/event/", url.PathEscape(event), "/", secret, "/", url.PathEscape(encoded))
 	log.WithField("path", path).Debug("POST event to event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Post(path).Receive(&info, &apiError)
 	if err != nil && err != io.EOF {
@@ -136,7 +132,7 @@ func (api *APIEndpoint) UnsubscribeFromEvent(ctx context.Context, event string, 
 	}
 	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke DELETE method passing credentials as base64 encoded string
-	path := fmt.Sprint("/event/", escapeSlash(event), "/", encoded)
+	path := fmt.Sprint("/event/", url.PathEscape(event), "/", url.PathEscape(encoded))
 	log.WithField("path", path).Debug("DELETE event from event provider")
 	resp, err := setContext(ctx, api.endpoint.New()).Delete(path).Receive(nil, &apiError)
 	if err != nil && err != io.EOF {
