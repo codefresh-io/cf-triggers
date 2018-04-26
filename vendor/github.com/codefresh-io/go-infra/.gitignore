@@ -1,0 +1,13 @@
+# dev
+.cover
+.bin
+.env
+.idea
+
+# gtm
+/.gtm/
+
+# debug
+**/debug
+**/debug.test
+.debug/tmp-*

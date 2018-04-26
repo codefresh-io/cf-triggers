@@ -86,8 +86,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/codefresh-io/go-infra/pkg/logger"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
-	"github.com/codefresh-io/hermes/pkg/logger"
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/codefresh-io/hermes/pkg/util"

@@ -7,7 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
-	"github.com/codefresh-io/hermes/pkg/logger"
+	"github.com/codefresh-io/go-infra/pkg/logger"
 	"github.com/codefresh-io/hermes/pkg/version"
 )
 
