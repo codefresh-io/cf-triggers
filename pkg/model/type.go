@@ -12,6 +12,8 @@ type (
 		Name string `json:"name" yaml:"name"`
 		// Type field type (default 'string'): string, int, date, list, cron
 		Type string `json:"type,omitempty" yaml:"type,omitempty"`
+		// Help text
+		Help string `json:"help,omitempty" yaml:"help,omitempty"`
 		// Options an options map (key: value) for list type
 		Options map[string]string `json:"options,omitempty" yaml:"options,omitempty"`
 		// Validator validator for value: regex, '|' separated list, int range, date range, http-get
@@ -26,6 +28,8 @@ type (
 		Name string `json:"name" yaml:"name"`
 		// Type field type (default 'string'): string, int, date, list, crontab
 		Type string `json:"type,omitempty" yaml:"type,omitempty"`
+		// Help text
+		Help string `json:"help,omitempty" yaml:"help,omitempty"`
 		// Validator validator for value: regex, '|' separated list, int range, date range, http-get
 		Validator string `json:"validator,omitempty" yaml:"validator,omitempty"`
 	}
@@ -42,6 +46,8 @@ type (
 		URITemplate string `json:"uri-template,omitempty" yaml:"uri-template,omitempty"`
 		// URI pattern; event uri match pattern - helps to detect type and kind from uri
 		URIPattern string `json:"uri-regex" yaml:"uri-regex"`
+		// Help URL
+		HelpURL string `json:"help-url,omitempty" yaml:"help-url,omitempty"`
 		// Configuration Fields
 		Config []ConfigField `json:"config" yaml:"config"`
 		// Filters - fields that support filtering
