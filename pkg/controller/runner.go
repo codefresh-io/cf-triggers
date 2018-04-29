@@ -83,11 +83,25 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, ErrorResult{http.StatusInternalServerError, "failed to run trigger pipelines", err.Error()})
 		return
 	}
-	// run pipelines
+	// record execution history without run IDS
+	log.WithFields(log.Fields{
+		"account":   triggerEvent.Account,
+		"event":     triggerEvent.URI,
+		"pipelines": pipelines,
+	}).Info("going to run pipelines for trigger event")
+	// run piplines
 	runs, err := c.runnerSvc.Run(triggerEvent.Account, pipelines, vars)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, ErrorResult{http.StatusInternalServerError, "failed to run trigger pipelines", err.Error()})
 		return
 	}
+	// record execution history with run IDS
+	log.WithFields(log.Fields{
+		"account":   triggerEvent.Account,
+		"event":     triggerEvent.URI,
+		"pipelines": pipelines,
+		"runs":      runs,
+	}).Info("pipelines for trigger event are running")
+	// return ok status with run IDS
 	ctx.JSON(http.StatusOK, runs)
 }
