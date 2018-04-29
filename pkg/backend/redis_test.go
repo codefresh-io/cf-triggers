@@ -168,7 +168,9 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 		args      args
 		pipelines []string
 		filters   map[string]filter
+		exists    int64
 		want      []string
+		existsErr error
 		redisErr  error
 		redisErr2 error
 		wantErr   error
@@ -179,6 +181,7 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				account: model.PublicAccount,
 				event:   "uri:test:" + model.PublicAccountHash,
 			},
+			exists:    1,
 			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
 			want:      []string{"pipeline1", "pipeline2", "pipeline3"},
 		},
@@ -189,6 +192,7 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				event:   "uri:test:" + model.PublicAccountHash,
 				vars:    map[string]string{"tag": "master"},
 			},
+			exists:    1,
 			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
 			filters: map[string]filter{
 				"pipeline1": {
@@ -210,6 +214,7 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				event:   "uri:test:" + model.PublicAccountHash,
 				vars:    map[string]string{"tag": "master"},
 			},
+			exists:    1,
 			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
 			filters: map[string]filter{
 				"pipeline1": {
@@ -231,6 +236,7 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				event:   "uri:test:" + model.PublicAccountHash,
 				vars:    map[string]string{"tag": "master"},
 			},
+			exists:    1,
 			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
 			filters: map[string]filter{
 				"pipeline1": {
@@ -251,7 +257,26 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				account: model.PublicAccount,
 				event:   "uri:test:" + model.PublicAccountHash,
 			},
+			exists:  1,
 			wantErr: model.ErrPipelineNotFound,
+		},
+		{
+			name: "redis EXISTS error",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			existsErr: redis.ErrNil,
+			wantErr:   redis.ErrNil,
+		},
+		{
+			name: "redis trigger does not exist",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			exists:  0,
+			wantErr: model.ErrTriggerNotFound,
 		},
 		{
 			name: "redis ZRANGE ErrNil error",
@@ -259,8 +284,9 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				account: model.PublicAccount,
 				event:   "uri:test:" + model.PublicAccountHash,
 			},
+			exists:   1,
 			redisErr: redis.ErrNil,
-			wantErr:  model.ErrTriggerNotFound,
+			wantErr:  redis.ErrNil,
 		},
 		{
 			name: "redis ZRANGE error",
@@ -268,6 +294,7 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				account: model.PublicAccount,
 				event:   "uri:test:" + model.PublicAccountHash,
 			},
+			exists:   1,
 			redisErr: redis.ErrPoolExhausted,
 			wantErr:  redis.ErrPoolExhausted,
 		},
@@ -278,6 +305,7 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				event:   "uri:test:" + model.PublicAccountHash,
 				vars:    map[string]string{"tag": "master"},
 			},
+			exists:    1,
 			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
 			redisErr2: redis.ErrPoolExhausted,
 			wantErr:   redis.ErrPoolExhausted,
@@ -288,7 +316,17 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 			r := &RedisStore{
 				redisPool: &RedisPoolMock{},
 			}
-			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.account, tt.args.event), 0, -1)
+			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", getTriggerKey(tt.args.account, tt.args.event))
+			if tt.existsErr != nil {
+				cmd.ExpectError(tt.existsErr)
+				goto Invoke
+			} else {
+				cmd.Expect(tt.exists)
+				if tt.exists == 0 {
+					goto Invoke
+				}
+			}
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", getTriggerKey(tt.args.account, tt.args.event), 0, -1)
 			if tt.redisErr != nil {
 				cmd.ExpectError(tt.redisErr)
 				goto Invoke
@@ -1012,7 +1050,7 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 
 			// get pipelines from Triggers Set
 			for _, k := range keys {
-				cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", k, 0, -1)
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZRANGE", k, 0, -1)
 				if tt.errs.zrange {
 					cmd.ExpectError(errors.New("ZRANGE error"))
 					goto Invoke

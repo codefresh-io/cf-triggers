@@ -55,7 +55,7 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		ctx.JSON(status, ErrorResult{status, "failed to get event", err.Error()})
 		return
 	}
-	if err := c.checkerSvc.Validate(runEvent.Original, runEvent.Secret, triggerEvent.Secret); err != nil {
+	if err = c.checkerSvc.Validate(runEvent.Original, runEvent.Secret, triggerEvent.Secret); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
@@ -76,7 +76,7 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		// to avoid multiple 'errors' reported to the event provider log
 		// it's possible to have trigger event defined and not connected to any pipeline
 		if err == model.ErrPipelineNotFound || err == model.ErrTriggerNotFound {
-			log.WithField("event", event).Debug("there are no pipelines associated with trigger event")
+			log.WithField("event", event).Warn("there are no pipelines associated with trigger event")
 			ctx.Status(http.StatusNoContent)
 			return
 		}

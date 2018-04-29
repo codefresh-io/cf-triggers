@@ -5,7 +5,7 @@
   branch = "master"
   name = "github.com/codefresh-io/go-infra"
   packages = ["pkg/logger"]
-  revision = "5d0060ced546fb745bdc8a47b4777f5cc313c3c5"
+  revision = "36ad02e33df496a1501e55bbb564e4fa900fecb6"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -60,6 +60,12 @@
   packages = ["."]
   revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
   version = "v0.0.3"
+
+[[projects]]
+  name = "github.com/newrelic/go-agent"
+  packages = [".","_integrations/nrgin/v1","internal","internal/cat","internal/jsonx","internal/logger","internal/sysinfo","internal/utilization"]
+  revision = "f5bce3387232559bcbe6a5f8227c4bf508dac1ba"
+  version = "v1.11.0"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -130,6 +136,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5b35de4559b58ecfa0ccbbd16fc18379f695d4805125c83e355b60f4896b83cc"
+  inputs-digest = "1047c8eaa576a2d80d32a33c931d7c5a1dcefc5c88e1deb8c9d669864c387887"
   solver-name = "gps-cdcl"
   solver-version = 1

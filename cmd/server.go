@@ -12,6 +12,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/version"
 
 	"github.com/gin-gonic/gin"
+	"github.com/newrelic/go-agent/_integrations/nrgin/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -41,6 +42,10 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 	// Creates a router without any middleware by default
 	router := gin.New()
 	router.Use(gin.Recovery())
+	// set new relic middleware
+	if nrApp != nil {
+		router.Use(nrgin.Middleware(nrApp))
+	}
 
 	// manage trigger events
 	eventController := controller.NewTriggerEventController(eventReaderWriter)
