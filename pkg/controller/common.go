@@ -51,6 +51,15 @@ func getContext(c *gin.Context) context.Context {
 		ctx = context.WithValue(ctx, model.ContextAuthEntity, authEntity)
 	}
 	if txn != nil {
+		// add account to transaction
+		if err := txn.AddAttribute("account-id", account); err != nil {
+			log.WithError(err).Error("failed to add account-id to NewRelic transaction")
+		}
+		// add request id
+		if err := txn.AddAttribute("request-id", requestID); err != nil {
+			log.WithError(err).Error("failed to add request-id to NewRelic transaction")
+		}
+		// store transaction in context
 		ctx = context.WithValue(ctx, model.ContextNewRelicTxn, txn)
 	}
 	return ctx
