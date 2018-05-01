@@ -511,14 +511,22 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 	}).Debug("getting pipelines for trigger event")
 	// get redis connection
 	con := r.redisPool.GetConn()
+	// check trigger existence
+	exists, err := redis.Int(con.Do("EXISTS", getTriggerKey(account, event)))
+	if err != nil {
+		lg.WithError(err).Error("failed to check trigger existence")
+		return nil, err
+	}
+	// if trigger does not exists
+	if exists == 0 {
+		lg.Warn("trigger not found")
+		return nil, model.ErrTriggerNotFound
+	}
 	// get pipelines from Triggers
 	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(account, event), 0, -1))
-	if err != nil && err != redis.ErrNil {
-		lg.WithError(err).Error("failed to get pipelines")
+	if err != nil {
+		lg.WithError(err).Error("error getting pipelines")
 		return nil, err
-	} else if err == redis.ErrNil {
-		lg.WithError(err).Error("failed to get pipelines")
-		return nil, model.ErrTriggerNotFound
 	}
 
 	// scan through pipelines and filter out pipelines that match filter
@@ -569,7 +577,7 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 	}
 
 	if len(pipelines) == 0 {
-		lg.Error("failed to get pipelines, no pipelines found or all skipped")
+		lg.Warn("no pipelines found or all skipped")
 		return nil, model.ErrPipelineNotFound
 	}
 

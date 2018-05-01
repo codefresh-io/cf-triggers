@@ -4,11 +4,17 @@ import (
 	"fmt"
 	"os"
 
+	newrelic "github.com/newrelic/go-agent"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
 	"github.com/codefresh-io/go-infra/pkg/logger"
 	"github.com/codefresh-io/hermes/pkg/version"
+)
+
+var (
+	// new relic app
+	nrApp newrelic.Application
 )
 
 func main() {
@@ -91,6 +97,11 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			Usage:  "produce log in JSON format: Codefresh friendly",
 			EnvVar: "LOG_JSON",
 		},
+		cli.StringFlag{
+			Name:   "new-relic",
+			Usage:  "set New Relic License Key",
+			EnvVar: "NEWRELIC_LICENSE_KEY",
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -128,6 +139,22 @@ func before(c *cli.Context) error {
 	traceHook.FunctionField = logger.FieldNamespace
 	traceHook.AppField = logger.FieldService
 	log.AddHook(traceHook)
+
+	// set new relic monitoring
+	newRelicLicense := c.GlobalString("new-relic")
+	if newRelicLicense != "" {
+		log.Debug("setting New Relic agent")
+		cfg := newrelic.NewConfig("hermes", newRelicLicense)
+		var err error
+		nrApp, err = newrelic.NewApplication(cfg)
+		if nil != err {
+			log.WithError(err).Error("failed to setup New Relic agent with provided license")
+			return err
+		}
+		log.Debug("setting New Relic agent hook for Logrus logging")
+		nrHook := logger.NewNewRelicLogrusHook(nrApp, []log.Level{log.ErrorLevel})
+		log.AddHook(nrHook)
+	}
 
 	return nil
 }
