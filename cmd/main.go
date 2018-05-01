@@ -144,7 +144,7 @@ func before(c *cli.Context) error {
 	newRelicLicense := c.GlobalString("new-relic")
 	if newRelicLicense != "" {
 		log.Debug("setting New Relic agent")
-		cfg := newrelic.NewConfig("hermes", newRelicLicense)
+		cfg := newrelic.NewConfig("trigger-manager-hermes[kubernetes]", newRelicLicense)
 		var err error
 		nrApp, err = newrelic.NewApplication(cfg)
 		if nil != err {
