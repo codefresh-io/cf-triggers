@@ -92,6 +92,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
+	"github.com/newrelic/go-agent"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -101,6 +102,15 @@ func getAccount(ctx context.Context) string {
 		return str
 	}
 	return model.PublicAccount
+}
+
+func getNewRelicTransaction(c context.Context) newrelic.Transaction {
+	if v := c.Value(model.ContextNewRelicTxn); v != nil {
+		if txn, ok := v.(newrelic.Transaction); ok {
+			return txn
+		}
+	}
+	return nil
 }
 
 // construct Logrus fields from context (requestID and auth context)
@@ -129,6 +139,10 @@ func getContextLogFields(ctx context.Context) log.Fields {
 		}
 		fields[logger.FieldUserName] = userAuth.Name
 		fields[logger.FieldUserID] = userAuth.ID
+	}
+	// get NewRelic transaction
+	if txn, ok := ctx.Value(model.ContextNewRelicTxn).(newrelic.Transaction); ok {
+		fields[logger.FieldNewRelicTxn] = txn
 	}
 	return fields
 }
@@ -266,6 +280,11 @@ func (r *RedisStore) GetEventTriggers(ctx context.Context, event string) ([]mode
 		"event":   event,
 		"account": account,
 	}).Debug("get triggers for event")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
 
@@ -324,9 +343,13 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, w
 		"pipeline": pipeline,
 		"account":  account,
 	}).Debug("get triggers for pipeline")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
-
 	pipelineKey := getPipelineKey(pipeline)
 	n, err := redis.Int(con.Do("EXISTS", pipelineKey))
 	if err != nil || n == 0 {
@@ -387,6 +410,11 @@ func (r *RedisStore) DeleteTrigger(ctx context.Context, event, pipeline string) 
 		"event":    event,
 		"account":  account,
 	}).Debug("deleting trigger")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
 
@@ -446,6 +474,11 @@ func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string, 
 		"account":  account,
 		"filters":  filters,
 	}).Debug("Creating triggers")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
 
@@ -509,6 +542,11 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 		"account": account,
 		"vars":    vars,
 	}).Debug("getting pipelines for trigger event")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
 	// check trigger existence
@@ -599,6 +637,11 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 		"values":  values,
 		"account": account,
 	}).Debug("Creating a new trigger event")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
 	// construct event URI
@@ -609,7 +652,7 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 	}
 
 	// first, try to get existing event, continue on error
-	if event, err := r.GetEvent(ctx, eventURI); err == nil {
+	if event, e := r.GetEvent(ctx, eventURI); e == nil {
 		lg.WithField("event-uri", eventURI).Debug("event already exists, reusing trigger-event")
 		return event, nil
 	}
@@ -715,6 +758,11 @@ func (r *RedisEventGetter) GetEvent(ctx context.Context, event string) (*model.E
 		"event-uri": event,
 		"account":   account,
 	}).Debug("getting trigger event")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
 	// prepare key
@@ -755,6 +803,11 @@ func (r *RedisStore) GetEvents(ctx context.Context, eventType, kind, filter stri
 		"filter":  filter,
 		"public":  public,
 	}).Debug("getting trigger events")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
 	// get all events URIs for account
@@ -799,6 +852,11 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 		"event-uri": event,
 		"account":   account,
 	}).Debug("deleting trigger event")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// get redis connection
 	con := r.redisPool.GetConn()
 	// prepare keys

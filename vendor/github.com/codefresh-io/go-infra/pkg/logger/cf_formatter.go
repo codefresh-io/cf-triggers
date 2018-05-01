@@ -18,6 +18,7 @@ const (
 	FieldService       = "service"
 	FieldUserName      = "userName"
 	FieldUserID        = "userID"
+	FieldNewRelicTxn   = "newRelicTransaction"
 )
 
 type _user struct {

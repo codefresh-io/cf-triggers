@@ -8,6 +8,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/model"
 
 	"github.com/gin-gonic/gin"
+	"github.com/newrelic/go-agent/_integrations/nrgin/v1"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -39,6 +40,8 @@ func getContext(c *gin.Context) context.Context {
 	requestID := c.GetHeader(codefresh.RequestID)
 	// get authenticated entity from header
 	authEntity := c.GetHeader(codefresh.AuthEntity)
+	// get NewRelic transaction from Gin context
+	txn := nrgin.Transaction(c)
 	// prepare context
 	ctx := context.WithValue(context.Background(), model.ContextKeyAccount, account)
 	if requestID != "" {
@@ -46,6 +49,9 @@ func getContext(c *gin.Context) context.Context {
 	}
 	if authEntity != "" {
 		ctx = context.WithValue(ctx, model.ContextAuthEntity, authEntity)
+	}
+	if txn != nil {
+		ctx = context.WithValue(ctx, model.ContextNewRelicTxn, txn)
 	}
 	return ctx
 }

@@ -72,11 +72,12 @@ type (
 
 // Context keys
 var (
-	ContextKeyAccount = contextKey("account")
-	ContextKeyUser    = contextKey("user")
-	ContextKeyPublic  = contextKey("public")
-	ContextRequestID  = contextKey("requestID")
-	ContextAuthEntity = contextKey("authEntity")
+	ContextKeyAccount  = contextKey("account")
+	ContextKeyUser     = contextKey("user")
+	ContextKeyPublic   = contextKey("public")
+	ContextRequestID   = contextKey("requestID")
+	ContextAuthEntity  = contextKey("authEntity")
+	ContextNewRelicTxn = contextKey("newRelicTransaction")
 )
 
 // ErrTriggerNotFound error when trigger not found

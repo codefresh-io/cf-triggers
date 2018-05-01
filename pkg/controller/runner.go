@@ -5,8 +5,11 @@ import (
 	"net/http"
 
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/gin-gonic/gin"
 
+	"github.com/newrelic/go-agent"
+	"github.com/newrelic/go-agent/_integrations/nrgin/v1"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -43,8 +46,14 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, ErrorResult{http.StatusBadRequest, "error in JSON body", err.Error()})
 		return
 	}
+	// get NewRelic transaction
+	txn := nrgin.Transaction(ctx)
 	// prepare context for specified event (skip account check)
 	allCtx := context.WithValue(context.Background(), model.ContextKeyAccount, "-")
+	// add NewRelic transaction to context if not nil
+	if txn != nil {
+		allCtx = context.WithValue(allCtx, model.ContextNewRelicTxn, txn)
+	}
 	// get trigger event
 	triggerEvent, err := c.eventSvc.GetEvent(allCtx, event)
 	if err != nil {
@@ -89,6 +98,11 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		"event":     triggerEvent.URI,
 		"pipelines": pipelines,
 	}).Info("going to run pipelines for trigger event")
+	// record NewRelic segment for Run
+	if txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
 	// run piplines
 	runs, err := c.runnerSvc.Run(triggerEvent.Account, pipelines, vars)
 	if err != nil {
