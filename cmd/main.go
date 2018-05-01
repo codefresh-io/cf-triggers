@@ -152,7 +152,7 @@ func before(c *cli.Context) error {
 			return err
 		}
 		log.Debug("setting New Relic agent hook for Logrus logging")
-		nrHook := logger.NewNewRelicLogrusHook(nrApp, []log.Level{log.ErrorLevel})
+		nrHook := logger.NewNewRelicLogrusHook(nrApp, []log.Level{log.ErrorLevel, log.FatalLevel, log.PanicLevel})
 		log.AddHook(nrHook)
 	}
 

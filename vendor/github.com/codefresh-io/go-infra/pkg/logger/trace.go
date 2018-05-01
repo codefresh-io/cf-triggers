@@ -84,7 +84,7 @@ func getCaller(skip int) (uintptr, string, int) {
 	n := 0
 	for i := len(file) - 1; i > 0; i-- {
 		if file[i] == '/' {
-			n += 1
+			n++
 			if n >= 2 {
 				file = file[i+1:]
 				break

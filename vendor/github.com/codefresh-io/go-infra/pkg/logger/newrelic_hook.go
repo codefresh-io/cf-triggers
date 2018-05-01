@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// NewRelicLogrusHook logrus hook for new relic
 type NewRelicLogrusHook struct {
 	Application newrelic.Application
 	LogLevels   []logrus.Level
@@ -27,10 +28,22 @@ func (n *NewRelicLogrusHook) Levels() []logrus.Level {
 
 // Fire fire logrus event hook
 func (n *NewRelicLogrusHook) Fire(entry *logrus.Entry) error {
-	// Hacky. We don't know what transaction we're in so we
-	// just start a new one specific to error reporting.
-	txn := n.Application.StartTransaction("errorTxn", nil, nil)
+	// try to get transaction from fields
+	// create new if not found
+	var ok bool
+	var txn newrelic.Transaction
+	if v, exists := entry.Data[FieldCorrelationID]; exists {
+		if txn, ok = v.(newrelic.Transaction); !ok {
+			txn = n.Application.StartTransaction("errorTxn", nil, nil)
+		}
+	}
+	// get other fields
 	for k, v := range entry.Data {
+		// skip NewRelic field
+		if k == FieldNewRelicTxn {
+			continue
+		}
+		// add field as attribute to newrelic transaction
 		txn.AddAttribute(k, v)
 	}
 	txn.NoticeError(errors.New(entry.Message))
