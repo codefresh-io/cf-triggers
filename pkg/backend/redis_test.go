@@ -1291,7 +1291,6 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 					"event:2:" + model.CalculateAccountHash("C"),
 				},
 			},
-			wantErr: true,
 		},
 		{
 			name: "fail to get triggers REDIS ZRANGE error",
@@ -1303,15 +1302,15 @@ func TestRedisStore_GetPipelineTriggers(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "fail to get triggers REDIS ZRANGE error",
+			name: "fail to get triggers REDIS HGETALL error",
 			args: args{
 				account:  "A",
 				pipeline: "test-pipeline",
 			},
 			expected: expected{
 				events: []string{
-					"event:1:" + model.CalculateAccountHash("B"),
-					"event:2:" + model.CalculateAccountHash("C"),
+					"event:1:" + model.CalculateAccountHash("A"),
+					"event:2:" + model.CalculateAccountHash("A"),
 				},
 			},
 			errs:    redisErrors{hgetall: true},
