@@ -120,6 +120,10 @@ func getContextLogFields(ctx context.Context) log.Fields {
 	if requestID, ok := ctx.Value(model.ContextRequestID).(string); ok {
 		fields[logger.FieldCorrelationID] = requestID
 	}
+	// get NewRelic transaction
+	if txn, ok := ctx.Value(model.ContextNewRelicTxn).(newrelic.Transaction); ok {
+		fields[logger.FieldNewRelicTxn] = txn
+	}
 	// get auth entity
 	if authEntity, ok := ctx.Value(model.ContextAuthEntity).(string); ok {
 		data, err := base64.StdEncoding.DecodeString(authEntity)
@@ -127,22 +131,38 @@ func getContextLogFields(ctx context.Context) log.Fields {
 			log.WithError(err).Error("failed to decode authenticated entity")
 			return fields
 		}
+		// auth entity can be user {_id, name} or service {serviceName, type}
 		type _auth struct {
-			Name string `json:"name"`
-			ID   string `json:"_id"`
+			// user fields
+			Name string `json:"name,omitempty"`
+			ID   string `json:"_id,omitempty"`
+			// service fields
+			ServiceName string `json:"serviceName,omitempty"`
+			Type        string `json:"type,omitempty"`
 		}
-		userAuth := new(_auth)
-		err = json.Unmarshal(data, userAuth)
+		auth := new(_auth)
+		err = json.Unmarshal(data, auth)
 		if err != nil {
 			log.WithError(err).Error("failed to load authenticated entity JSON")
 			return fields
+
 		}
-		fields[logger.FieldUserName] = userAuth.Name
-		fields[logger.FieldUserID] = userAuth.ID
-	}
-	// get NewRelic transaction
-	if txn, ok := ctx.Value(model.ContextNewRelicTxn).(newrelic.Transaction); ok {
-		fields[logger.FieldNewRelicTxn] = txn
+		// set type to user if empty
+		if auth.Type == "" {
+			auth.Type = "user"
+		}
+		// set id to none if empty
+		if auth.ID == "" {
+			auth.ID = "none"
+		}
+		// set name to serviceName
+		if auth.Name == "" {
+			auth.Name = auth.ServiceName
+		}
+		// set log fields
+		fields[logger.FieldAuthName] = auth.Name
+		fields[logger.FieldAuthID] = auth.ID
+		fields[logger.FieldAuthType] = auth.Type
 	}
 	return fields
 }
@@ -208,9 +228,9 @@ type RedisStore struct {
 
 // helper function - discard Redis transaction and return error
 func discardOnError(con redis.Conn, err error, log *log.Entry) error {
-	if _, err := con.Do("DISCARD"); err != nil {
-		log.WithError(err).Error("failed to discard Redis transaction")
-		return err
+	if _, e := con.Do("DISCARD"); e != nil {
+		log.WithError(e).Error("failed to discard Redis transaction")
+		return e
 	}
 	log.Error(err)
 	return err
@@ -358,7 +378,7 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, w
 	}
 	if n == 0 {
 		lg.WithField("pipeline", pipeline).Warn("failed to find triggers for pipeline")
-		return nil, model.ErrTriggerNotFound
+		return nil, nil
 	}
 
 	// Iterate through all pipelines keys and get trigger events (public) and per account
@@ -400,7 +420,7 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, w
 	}
 	if len(triggers) == 0 {
 		lg.WithField("pipeline", pipeline).Warn("failed to find triggers for pipeline")
-		return nil, model.ErrTriggerNotFound
+		return nil, nil
 	}
 	return triggers, nil
 }

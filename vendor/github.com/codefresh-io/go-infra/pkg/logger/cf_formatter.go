@@ -16,23 +16,25 @@ const (
 	FieldCorrelationID = "correlationID"
 	FieldNamespace     = "namespace"
 	FieldService       = "service"
-	FieldUserName      = "userName"
-	FieldUserID        = "userID"
+	FieldAuthName      = "authName"
+	FieldAuthID        = "authID"
+	FieldAuthType      = "authType"
 	FieldNewRelicTxn   = "newRelicTransaction"
 )
 
-type _user struct {
-	ID   string `json:"_id"`
-	Name string `json:"name"`
+type _authEntity struct {
+	ID   string `json:"id"`
+	Name string `json:"user"`
+	Type string `json:"type"`
 }
 
 type _metadata struct {
-	Namespace     string `json:"namespace,omitempty"`
-	Service       string `json:"service,omitempty"`
-	Time          string `json:"time"`
-	Level         string `json:"level"`
-	CorrelationID string `json:"correlationId,omitempty"`
-	User          _user  `json:"user,omitempty"`
+	Namespace     string      `json:"namespace,omitempty"`
+	Service       string      `json:"service,omitempty"`
+	Time          string      `json:"time"`
+	Level         string      `json:"level"`
+	CorrelationID string      `json:"correlationId,omitempty"`
+	AuthEntity    _authEntity `json:"authenticatedEntity,omitempty"`
 }
 
 type _data struct {
@@ -65,8 +67,10 @@ func (f *CFFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 			FieldCorrelationID,
 			FieldNamespace,
 			FieldService,
-			FieldUserName,
-			FieldUserID:
+			FieldAuthName,
+			FieldAuthID,
+			FieldAuthType,
+			FieldNewRelicTxn:
 			continue
 		}
 		// get value, for error use Error()
@@ -95,9 +99,10 @@ func (f *CFFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	logEntry.Metadata.CorrelationID = getFieldByName(FieldCorrelationID, entry.Data)
 	logEntry.Metadata.Namespace = getFieldByName(FieldNamespace, entry.Data)
 	logEntry.Metadata.Service = getFieldByName(FieldService, entry.Data)
-	logEntry.Metadata.User = _user{
-		ID:   getFieldByName(FieldUserID, entry.Data),
-		Name: getFieldByName(FieldUserName, entry.Data),
+	logEntry.Metadata.AuthEntity = _authEntity{
+		ID:   getFieldByName(FieldAuthID, entry.Data),
+		Name: getFieldByName(FieldAuthName, entry.Data),
+		Type: getFieldByName(FieldAuthType, entry.Data),
 	}
 
 	serialized, err := json.Marshal(logEntry)

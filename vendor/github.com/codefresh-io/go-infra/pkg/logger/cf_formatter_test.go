@@ -25,7 +25,7 @@ func TestCFFormatter_Format(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "format full log message",
+			name: "format full log message for user",
 			args: args{
 				entry: &logrus.Entry{
 					Level: logrus.DebugLevel,
@@ -33,8 +33,9 @@ func TestCFFormatter_Format(t *testing.T) {
 						FieldNamespace:     "test-namespace",
 						FieldService:       "test-service",
 						FieldCorrelationID: "test-correlation-id",
-						FieldUserID:        "test-user-id",
-						FieldUserName:      "test-user-name",
+						FieldAuthID:        "test-user-id",
+						FieldAuthName:      "test-user-name",
+						FieldAuthType:      "user",
 						"name":             "bob",
 						"tag":              "latest",
 						"answer":           42,
@@ -50,7 +51,46 @@ func TestCFFormatter_Format(t *testing.T) {
 					CorrelationID: "test-correlation-id",
 					Level:         "debug",
 					Time:          "2018-11-10T23:00:00Z",
-					User:          _user{ID: "test-user-id", Name: "test-user-name"},
+					AuthEntity:    _authEntity{ID: "test-user-id", Name: "test-user-name", Type: "user"},
+				},
+				Data: _data{
+					Message: "test message",
+					Fields: map[string]interface{}{
+						"name":   "bob",
+						"tag":    "latest",
+						"answer": float64(42),
+					},
+				},
+			},
+		},
+		{
+			name: "format full log message for service",
+			args: args{
+				entry: &logrus.Entry{
+					Level: logrus.DebugLevel,
+					Data: logrus.Fields{
+						FieldNamespace:     "test-namespace",
+						FieldService:       "test-service",
+						FieldCorrelationID: "test-correlation-id",
+						FieldAuthID:        "none",
+						FieldAuthName:      "codefresh",
+						FieldAuthType:      "service",
+						"name":             "bob",
+						"tag":              "latest",
+						"answer":           42,
+					},
+					Time:    time.Date(2018, time.November, 10, 23, 0, 0, 0, time.UTC),
+					Message: "test message",
+				},
+			},
+			want: _entry{
+				Metadata: _metadata{
+					Namespace:     "test-namespace",
+					Service:       "test-service",
+					CorrelationID: "test-correlation-id",
+					Level:         "debug",
+					Time:          "2018-11-10T23:00:00Z",
+					AuthEntity:    _authEntity{ID: "none", Name: "codefresh", Type: "service"},
 				},
 				Data: _data{
 					Message: "test message",
