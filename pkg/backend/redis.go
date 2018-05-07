@@ -349,9 +349,6 @@ func (r *RedisStore) GetEventTriggers(ctx context.Context, event string) ([]mode
 			triggers = append(triggers, trigger)
 		}
 	}
-	if len(triggers) == 0 {
-		return nil, model.ErrTriggerNotFound
-	}
 	return triggers, nil
 }
 
@@ -420,7 +417,6 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, w
 	}
 	if len(triggers) == 0 {
 		lg.WithField("pipeline", pipeline).Warn("failed to find triggers for pipeline")
-		return nil, nil
 	}
 	return triggers, nil
 }
@@ -582,7 +578,7 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 	// if trigger does not exists
 	if exists == 0 {
 		lg.Warn("trigger not found")
-		return nil, model.ErrTriggerNotFound
+		return nil, nil
 	}
 	// get pipelines from Triggers
 	pipelines, err := redis.Strings(con.Do("ZRANGE", getTriggerKey(account, event), 0, -1))
@@ -640,7 +636,6 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 
 	if len(pipelines) == 0 {
 		lg.Warn("no pipelines found or all skipped")
-		return nil, model.ErrPipelineNotFound
 	}
 
 	return pipelines, nil

@@ -964,7 +964,7 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "fail to find triggers existing event",
+			name: "fail to find triggers existing event - empty list",
 			args: args{
 				account: model.PublicAccount,
 				event:   "uri:test:" + model.PublicAccountHash,
@@ -977,7 +977,6 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
 		},
 		{
 			name: "fail to find pipelines for event",
