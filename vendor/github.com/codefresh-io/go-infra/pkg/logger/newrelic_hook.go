@@ -32,7 +32,7 @@ func (n *NewRelicLogrusHook) Fire(entry *logrus.Entry) error {
 	// create new if not found
 	var ok bool
 	var txn newrelic.Transaction
-	if v, exists := entry.Data[FieldCorrelationID]; exists {
+	if v, exists := entry.Data[FieldNewRelicTxn]; exists {
 		if txn, ok = v.(newrelic.Transaction); !ok {
 			txn = n.Application.StartTransaction("errorTxn", nil, nil)
 		}

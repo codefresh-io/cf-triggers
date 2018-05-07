@@ -352,9 +352,13 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, w
 	con := r.redisPool.GetConn()
 	pipelineKey := getPipelineKey(pipeline)
 	n, err := redis.Int(con.Do("EXISTS", pipelineKey))
-	if err != nil || n == 0 {
-		lg.WithField("pipeline", pipeline).WithError(err).Error("failed to find triggers for pipeline")
+	if err != nil {
+		lg.WithField("pipeline", pipeline).WithError(err).Error("error finding triggers for pipeline")
 		return nil, err
+	}
+	if n == 0 {
+		lg.WithField("pipeline", pipeline).Warn("failed to find triggers for pipeline")
+		return nil, model.ErrTriggerNotFound
 	}
 
 	// Iterate through all pipelines keys and get trigger events (public) and per account
@@ -395,7 +399,7 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, w
 		}
 	}
 	if len(triggers) == 0 {
-		lg.WithField("pipeline", pipeline).Error("failed to find triggers for pipeline")
+		lg.WithField("pipeline", pipeline).Warn("failed to find triggers for pipeline")
 		return nil, model.ErrTriggerNotFound
 	}
 	return triggers, nil
