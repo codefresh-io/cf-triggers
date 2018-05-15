@@ -5,7 +5,7 @@
   branch = "master"
   name = "github.com/codefresh-io/go-infra"
   packages = ["pkg/logger"]
-  revision = "2bef952965adbd13f6b2590b7e80191cd9e7146e"
+  revision = "2198993e37c479f5f89af8cc33e214d234324abd"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
