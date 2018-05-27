@@ -58,6 +58,49 @@
                 }
             ],
             "filters": []
+        },
+        {
+            "type": "helm",
+            "kind": "codefresh",
+            "service-url": "http://local.codefresh.io:9013",
+            "uri-template": "helm:codefresh:{{account}}:{{repo}}:{{name}}:{{action}}",
+            "uri-regex": "^helm:codefresh:[a-zA-Z0-9_-]{2,64}:[a-zA-Z0-9_-]{2,64}:[a-zA-Z0-9_-]{2,64}:push$",
+            "config": [
+                {
+                    "name": "account",
+                    "type": "string",
+                    "validator": "^[a-zA-Z0-9_-]{2,64}$",
+                    "required": true
+                },
+                {
+                    "name": "repo",
+                    "type": "string",
+                    "validator": "^[a-zA-Z0-9_-]{2,64}$",
+                    "required": true
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "validator": "^[a-zA-Z0-9_-]{2,64}$",
+                    "required": true
+                },
+                {
+                    "name": "action",
+                    "type": "list",
+                    "options": {
+                        "Push Chart": "push"
+                    },
+                    "validator": "^(push)$",
+                    "required": true
+                }
+            ],
+            "filters": [
+                {
+                    "name": "version",
+                    "type": "string",
+                    "validator": "^.+$"
+                }
+            ]
         }
     ]
 }
