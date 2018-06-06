@@ -11,24 +11,19 @@ import (
 )
 
 func TestNewRunner(t *testing.T) {
-	mock := codefresh.NewCodefreshMockEndpoint()
-	type args struct {
-		mock *codefresh.Mock
-	}
+	mock := &codefresh.MockPipelineService{}
 	tests := []struct {
 		name string
-		args args
 		want model.Runner
 	}{
 		{
 			"new runner",
-			args{mock},
 			&PipelineRunner{mock},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewRunner(tt.args.mock); !reflect.DeepEqual(got, tt.want) {
+			if got := NewRunner(mock); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewRunner() = %v, want %v", got, tt.want)
 			}
 		})
@@ -36,28 +31,25 @@ func TestNewRunner(t *testing.T) {
 }
 
 func TestPipelineRunner_Run(t *testing.T) {
-	type fields struct {
-		mock *codefresh.Mock
-	}
 	type args struct {
 		account   string
 		pipelines []string
 		vars      map[string]string
+		event     model.NormalizedEvent
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    []model.PipelineRun
 		wantErr bool
 	}{
 		{
 			"run pipeline",
-			fields{codefresh.NewCodefreshMockEndpoint()},
 			args{
 				vars:      map[string]string{"V1": "AAA", "V2": "BBB"},
 				pipelines: []string{"puid-1", "puid-2", "puid-3"},
 				account:   "test",
+				event:     model.NormalizedEvent{},
 			},
 			[]model.PipelineRun{
 				{ID: "run1", Error: nil},
@@ -68,11 +60,11 @@ func TestPipelineRunner_Run(t *testing.T) {
 		},
 		{
 			"run pipeline - some missing",
-			fields{codefresh.NewCodefreshMockEndpoint()},
 			args{
 				vars:      map[string]string{"V1": "AAA", "V2": "BBB"},
 				pipelines: []string{"puid-1", "puid-2", "puid-3"},
 				account:   "test",
+				event:     model.NormalizedEvent{},
 			},
 			[]model.PipelineRun{
 				{ID: "run1", Error: nil},
@@ -84,13 +76,14 @@ func TestPipelineRunner_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mock := &codefresh.MockPipelineService{}
 			r := &PipelineRunner{
-				pipelineSvc: tt.fields.mock,
+				pipelineSvc: mock,
 			}
 			for i, p := range tt.args.pipelines {
-				tt.fields.mock.On("RunPipeline", tt.args.account, p, tt.args.vars).Return(tt.want[i].ID, tt.want[i].Error)
+				mock.On("RunPipeline", tt.args.account, p, tt.args.vars, tt.args.event).Return(tt.want[i].ID, tt.want[i].Error)
 			}
-			got, err := r.Run(tt.args.account, tt.args.pipelines, tt.args.vars)
+			got, err := r.Run(tt.args.account, tt.args.pipelines, tt.args.vars, tt.args.event)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("PipelineRunner.Run() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -99,7 +92,7 @@ func TestPipelineRunner_Run(t *testing.T) {
 				t.Errorf("PipelineRunner.Run() = %v, want %v", got, tt.want)
 			}
 			// assert expectation
-			tt.fields.mock.AssertExpectations(t)
+			mock.AssertExpectations(t)
 		})
 	}
 }

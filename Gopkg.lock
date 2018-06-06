@@ -68,6 +68,12 @@
   version = "v1.11.0"
 
 [[projects]]
+  name = "github.com/oklog/ulid"
+  packages = ["."]
+  revision = "d311cb43c92434ec4072dfbbda3400741d0a6337"
+  version = "v0.3.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -136,6 +142,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1047c8eaa576a2d80d32a33c931d7c5a1dcefc5c88e1deb8c9d669864c387887"
+  inputs-digest = "824a13ba263500bdc46bc4944277162f26a30b7c7bd0fed7e727b9cb2106c054"
   solver-name = "gps-cdcl"
   solver-version = 1

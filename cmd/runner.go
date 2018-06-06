@@ -54,7 +54,7 @@ func runTrigger(c *cli.Context) error {
 	account := ev.Account
 
 	// run pipelines
-	runs, err := runner.Run(account, pipelines, vars)
+	runs, err := runner.Run(account, pipelines, vars, model.NormalizedEvent{Variables: vars})
 	if err != nil {
 		return err
 	}
