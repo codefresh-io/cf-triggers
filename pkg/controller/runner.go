@@ -15,34 +15,31 @@ import (
 
 // RunnerController trigger controller
 type RunnerController struct {
-	runnerSvc  model.Runner
-	eventSvc   model.TriggerEventReaderWriter
-	triggerSvc model.TriggerReaderWriter
-	checkerSvc model.SecretChecker
+	runnerSvc    model.Runner
+	publisherSvc model.EventPublisher
+	eventSvc     model.TriggerEventReaderWriter
+	triggerSvc   model.TriggerReaderWriter
+	checkerSvc   model.SecretChecker
 }
 
 // NewRunnerController new runner controller
-func NewRunnerController(runnerSvc model.Runner, eventSvc model.TriggerEventReaderWriter, triggerSvc model.TriggerReaderWriter, checkerSvc model.SecretChecker) *RunnerController {
+func NewRunnerController(runnerSvc model.Runner, publisherSvc model.EventPublisher, eventSvc model.TriggerEventReaderWriter, triggerSvc model.TriggerReaderWriter, checkerSvc model.SecretChecker) *RunnerController {
 	return &RunnerController{
-		runnerSvc:  runnerSvc,
-		eventSvc:   eventSvc,
-		triggerSvc: triggerSvc,
-		checkerSvc: checkerSvc}
+		runnerSvc:    runnerSvc,
+		publisherSvc: publisherSvc,
+		eventSvc:     eventSvc,
+		triggerSvc:   triggerSvc,
+		checkerSvc:   checkerSvc}
 }
 
 // RunTrigger pipelines for trigger
 func (c *RunnerController) RunTrigger(ctx *gin.Context) {
-	type RunEvent struct {
-		Secret    string            `form:"secret" json:"secret" binding:"required"`
-		Original  string            `form:"original" json:"original"`
-		Variables map[string]string `form:"variables" json:"variables"`
-	}
 	// get trigger event
 	event := getParam(ctx, "event")
 	log.WithField("event", event).Debug("triggering pipelines for event")
 	// get event payload
-	var runEvent RunEvent
-	if err := ctx.BindJSON(&runEvent); err != nil {
+	var normEvent model.NormalizedEvent
+	if err := ctx.BindJSON(&normEvent); err != nil {
 		ctx.JSON(http.StatusBadRequest, ErrorResult{http.StatusBadRequest, "error in JSON body", err.Error()})
 		return
 	}
@@ -64,7 +61,7 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		ctx.JSON(status, ErrorResult{status, "failed to get event", err.Error()})
 		return
 	}
-	if err = c.checkerSvc.Validate(runEvent.Original, runEvent.Secret, triggerEvent.Secret); err != nil {
+	if err = c.checkerSvc.Validate(normEvent.Original, normEvent.Secret, triggerEvent.Secret); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerNotFound {
 			status = http.StatusNotFound
@@ -72,12 +69,18 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		ctx.JSON(status, ErrorResult{status, "failed secret validation", err.Error()})
 		return
 	}
+	// report event to eventbus
+	err = c.publisherSvc.Publish(allCtx, triggerEvent.Account, event, normEvent)
+	if err != nil {
+		// on error report to log and continue
+		log.WithError(err).Error("failed to publish event to eventbus")
+	}
 	// add original payload to variables
 	vars := make(map[string]string)
-	for k, v := range runEvent.Variables {
+	for k, v := range normEvent.Variables {
 		vars[k] = v
 	}
-	vars["EVENT_PAYLOAD"] = runEvent.Original
+	vars["EVENT_PAYLOAD"] = normEvent.Original
 	// get connected pipelines
 	pipelines, err := c.triggerSvc.GetTriggerPipelines(allCtx, event, vars)
 	if err != nil {
@@ -104,7 +107,7 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 		defer s.End()
 	}
 	// run piplines
-	runs, err := c.runnerSvc.Run(triggerEvent.Account, pipelines, vars)
+	runs, err := c.runnerSvc.Run(triggerEvent.Account, pipelines, vars, normEvent)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, ErrorResult{http.StatusInternalServerError, "failed to run trigger pipelines", err.Error()})
 		return

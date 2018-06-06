@@ -8,13 +8,13 @@ type MockRunner struct {
 	mock.Mock
 }
 
-// Run provides a mock function with given fields: account, pipelines, vars
-func (_m *MockRunner) Run(account string, pipelines []string, vars map[string]string) ([]PipelineRun, error) {
-	ret := _m.Called(account, pipelines, vars)
+// Run provides a mock function with given fields: account, pipelines, vars, event
+func (_m *MockRunner) Run(account string, pipelines []string, vars map[string]string, event NormalizedEvent) ([]PipelineRun, error) {
+	ret := _m.Called(account, pipelines, vars, event)
 
 	var r0 []PipelineRun
-	if rf, ok := ret.Get(0).(func(string, []string, map[string]string) []PipelineRun); ok {
-		r0 = rf(account, pipelines, vars)
+	if rf, ok := ret.Get(0).(func(string, []string, map[string]string, NormalizedEvent) []PipelineRun); ok {
+		r0 = rf(account, pipelines, vars, event)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]PipelineRun)
@@ -22,8 +22,8 @@ func (_m *MockRunner) Run(account string, pipelines []string, vars map[string]st
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, []string, map[string]string) error); ok {
-		r1 = rf(account, pipelines, vars)
+	if rf, ok := ret.Get(1).(func(string, []string, map[string]string, NormalizedEvent) error); ok {
+		r1 = rf(account, pipelines, vars, event)
 	} else {
 		r1 = ret.Error(1)
 	}

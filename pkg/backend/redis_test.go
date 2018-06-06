@@ -475,7 +475,7 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := codefresh.NewCodefreshMockEndpoint()
+			mock := &codefresh.MockPipelineService{}
 			r := &RedisStore{
 				redisPool:   &RedisPoolMock{},
 				pipelineSvc: mock,
@@ -685,7 +685,7 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := codefresh.NewCodefreshMockEndpoint()
+			mock := &codefresh.MockPipelineService{}
 			r := &RedisStore{
 				redisPool:   &RedisPoolMock{},
 				pipelineSvc: mock,

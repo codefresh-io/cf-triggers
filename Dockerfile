@@ -14,7 +14,7 @@
 #
 # ----- Go Dev Image ------
 #
-FROM golang:1.9 AS godev
+FROM golang:1.10 AS godev
 
 # set working directory
 RUN mkdir -p /go/src/github.com/codefresh-io/hermes
@@ -42,7 +42,6 @@ ARG VCS_SLUG
 ARG CI_BUILD_URL
 ARG CI_BUILD_ID
 RUN if [ "$CODECOV_TOKEN" != "" ]; then curl -s $CODECOV_BASH_URL | bash -s; fi
-
 
 #
 # ------ Go Builder ------

@@ -15,6 +15,13 @@ type (
 		Error error  `json:"error,omitempty" yaml:"error,omitempty"`
 	}
 
+	// NormalizedEvent trigger-event event data enriched with type,kind,action and ULID
+	NormalizedEvent struct {
+		Secret    string            `form:"secret" json:"secret" binding:"required"`
+		Original  string            `form:"original" json:"original"`
+		Variables map[string]string `form:"variables" json:"variables"`
+	}
+
 	// Trigger a single link between event and pipeline
 	Trigger struct {
 		// unique event URI, use ':' instead of '/'
@@ -53,7 +60,12 @@ type (
 
 	// Runner pipeline runner
 	Runner interface {
-		Run(account string, pipelines []string, vars map[string]string) ([]PipelineRun, error)
+		Run(account string, pipelines []string, vars map[string]string, event NormalizedEvent) ([]PipelineRun, error)
+	}
+
+	// EventPublisher eventbus publisher
+	EventPublisher interface {
+		Publish(ctx context.Context, account string, eventURI string, event NormalizedEvent) error
 	}
 
 	// Pinger ping response
