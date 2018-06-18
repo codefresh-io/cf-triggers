@@ -50,11 +50,7 @@ type (
 		HelpURL string `json:"help-url,omitempty" yaml:"help-url,omitempty"`
 		// Configuration Fields
 		Config []ConfigField `json:"config" yaml:"config"`
-<<<<<<< HEAD
-
-=======
 		// Filters - fields that support filtering
->>>>>>> master
 		Filters []FilterField `json:"filters" yaml:"filters"`
 	}
 
