@@ -4,10 +4,17 @@ import (
 	"fmt"
 	"os"
 
+	newrelic "github.com/newrelic/go-agent"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
+	"github.com/codefresh-io/go-infra/pkg/logger"
 	"github.com/codefresh-io/hermes/pkg/version"
+)
+
+var (
+	// new relic app
+	nrApp newrelic.Application
 )
 
 func main() {
@@ -86,8 +93,14 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			Usage: "do not execute commands, just log",
 		},
 		cli.BoolFlag{
-			Name:  "json, j",
-			Usage: "produce log in JSON format: Logstash and Splunk friendly",
+			Name:   "json, j",
+			Usage:  "produce log in JSON format: Codefresh friendly",
+			EnvVar: "LOG_JSON",
+		},
+		cli.StringFlag{
+			Name:   "new-relic",
+			Usage:  "set New Relic License Key",
+			EnvVar: "NEWRELIC_LICENSE_KEY",
 		},
 	}
 
@@ -115,9 +128,32 @@ func before(c *cli.Context) error {
 	default:
 		log.SetLevel(log.WarnLevel)
 	}
-	// set log formatter to JSON
+	// set log formatter to Codefresh JSON
 	if c.GlobalBool("json") {
-		log.SetFormatter(&log.JSONFormatter{})
+		log.SetFormatter(&logger.CFFormatter{})
+	}
+	// trace function calls
+	traceHook := logger.NewHook()
+	traceHook.Prefix = "codefresh:hermes:"
+	traceHook.AppName = "hermes"
+	traceHook.FunctionField = logger.FieldNamespace
+	traceHook.AppField = logger.FieldService
+	log.AddHook(traceHook)
+
+	// set new relic monitoring
+	newRelicLicense := c.GlobalString("new-relic")
+	if newRelicLicense != "" {
+		log.Debug("setting New Relic agent")
+		cfg := newrelic.NewConfig("trigger-manager-hermes[kubernetes]", newRelicLicense)
+		var err error
+		nrApp, err = newrelic.NewApplication(cfg)
+		if nil != err {
+			log.WithError(err).Error("failed to setup New Relic agent with provided license")
+			return err
+		}
+		log.Debug("setting New Relic agent hook for Logrus logging")
+		nrHook := logger.NewNewRelicLogrusHook(nrApp, []log.Level{log.ErrorLevel, log.FatalLevel, log.PanicLevel})
+		log.AddHook(nrHook)
 	}
 
 	return nil

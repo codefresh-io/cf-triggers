@@ -12,6 +12,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/version"
 
 	"github.com/gin-gonic/gin"
+	"github.com/newrelic/go-agent/_integrations/nrgin/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -35,12 +36,17 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 	triggerReaderWriter model.TriggerReaderWriter,
 	eventProvider provider.EventProvider,
 	runner model.Runner,
+	publisher model.EventPublisher,
 	checker model.SecretChecker,
 	pinger model.Pinger,
 	pipelineService codefresh.PipelineService) *gin.Engine {
 	// Creates a router without any middleware by default
 	router := gin.New()
 	router.Use(gin.Recovery())
+	// set new relic middleware
+	if nrApp != nil {
+		router.Use(nrgin.Middleware(nrApp))
+	}
 
 	// manage trigger events
 	eventController := controller.NewTriggerEventController(eventReaderWriter)
@@ -73,7 +79,7 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 
 	// invoke trigger with event payload
 	runAPI := router.Group("/run", gin.Logger())
-	runnerController := controller.NewRunnerController(runner, eventReaderWriter, triggerReaderWriter, checker)
+	runnerController := controller.NewRunnerController(runner, publisher, eventReaderWriter, triggerReaderWriter, checker)
 	{
 		runAPI.Handle("POST", "/:event", runnerController.RunTrigger)
 	}
@@ -112,14 +118,20 @@ func runServer(c *cli.Context) error {
 	// get pipeline runner service
 	runner := backend.NewRunner(codefreshService)
 
+	// get event publisher service
+	publisher := backend.NewPublisher(codefreshService)
+
 	// get secret checker
 	checker := backend.NewSecretChecker()
 
 	// setup router
-	router := setupRouter(triggerBackend, triggerBackend, eventProvider, runner, checker, triggerBackend, codefreshService)
+	router := setupRouter(triggerBackend, triggerBackend, eventProvider, runner, publisher, checker, triggerBackend, codefreshService)
 
-	// start router
+	// use server router port
 	port := c.Int("port")
 	log.WithField("port", port).Debug("starting hermes server")
+	// use RawPath: the url.RawPath will be used to find parameters
+	router.UseRawPath = true
+	// start router server
 	return router.Run(fmt.Sprintf(":%d", port))
 }

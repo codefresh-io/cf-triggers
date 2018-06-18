@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/codefresh-io/hermes/pkg/backend"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
+	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/urfave/cli"
 )
 
@@ -34,19 +34,15 @@ func runTrigger(c *cli.Context) error {
 	// get pipeline runner
 	runner := backend.NewRunner(codefreshService)
 	// convert command line 'var' variables (key=value) to map
-	vars := make(map[string]string)
-	for _, v := range c.StringSlice("var") {
-		kv := strings.Split(v, "=")
-		if len(kv) != 2 {
-			return fmt.Errorf("Invalid 'var' value: %s ; should be 'key=value' form", v)
-		}
-		vars[kv[0]] = kv[1]
+	vars, err := util.StringSliceToMap(c.StringSlice("var"))
+	if err != nil {
+		return err
 	}
 
 	// get trigger pipelines for specified event (skip account check)
 	ctx := context.WithValue(context.Background(), model.ContextKeyAccount, "-")
 	eventURI := c.Args().First()
-	pipelines, err := triggerReaderWriter.GetTriggerPipelines(ctx, eventURI)
+	pipelines, err := triggerReaderWriter.GetTriggerPipelines(ctx, eventURI, vars)
 	if err != nil {
 		return err
 	}
@@ -58,7 +54,7 @@ func runTrigger(c *cli.Context) error {
 	account := ev.Account
 
 	// run pipelines
-	runs, err := runner.Run(account, pipelines, vars)
+	runs, err := runner.Run(account, pipelines, vars, model.NormalizedEvent{Variables: vars})
 	if err != nil {
 		return err
 	}

@@ -21,25 +21,36 @@
                 },
                 {
                     "name": "action",
-                    "type": "list:push",
+                    "type": "list",
+                    "options": {
+                        "Push Image": "push"
+                    },
                     "validator": "^(push)$",
                     "required": true
                 }
             ],
             "filters": [
                 {
-                    "name": "TAG",
+                    "name": "tag",
                     "type": "string",
                     "validator": "^.+$"
                 }
             ]
         },
         {
+<<<<<<< HEAD
             "type": "git",
             "kind": "github",
             "service-url": "http://local.codefresh.io:10003",
             "uri-template": "git:github:{{owner}}:{{name}}:{{action}}",
             "uri-regex": "^git:github:.+:.+:push$",
+=======
+            "type": "cron",
+            "kind": "codefresh",
+            "service-url": "http://local.codefresh.io:10002",
+            "uri-template": "cron:codefresh:{{expression}}:{{message}}",
+            "uri-regex": "^cron:codefresh:@yearly|@annually|@monthly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6}:[a-zA-Z0-9_-]{2,64}$",
+>>>>>>> master
             "config": [
                 {
                     "name": "owner",

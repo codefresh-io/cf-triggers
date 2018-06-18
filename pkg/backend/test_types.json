@@ -19,14 +19,17 @@
                 },
                 {
                     "name": "action",
-                    "type": "list:push",
+                    "type": "list",
+                    "options": {
+                        "Push Image": "push"
+                    },
                     "validator": "^(push)$",
                     "required": true
                 }
             ],
             "filters": [
                 {
-                    "name": "TAG",
+                    "name": "tag",
                     "type": "string",
                     "validator": "^.+$"
                 }
@@ -59,7 +62,7 @@
             ],
             "filters": [
                 {
-                    "name": "TAG",
+                    "name": "tag",
                     "type": "string",
                     "validator": "^.+$"
                 }

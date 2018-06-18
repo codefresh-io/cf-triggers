@@ -15,18 +15,34 @@ type (
 		Error error  `json:"error,omitempty" yaml:"error,omitempty"`
 	}
 
+	// NormalizedEvent trigger-event event data enriched with type,kind,action and ULID
+	NormalizedEvent struct {
+		Secret    string            `form:"secret" json:"secret" binding:"required"`
+		Original  string            `form:"original" json:"original"`
+		Variables map[string]string `form:"variables" json:"variables"`
+	}
+
 	// Trigger a single link between event and pipeline
 	Trigger struct {
 		// unique event URI, use ':' instead of '/'
 		Event string `json:"event" yaml:"event"`
 		// pipeline
 		Pipeline string `json:"pipeline" yaml:"pipeline"`
+		// filter
+		Filters map[string]string `json:"filters,omitempty" yaml:"filters,omitempty"`
+		// event details (optional)
+		EventData Event `json:"event-data,omitempty" yaml:"event-data,omitempty"`
+	}
+
+	// TriggerEventGetter interface
+	TriggerEventGetter interface {
+		GetEvent(ctx context.Context, event string) (*Event, error)
 	}
 
 	// TriggerEventReaderWriter interface
 	TriggerEventReaderWriter interface {
 		// trigger events
-		GetEvent(ctx context.Context, event string) (*Event, error)
+		TriggerEventGetter
 		GetEvents(ctx context.Context, eventType, kind, filter string) ([]Event, error)
 		CreateEvent(ctx context.Context, eventType, kind, secret, context string, values map[string]string) (*Event, error)
 		DeleteEvent(ctx context.Context, event, context string) error
@@ -36,15 +52,20 @@ type (
 	TriggerReaderWriter interface {
 		// triggers
 		GetEventTriggers(ctx context.Context, event string) ([]Trigger, error)
-		GetPipelineTriggers(ctx context.Context, pipeline string) ([]Trigger, error)
+		GetPipelineTriggers(ctx context.Context, pipeline string, withEvent bool) ([]Trigger, error)
 		DeleteTrigger(ctx context.Context, event, pipeline string) error
-		CreateTrigger(ctx context.Context, event, pipeline string) error
-		GetTriggerPipelines(ctx context.Context, event string) ([]string, error)
+		CreateTrigger(ctx context.Context, event, pipeline string, filters map[string]string) error
+		GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error)
 	}
 
 	// Runner pipeline runner
 	Runner interface {
-		Run(account string, pipelines []string, vars map[string]string) ([]PipelineRun, error)
+		Run(account string, pipelines []string, vars map[string]string, event NormalizedEvent) ([]PipelineRun, error)
+	}
+
+	// EventPublisher eventbus publisher
+	EventPublisher interface {
+		Publish(ctx context.Context, account string, eventURI string, event NormalizedEvent) error
 	}
 
 	// Pinger ping response
@@ -63,11 +84,12 @@ type (
 
 // Context keys
 var (
-	ContextKeyAccount = contextKey("account")
-	ContextKeyUser    = contextKey("user")
-	ContextKeyPublic  = contextKey("public")
-	ContextRequestID  = contextKey("requestID")
-	ContextAuthEntity = contextKey("authEntity")
+	ContextKeyAccount  = contextKey("account")
+	ContextKeyUser     = contextKey("user")
+	ContextKeyPublic   = contextKey("public")
+	ContextRequestID   = contextKey("requestID")
+	ContextAuthEntity  = contextKey("authEntity")
+	ContextNewRelicTxn = contextKey("newRelicTransaction")
 )
 
 // ErrTriggerNotFound error when trigger not found
