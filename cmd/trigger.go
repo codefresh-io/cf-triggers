@@ -144,8 +144,10 @@ func deleteTrigger(c *cli.Context) error {
 	if len(args) != 2 {
 		return errors.New("wrong number of arguments")
 	}
+	// get codefresh endpoint
+	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
 	// delete pipelines
 	return triggerReaderWriter.DeleteTrigger(getContext(c), args.First(), args.Get(1))
 }
