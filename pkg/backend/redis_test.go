@@ -1950,7 +1950,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			epMock := provider.NewEventProviderMock()
+			epMock := &provider.MockEventProvider{}
 			var call *mock.Call
 			r := &RedisStore{
 				redisPool:     &RedisPoolMock{},
@@ -2302,7 +2302,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var cmd *redigomock.Cmd
-			mock := provider.NewEventProviderMock()
+			mock := &provider.MockEventProvider{}
 			mockEventGetter := &model.MockTriggerEventGetter{}
 			r := &RedisStore{
 				redisPool:     &RedisPoolMock{},
@@ -2338,7 +2338,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			}
 
 			// subscribe to event
-			call = mock.On("SubscribeToEvent", ctx, tt.expected.eventURI, tt.args.secret, tt.expected.credentials)
+			call = mock.On("SubscribeToEvent", ctx, tt.expected.eventURI, tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.values, tt.expected.credentials)
 			if tt.wantEventErr.subscribe != nil {
 				call.Return(nil, tt.wantEventErr.subscribe)
 				if tt.wantEventErr.subscribe == provider.ErrNotImplemented {

@@ -692,7 +692,7 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 	}
 
 	// try subscribing to event - create event in remote system through event provider
-	eventInfo, err := r.eventProvider.SubscribeToEvent(ctx, eventURI, secret, credentials)
+	eventInfo, err := r.eventProvider.SubscribeToEvent(ctx, eventURI, eventType, kind, secret, values, credentials)
 	if err != nil {
 		if err == provider.ErrNotImplemented {
 			lg.Warn("event-provider does not implement SubscribeToEvent method")

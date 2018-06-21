@@ -39,7 +39,7 @@ type (
 		MatchType(eventURI string) (*model.EventType, error)
 		GetType(t string, k string) (*model.EventType, error)
 		GetEventInfo(ctx context.Context, eventURI string, secret string) (*model.EventInfo, error)
-		SubscribeToEvent(ctx context.Context, event, secret string, credentials map[string]string) (*model.EventInfo, error)
+		SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values, credentials map[string]string) (*model.EventInfo, error)
 		UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error
 		ConstructEventURI(t string, k string, a string, values map[string]string) (string, error)
 	}
@@ -229,11 +229,11 @@ func (m *EventProviderManager) GetEventInfo(ctx context.Context, event string, s
 }
 
 // SubscribeToEvent subscribe to remote event through event provider
-func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, event, secret string, credentials map[string]string) (*model.EventInfo, error) {
-	log.WithField("event", event).Debug("subscribe to remote event trough event provider")
-	et, err := m.MatchType(event)
+func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values, credentials map[string]string) (*model.EventInfo, error) {
+	log.WithField("event", eventURI).Debug("subscribe to remote event trough event provider")
+	et, err := m.GetType(eventType, eventKind)
 	if err != nil {
-		log.WithError(err).Error("failed to match event type")
+		log.WithError(err).Error("failed to find event type")
 		return nil, err
 	}
 
@@ -244,7 +244,7 @@ func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, event, secr
 	} else {
 		provider = NewEventProviderEndpoint(et.ServiceURL)
 	}
-	info, err := provider.SubscribeToEvent(ctx, event, secret, credentials)
+	info, err := provider.SubscribeToEvent(ctx, eventURI, eventType, eventKind, secret, values, credentials)
 	if err != nil {
 		log.WithError(err).Error("failed to subscribe to event")
 		return nil, err

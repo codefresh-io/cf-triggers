@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -330,8 +329,11 @@ func TestEventProviderManager_ConstructEventURI(t *testing.T) {
 
 func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 	type args struct {
-		event       string
+		eventURI    string
+		eventType   string
+		eventKind   string
 		secret      string
+		values      map[string]string
 		credentials map[string]string
 		requestID   string
 		authEntity  string
@@ -345,10 +347,14 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 		{
 			name: "subscribe to valid event",
 			args: args{
-				event:      "registry:dockerhub:test:image:push:" + model.CalculateAccountHash("A"),
-				secret:     "XXX",
-				requestID:  "1234",
-				authEntity: `{"user": "test"}`,
+				eventURI:    "registry:dockerhub:test:image:push:" + model.CalculateAccountHash("A"),
+				eventType:   "registry",
+				eventKind:   "dockerhub",
+				secret:      "XXX",
+				values:      map[string]string{"namespace": "codefresh", "name": "fortune"},
+				credentials: map[string]string{"user": "admin", "password": "secret-password"},
+				requestID:   "1234",
+				authEntity:  `{"user": "test"}`,
 			},
 			want: &model.EventInfo{
 				Endpoint:    "https://webhook/endpoint",
@@ -368,10 +374,8 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 			defer server.Close()
 
 			// encode credentials to pass them in url
-			creds, _ := json.Marshal(tt.args.credentials)
-			encoded := base64.StdEncoding.EncodeToString(creds)
 			// handle function
-			mux.HandleFunc("/event/"+tt.args.event+"/"+tt.args.secret+"/"+encoded,
+			mux.HandleFunc("/event/"+(tt.args.eventURI),
 				func(w http.ResponseWriter, r *http.Request) {
 					assertMethod(t, "POST", r)
 					assertHeader(t, map[string]string{
@@ -391,7 +395,7 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 			ctx = context.WithValue(ctx, model.ContextAuthEntity, `{"user": "test"}`)
 
 			// subscribe to event in event provider
-			got, err := manager.SubscribeToEvent(ctx, tt.args.event, tt.args.secret, tt.args.credentials)
+			got, err := manager.SubscribeToEvent(ctx, tt.args.eventURI, tt.args.eventType, tt.args.eventKind, tt.args.secret, tt.args.values, tt.args.credentials)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("EventProviderManager.SubscribeToEvent() error = %v, wantErr %v", err, tt.wantErr)
 				return
