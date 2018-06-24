@@ -791,38 +791,38 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 		errs     redisErrors
 		wantErr  bool
 	}{
-		{
-			name: "list triggers for public event",
-			args: args{
-				account: model.PublicAccount,
-				event:   "uri:test:" + model.PublicAccountHash,
-			},
-			expected: expected{
-				public: []triggers{
-					{
-						event:     "uri:test:" + model.PublicAccountHash,
-						pipelines: []string{"pipeline-1", "pipeline-2"},
-					},
-				},
-				filters: map[string](map[string]string){
-					"pipeline-2": {
-						"tag": "^+.$",
-					},
-				},
-			},
-			want: []model.Trigger{
-				{
-					Event:    "uri:test:" + model.PublicAccountHash,
-					Pipeline: "pipeline-1",
-					Filters:  make(map[string]string),
-				},
-				{
-					Event:    "uri:test:" + model.PublicAccountHash,
-					Pipeline: "pipeline-2",
-					Filters:  map[string]string{"tag": "^+.$"},
-				},
-			},
-		},
+		// {
+		// 	name: "list triggers for public event",
+		// 	args: args{
+		// 		account: model.PublicAccount,
+		// 		event:   "uri:test:" + model.PublicAccountHash,
+		// 	},
+		// 	expected: expected{
+		// 		public: []triggers{
+		// 			{
+		// 				event:     "uri:test:" + model.PublicAccountHash,
+		// 				pipelines: []string{"pipeline-1", "pipeline-2"},
+		// 			},
+		// 		},
+		// 		filters: map[string](map[string]string){
+		// 			"pipeline-2": {
+		// 				"tag": "^+.$",
+		// 			},
+		// 		},
+		// 	},
+		// 	want: []model.Trigger{
+		// 		{
+		// 			Event:    "uri:test:" + model.PublicAccountHash,
+		// 			Pipeline: "pipeline-1",
+		// 			Filters:  make(map[string]string),
+		// 		},
+		// 		{
+		// 			Event:    "uri:test:" + model.PublicAccountHash,
+		// 			Pipeline: "pipeline-2",
+		// 			Filters:  map[string]string{"tag": "^+.$"},
+		// 		},
+		// 	},
+		// },
 		{
 			name: "list triggers for account event",
 			args: args{

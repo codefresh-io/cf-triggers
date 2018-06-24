@@ -7,6 +7,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/codefresh-io/hermes/pkg/util"
 )
 
 type (
@@ -83,8 +85,15 @@ func StringsMapToEvent(event string, fields map[string]string) *Event {
 // CalculateAccountHash return first 12 of account SHA1 hash
 // return empty string for empty account
 func CalculateAccountHash(account string) string {
+	// if account is already SHA1 hash
+	// if it contains exactly 12 hex characters -> make an assumption about it being a hash
+	if len(account) == 12 && util.IsHexString(account) {
+		return account
+	}
+	// calculate SHA1 hash
 	hex := fmt.Sprintf("%x", sha1.Sum([]byte(account)))
 	runes := []rune(hex)
+	// return first 12 characters only
 	return string(runes[0:12])
 }
 
