@@ -116,13 +116,13 @@ func (_m *MockEventProvider) MatchType(eventURI string) (*model.EventType, error
 	return r0, r1
 }
 
-// SubscribeToEvent provides a mock function with given fields: ctx, eventURI, eventType, eventKind, secret, values, credentials
-func (_m *MockEventProvider) SubscribeToEvent(ctx context.Context, eventURI string, eventType string, eventKind string, secret string, values map[string]string, credentials map[string]string) (*model.EventInfo, error) {
-	ret := _m.Called(ctx, eventURI, eventType, eventKind, secret, values, credentials)
+// SubscribeToEvent provides a mock function with given fields: ctx, eventURI, secret, credentials
+func (_m *MockEventProvider) SubscribeToEvent(ctx context.Context, eventURI string, secret string, credentials map[string]interface{}) (*model.EventInfo, error) {
+	ret := _m.Called(ctx, eventURI, secret, credentials)
 
 	var r0 *model.EventInfo
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, map[string]string, map[string]string) *model.EventInfo); ok {
-		r0 = rf(ctx, eventURI, eventType, eventKind, secret, values, credentials)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, map[string]interface{}) *model.EventInfo); ok {
+		r0 = rf(ctx, eventURI, secret, credentials)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.EventInfo)
@@ -130,8 +130,8 @@ func (_m *MockEventProvider) SubscribeToEvent(ctx context.Context, eventURI stri
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, map[string]string, map[string]string) error); ok {
-		r1 = rf(ctx, eventURI, eventType, eventKind, secret, values, credentials)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, map[string]interface{}) error); ok {
+		r1 = rf(ctx, eventURI, secret, credentials)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -139,13 +139,13 @@ func (_m *MockEventProvider) SubscribeToEvent(ctx context.Context, eventURI stri
 	return r0, r1
 }
 
-// UnsubscribeFromEvent provides a mock function with given fields: ctx, event, credentials
-func (_m *MockEventProvider) UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error {
-	ret := _m.Called(ctx, event, credentials)
+// UnsubscribeFromEvent provides a mock function with given fields: ctx, eventURI, credentials
+func (_m *MockEventProvider) UnsubscribeFromEvent(ctx context.Context, eventURI string, credentials map[string]interface{}) error {
+	ret := _m.Called(ctx, eventURI, credentials)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]string) error); ok {
-		r0 = rf(ctx, event, credentials)
+	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]interface{}) error); ok {
+		r0 = rf(ctx, eventURI, credentials)
 	} else {
 		r0 = ret.Error(0)
 	}

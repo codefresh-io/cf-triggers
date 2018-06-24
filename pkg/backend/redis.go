@@ -682,17 +682,17 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 		secret = util.RandomString(16)
 	}
 
-	// get credentials from Codefresh context (simple key:value map)
-	var credentials map[string]string
+	// get credentials from codefresh by context name
+	var credentials map[string]interface{}
 	if context != "" {
-		err = json.Unmarshal([]byte(context), &credentials)
+		credentials, err = r.pipelineSvc.GetContext(ctx, account, context)
 		if err != nil {
-			lg.WithError(err).WithField("context", context).Warning("failed to get credentials from context")
+			lg.WithError(err).Error("failed to get context by name")
+			return nil, err
 		}
 	}
-
 	// try subscribing to event - create event in remote system through event provider
-	eventInfo, err := r.eventProvider.SubscribeToEvent(ctx, eventURI, eventType, kind, secret, values, credentials)
+	eventInfo, err := r.eventProvider.SubscribeToEvent(ctx, eventURI, secret, credentials)
 	if err != nil {
 		if err == provider.ErrNotImplemented {
 			lg.Warn("event-provider does not implement SubscribeToEvent method")
@@ -902,14 +902,12 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 		lg.Error("trigger event account does not match")
 		return model.ErrEventNotFound
 	}
-
 	// get pipelines linked to the trigger event
 	pipelines, err := redis.Strings(con.Do("ZRANGE", triggerKey, 0, -1))
 	if err != nil {
 		lg.WithError(err).Error("failed to get pipelines for the trigger event")
 		return err
 	}
-
 	// abort delete operation if trigger event has linked pipelines
 	if len(pipelines) > 0 {
 		lg.Error("there are triggers linked to this trigger-event, first delete triggers")
@@ -922,7 +920,6 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 		lg.WithError(err).Error("failed to start Redis transaction")
 		return err
 	}
-
 	// delete event hash for key
 	lg.Debug("removing trigger event")
 	_, err = con.Do("DEL", eventKey)
@@ -930,14 +927,12 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 		lg.WithError(err).Error("failed to delete trigger event")
 		return discardOnError(con, err, lg)
 	}
-
 	// delete trigger event from Triggers
 	lg.Debug("removing trigger event from Triggers")
 	_, err = con.Do("DEL", triggerKey)
 	if err != nil {
 		return discardOnError(con, err, lg)
 	}
-
 	// submit transaction
 	_, err = con.Do("EXEC")
 	if err != nil {
@@ -945,15 +940,15 @@ func (r *RedisStore) DeleteEvent(ctx context.Context, event, context string) err
 		return err
 	}
 
-	// get credentials from Codefresh context (simple key:value map)
-	var credentials map[string]string
+	// get credentials from codefresh by context name
+	var credentials map[string]interface{}
 	if context != "" {
-		err = json.Unmarshal([]byte(context), &credentials)
+		credentials, err = r.pipelineSvc.GetContext(ctx, account, context)
 		if err != nil {
-			lg.WithError(err).WithField("context", context).Warning("failed to get credentials from context")
+			lg.WithError(err).Error("failed to get context by name")
+			return err
 		}
 	}
-
 	// try unsubscribing from event - delete event in remote system through event provider
 	err = r.eventProvider.UnsubscribeFromEvent(ctx, event, credentials)
 	if err != nil {

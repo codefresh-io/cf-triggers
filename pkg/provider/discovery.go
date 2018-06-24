@@ -39,8 +39,8 @@ type (
 		MatchType(eventURI string) (*model.EventType, error)
 		GetType(t string, k string) (*model.EventType, error)
 		GetEventInfo(ctx context.Context, eventURI string, secret string) (*model.EventInfo, error)
-		SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values, credentials map[string]string) (*model.EventInfo, error)
-		UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error
+		SubscribeToEvent(ctx context.Context, eventURI, secret string, credentials map[string]interface{}) (*model.EventInfo, error)
+		UnsubscribeFromEvent(ctx context.Context, eventURI string, credentials map[string]interface{}) error
 		ConstructEventURI(t string, k string, a string, values map[string]string) (string, error)
 	}
 )
@@ -150,6 +150,40 @@ func (m *EventProviderManager) monitorConfigFile() *util.FileWatcher {
 	return watcher
 }
 
+// read values map from uri
+func (m *EventProviderManager) getValuesFromURI(uri string) (map[string]string, error) {
+	log.WithField("event", uri).Debug("getting values map from event URI")
+	et, err := m.MatchType(uri)
+	if err != nil {
+		log.WithError(err).Error("failed to find event type")
+		return nil, err
+	}
+	// split URI
+	parts := strings.Split(uri, ":")
+	// drop last part - account hash
+	if len(parts) > 0 {
+		parts = parts[:len(parts)-1]
+	}
+	// split URI template
+	tokens := strings.Split(et.URITemplate, ":")
+	// event URI (w/out account) must match template (have same number of tokens)
+	if len(tokens) != len(parts) {
+		log.WithError(err).Error("event URI does not match URI template")
+		return nil, err
+	}
+	// scan through tokens and create map for every '{{token}}' (template token)
+	values := make(map[string]string)
+	for index, token := range tokens {
+		// if template token -> store it in values map
+		if strings.HasPrefix(token, "{{") && strings.HasSuffix(token, "}}") {
+			token = strings.TrimPrefix(token, "{{")
+			token = strings.TrimSuffix(token, "}}")
+			values[token] = parts[index]
+		}
+	}
+	return values, nil
+}
+
 // GetTypes get discovered event provider types
 func (m *EventProviderManager) GetTypes() []model.EventType {
 	m.Lock()
@@ -229,11 +263,17 @@ func (m *EventProviderManager) GetEventInfo(ctx context.Context, event string, s
 }
 
 // SubscribeToEvent subscribe to remote event through event provider
-func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values, credentials map[string]string) (*model.EventInfo, error) {
+func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, eventURI, secret string, credentials map[string]interface{}) (*model.EventInfo, error) {
 	log.WithField("event", eventURI).Debug("subscribe to remote event trough event provider")
-	et, err := m.GetType(eventType, eventKind)
+	et, err := m.MatchType(eventURI)
 	if err != nil {
 		log.WithError(err).Error("failed to find event type")
+		return nil, err
+	}
+	// get values from uri
+	values, err := m.getValuesFromURI(eventURI)
+	if err != nil {
+		log.WithError(err).Error("failed to get values from uri")
 		return nil, err
 	}
 
@@ -244,7 +284,7 @@ func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, eventURI, e
 	} else {
 		provider = NewEventProviderEndpoint(et.ServiceURL)
 	}
-	info, err := provider.SubscribeToEvent(ctx, eventURI, eventType, eventKind, secret, values, credentials)
+	info, err := provider.SubscribeToEvent(ctx, eventURI, et.Type, et.Kind, secret, values, credentials)
 	if err != nil {
 		log.WithError(err).Error("failed to subscribe to event")
 		return nil, err
@@ -254,11 +294,17 @@ func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, eventURI, e
 }
 
 // UnsubscribeFromEvent unsubscribe from remote event through event provider
-func (m *EventProviderManager) UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error {
-	log.WithField("event", event).Debug("unsubscribe from remote event trough event provider")
-	et, err := m.MatchType(event)
+func (m *EventProviderManager) UnsubscribeFromEvent(ctx context.Context, eventURI string, credentials map[string]interface{}) error {
+	log.WithField("event", eventURI).Debug("unsubscribe from remote event trough event provider")
+	et, err := m.MatchType(eventURI)
 	if err != nil {
 		log.WithError(err).Error("failed to match event type")
+		return err
+	}
+	// get values from uri
+	values, err := m.getValuesFromURI(eventURI)
+	if err != nil {
+		log.WithError(err).Error("failed to get values from uri")
 		return err
 	}
 
@@ -269,7 +315,7 @@ func (m *EventProviderManager) UnsubscribeFromEvent(ctx context.Context, event s
 	} else {
 		provider = NewEventProviderEndpoint(et.ServiceURL)
 	}
-	err = provider.UnsubscribeFromEvent(ctx, event, credentials)
+	err = provider.UnsubscribeFromEvent(ctx, eventURI, et.Type, et.Kind, values, credentials)
 	if err != nil {
 		log.WithError(err).Error("failed to unsubscribe from the event")
 	}

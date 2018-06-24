@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/codefresh-io/hermes/pkg/codefresh"
-
 	"github.com/codefresh-io/hermes/pkg/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -334,7 +333,7 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 		eventKind   string
 		secret      string
 		values      map[string]string
-		credentials map[string]string
+		credentials map[string]interface{}
 		requestID   string
 		authEntity  string
 	}
@@ -348,11 +347,8 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 			name: "subscribe to valid event",
 			args: args{
 				eventURI:    "registry:dockerhub:test:image:push:" + model.CalculateAccountHash("A"),
-				eventType:   "registry",
-				eventKind:   "dockerhub",
 				secret:      "XXX",
-				values:      map[string]string{"namespace": "codefresh", "name": "fortune"},
-				credentials: map[string]string{"user": "admin", "password": "secret-password"},
+				credentials: map[string]interface{}{"user": "admin", "password": "secret-password"},
 				requestID:   "1234",
 				authEntity:  `{"user": "test"}`,
 			},
@@ -395,7 +391,7 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 			ctx = context.WithValue(ctx, model.ContextAuthEntity, `{"user": "test"}`)
 
 			// subscribe to event in event provider
-			got, err := manager.SubscribeToEvent(ctx, tt.args.eventURI, tt.args.eventType, tt.args.eventKind, tt.args.secret, tt.args.values, tt.args.credentials)
+			got, err := manager.SubscribeToEvent(ctx, tt.args.eventURI, tt.args.secret, tt.args.credentials)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("EventProviderManager.SubscribeToEvent() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -439,5 +435,50 @@ func assertHeader(t *testing.T, expected map[string]string, req *http.Request) {
 			t.Errorf("Header '%s' does not contain '%s' value", key, value)
 			break
 		}
+	}
+}
+
+func TestEventProviderManager_getValuesFromURI(t *testing.T) {
+	type args struct {
+		uri string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    map[string]string
+		wantErr bool
+	}{
+		{
+			name: "get values for uri",
+			args: args{uri: "registry:dockerhub:codefresh:fortune:push:cb1e73c5215b"},
+			want: map[string]string{
+				"namespace": "codefresh",
+				"name":      "fortune",
+			},
+		},
+		{
+			name:    "event URI does not match URI template",
+			args:    args{uri: "registry:dockerhub:codefresh:push:cb1e73c5215b"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// create valid config file
+			config := createValidConfig("match_type")
+			defer os.Remove(config)
+			// create manager; and start monitoring
+			manager := newTestEventProviderManager(config, nil)
+			defer manager.Close()
+			// invoke
+			got, err := manager.getValuesFromURI(tt.args.uri)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("EventProviderManager.getValuesFromURI() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EventProviderManager.getValuesFromURI() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

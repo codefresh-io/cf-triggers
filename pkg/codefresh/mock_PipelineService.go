@@ -10,6 +10,29 @@ type MockPipelineService struct {
 	mock.Mock
 }
 
+// GetContext provides a mock function with given fields: ctx, account, name
+func (_m *MockPipelineService) GetContext(ctx context.Context, account string, name string) (map[string]interface{}, error) {
+	ret := _m.Called(ctx, account, name)
+
+	var r0 map[string]interface{}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) map[string]interface{}); ok {
+		r0 = rf(ctx, account, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]interface{})
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, account, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetPipeline provides a mock function with given fields: ctx, account, id
 func (_m *MockPipelineService) GetPipeline(ctx context.Context, account string, id string) (*Pipeline, error) {
 	ret := _m.Called(ctx, account, id)

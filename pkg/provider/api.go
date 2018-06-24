@@ -2,8 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -20,18 +18,18 @@ import (
 type (
 	// SubscribeRequest request body
 	SubscribeRequest struct {
-		Type        string            `json:"type"`
-		Kind        string            `json:"kind"`
-		Secret      string            `json:"secret"`
-		Values      map[string]string `json:"values,omitempty"`
-		Credentials map[string]string `json:"credentials,omitempty"`
+		Type        string                 `json:"type"`
+		Kind        string                 `json:"kind"`
+		Secret      string                 `json:"secret,omitempty"`
+		Values      map[string]string      `json:"values,omitempty"`
+		Credentials map[string]interface{} `json:"credentials,omitempty"`
 	}
 
 	// EventProviderService Codefresh Service
 	EventProviderService interface {
 		GetEventInfo(ctx context.Context, event, secret string) (*model.EventInfo, error)
-		SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values, credentials map[string]string) (*model.EventInfo, error)
-		UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error
+		SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values map[string]string, credentials map[string]interface{}) (*model.EventInfo, error)
+		UnsubscribeFromEvent(ctx context.Context, eventURI, eventType, eventKind string, values map[string]string, credentials map[string]interface{}) error
 	}
 
 	// APIError api error message
@@ -97,7 +95,7 @@ func (api *APIEndpoint) GetEventInfo(ctx context.Context, event string, secret s
 }
 
 // SubscribeToEvent configure remote system through event provider to subscribe for desired event
-func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values, credentials map[string]string) (*model.EventInfo, error) {
+func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values map[string]string, credentials map[string]interface{}) (*model.EventInfo, error) {
 	var info model.EventInfo
 	var apiError APIError
 	body := &SubscribeRequest{
@@ -131,19 +129,19 @@ func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, eventURI, eventTyp
 }
 
 // UnsubscribeFromEvent configure remote system through event provider to unsubscribe for desired event
-func (api *APIEndpoint) UnsubscribeFromEvent(ctx context.Context, event string, credentials map[string]string) error {
+func (api *APIEndpoint) UnsubscribeFromEvent(ctx context.Context, eventURI, eventType, eventKind string, values map[string]string, credentials map[string]interface{}) error {
 	var apiError APIError
 	// encode credentials to pass them in url
-	creds, err := json.Marshal(credentials)
-	if err != nil {
-		log.WithError(err).Error("failed to serialize credentials into JSON")
-		return err
+	body := &SubscribeRequest{
+		Type:        eventType,
+		Kind:        eventKind,
+		Values:      values,
+		Credentials: credentials,
 	}
-	encoded := base64.StdEncoding.EncodeToString(creds)
 	// invoke DELETE method passing credentials as base64 encoded string
-	path := fmt.Sprint("/event/", url.PathEscape(event), "/", url.PathEscape(encoded))
+	path := fmt.Sprint("/event/", url.PathEscape(eventURI))
 	log.WithField("path", path).Debug("DELETE event from event provider")
-	resp, err := setContext(ctx, api.endpoint.New()).Delete(path).Receive(nil, &apiError)
+	resp, err := setContext(ctx, api.endpoint.New()).Delete(path).BodyJSON(body).Receive(nil, &apiError)
 	if err != nil && err != io.EOF {
 		log.WithError(err).Error("failed to invoke method")
 		return err

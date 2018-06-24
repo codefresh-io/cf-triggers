@@ -1799,7 +1799,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 	type expected struct {
 		account     string
 		pipelines   []string
-		credentials map[string]string
+		credentials map[string]interface{}
 	}
 	type args struct {
 		event   string
@@ -1831,11 +1831,11 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 			args: args{
 				account: model.PublicAccount,
 				event:   "uri:test:" + model.PublicAccountHash,
-				context: `{"apikey": "1234567890"}`,
+				context: `apiKey`,
 			},
 			expected: expected{
 				account:     model.PublicAccount,
-				credentials: map[string]string{"apikey": "1234567890"},
+				credentials: map[string]interface{}{"apikey": "1234567890"},
 			},
 		},
 		{
@@ -1950,11 +1950,13 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			pipelineMock := &codefresh.MockPipelineService{}
 			epMock := &provider.MockEventProvider{}
 			var call *mock.Call
 			r := &RedisStore{
 				redisPool:     &RedisPoolMock{},
 				eventProvider: epMock,
+				pipelineSvc:   pipelineMock,
 			}
 			// set context
 			ctx := setContext(tt.args.account)
@@ -2034,6 +2036,10 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 				} else {
 					cmd.Expect("OK!")
 
+					// mock Codefresh GetContext call
+					if tt.expected.credentials != nil {
+						pipelineMock.On("GetContext", ctx, tt.args.account, tt.args.context).Return(tt.expected.credentials, nil)
+					}
 					// mock event provider call
 					call = epMock.On("UnsubscribeFromEvent", ctx, tt.args.event, tt.expected.credentials)
 					if tt.wantEventErr != nil {
@@ -2052,6 +2058,7 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 				t.Errorf("RedisStore.DeleteEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			epMock.AssertExpectations(t)
+			pipelineMock.AssertExpectations(t)
 		})
 	}
 }
@@ -2078,7 +2085,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		eventURI    string
 		existing    int64
 		info        *model.EventInfo
-		credentials map[string]string
+		credentials map[string]interface{}
 	}
 	type args struct {
 		eventType string
@@ -2146,11 +2153,11 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "create private event (per account) with credentials",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62", context: `{"apikey": "1234567890"}`},
+			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62", context: "apiKey"},
 			expected: expected{
 				eventURI:    "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
 				info:        &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
-				credentials: map[string]string{"apikey": "1234567890"},
+				credentials: map[string]interface{}{"apikey": "1234567890"},
 			},
 			want: &model.Event{
 				URI:       "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
@@ -2303,10 +2310,12 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var cmd *redigomock.Cmd
 			mock := &provider.MockEventProvider{}
+			pipelineMock := &codefresh.MockPipelineService{}
 			mockEventGetter := &model.MockTriggerEventGetter{}
 			r := &RedisStore{
 				redisPool:     &RedisPoolMock{},
 				eventProvider: mock,
+				pipelineSvc:   pipelineMock,
 				eventGetter:   mockEventGetter,
 			}
 			account := tt.args.account
@@ -2336,9 +2345,12 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			} else {
 				call.Return(nil, errors.New("ERROR in GetEvent"))
 			}
-
+			// mock Codefresh GetContext call
+			if tt.expected.credentials != nil {
+				pipelineMock.On("GetContext", ctx, tt.args.account, tt.args.context).Return(tt.expected.credentials, nil)
+			}
 			// subscribe to event
-			call = mock.On("SubscribeToEvent", ctx, tt.expected.eventURI, tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.values, tt.expected.credentials)
+			call = mock.On("SubscribeToEvent", ctx, tt.expected.eventURI, tt.args.secret, tt.expected.credentials)
 			if tt.wantEventErr.subscribe != nil {
 				call.Return(nil, tt.wantEventErr.subscribe)
 				if tt.wantEventErr.subscribe == provider.ErrNotImplemented {
@@ -2445,6 +2457,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			// assert mocks
 			mock.AssertExpectations(t)
 			mockEventGetter.AssertExpectations(t)
+			pipelineMock.AssertExpectations(t)
 		})
 	}
 }

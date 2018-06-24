@@ -28,6 +28,7 @@ type (
 		GetPipeline(ctx context.Context, account, id string) (*Pipeline, error)
 		RunPipeline(accountID string, id string, vars map[string]string, event model.NormalizedEvent) (string, error)
 		PublishEvent(ctx context.Context, account string, eventURI string, event model.NormalizedEvent) error
+		GetContext(ctx context.Context, account string, name string) (map[string]interface{}, error)
 		Ping() error
 	}
 
@@ -50,6 +51,9 @@ var ErrPipelineNotFound = errors.New("codefresh: pipeline not found")
 
 // ErrPipelineNoMatch error when pipeline not found
 var ErrPipelineNoMatch = errors.New("codefresh: pipeline account does not match")
+
+// ErrContextNotFound error when context not found
+var ErrContextNotFound = errors.New("codefresh: context not found")
 
 func checkResponse(text string, err error, resp *http.Response) error {
 	if err != nil {
@@ -102,14 +106,14 @@ func NewCodefreshEndpoint(url, token string) PipelineService {
 	return &APIEndpoint{endpoint, token == ""}
 }
 
-// find Codefresh pipeline by name and repo details (owner and name)
-func (api *APIEndpoint) ping() error {
+// Ping find Codefresh pipeline by name and repo details (owner and name)
+func (api *APIEndpoint) Ping() error {
 	resp, err := api.endpoint.New().Get("api/ping").ReceiveSuccess(nil)
 	return checkResponse("ping", err, resp)
 }
 
-// publish event to Codefresh Eventbus
-func (api *APIEndpoint) publishEvent(ctx context.Context, account string, eventURI string, event model.NormalizedEvent) error {
+// PublishEvent publish event to Codefresh Eventbus
+func (api *APIEndpoint) PublishEvent(ctx context.Context, account string, eventURI string, event model.NormalizedEvent) error {
 	/*
 		{
 		"publisher": "trigger-manager",
@@ -169,8 +173,8 @@ func (api *APIEndpoint) publishEvent(ctx context.Context, account string, eventU
 	return err
 }
 
-// find Codefresh pipeline by name and repo details (owner and name)
-func (api *APIEndpoint) getPipeline(ctx context.Context, account, id string) (*Pipeline, error) {
+// GetPipeline find Codefresh pipeline by name and repo details (owner and name)
+func (api *APIEndpoint) GetPipeline(ctx context.Context, account, id string) (*Pipeline, error) {
 	log.WithField("pipeline", id).Debug("getting pipeline")
 	// GET pipelines for repository
 	type CFAccount struct {
@@ -225,8 +229,8 @@ func (api *APIEndpoint) getPipeline(ctx context.Context, account, id string) (*P
 	return nil, ErrPipelineNotFound
 }
 
-// run Codefresh pipeline
-func (api *APIEndpoint) runPipeline(accountID string, id string, vars map[string]string, event model.NormalizedEvent) (string, error) {
+// RunPipeline run Codefresh pipeline
+func (api *APIEndpoint) RunPipeline(accountID string, id string, vars map[string]string, event model.NormalizedEvent) (string, error) {
 	log.WithField("pipeline", id).Debug("Going to run pipeline")
 	type BuildRequest struct {
 		Branch    string                `json:"branch,omitempty"`
@@ -274,24 +278,37 @@ func (api *APIEndpoint) runPipeline(accountID string, id string, vars map[string
 	return runID, nil
 }
 
-// GetPipeline get existing pipeline
-func (api *APIEndpoint) GetPipeline(ctx context.Context, account, pipelineUID string) (*Pipeline, error) {
-	// invoke pipeline by id
-	return api.getPipeline(ctx, account, pipelineUID)
-}
-
-// RunPipeline run Codefresh pipeline
-func (api *APIEndpoint) RunPipeline(accountID string, pipelineUID string, vars map[string]string, event model.NormalizedEvent) (string, error) {
-	// invoke pipeline by id
-	return api.runPipeline(accountID, pipelineUID, vars, event)
-}
-
-// PublishEvent publish trigger-event normalized event to eventbus
-func (api *APIEndpoint) PublishEvent(ctx context.Context, account string, eventURI string, event model.NormalizedEvent) error {
-	return api.publishEvent(ctx, account, eventURI, event)
-}
-
-// Ping Codefresh API
-func (api *APIEndpoint) Ping() error {
-	return api.ping()
+// GetContext - get Codefresh context: secrets, passwords, api key or any other needed context
+func (api *APIEndpoint) GetContext(ctx context.Context, account string, name string) (map[string]interface{}, error) {
+	log.WithField("name", name).Debug("getting context")
+	var resp *http.Response
+	var err error
+	// Sling API
+	apiClient := api.endpoint.New()
+	// set authenticated entity header from context
+	if authEntity, ok := ctx.Value(model.ContextAuthEntity).(string); ok {
+		apiClient = apiClient.Set(AuthEntity, authEntity)
+	}
+	// call codefresh API
+	var secretContext map[string]interface{}
+	if api.internal {
+		// use internal cfapi - another endpoint and need to add account
+		log.Debug("get context, using internal cfapi")
+		resp, err = apiClient.Get(fmt.Sprint("api/contexts/", name)).ReceiveSuccess(&secretContext)
+	} else {
+		// use public cfapi
+		log.Debug("get context, using public cfapi")
+		resp, err = apiClient.Get(fmt.Sprint("api/contexts/", name)).ReceiveSuccess(&secretContext)
+	}
+	err = checkResponse("get context", err, resp)
+	if err != nil {
+		log.WithError(err).Error("failed to get context")
+		return nil, err
+	}
+	// error on empty context
+	if secretContext == nil {
+		log.WithField("name", name).Error("failed to find context with name")
+		return nil, ErrContextNotFound
+	}
+	return secretContext, nil
 }
