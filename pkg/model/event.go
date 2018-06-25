@@ -41,6 +41,11 @@ type (
 	}
 )
 
+const (
+	// OriginalPayload field name
+	OriginalPayload = "EVENT_PAYLOAD"
+)
+
 // PublicAccount public account ID [0]{12}
 var PublicAccount = strings.Repeat("0", 12)
 

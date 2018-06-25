@@ -71,7 +71,7 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 	for k, v := range normEvent.Variables {
 		vars[k] = v
 	}
-	vars["EVENT_PAYLOAD"] = normEvent.Original
+	vars[model.OriginalPayload] = normEvent.Original
 	// get connected pipelines
 	pipelines, err := c.triggerSvc.GetTriggerPipelines(allCtx, event, vars)
 	if err != nil {

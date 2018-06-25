@@ -208,6 +208,56 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 			want: []string{"pipeline1", "pipeline3"},
 		},
 		{
+			name: "get filtered pipelines for event with JSON path",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+				vars:    map[string]string{model.OriginalPayload: `{"issue":{"status":"open", "assigned":"bob"}}`},
+			},
+			exists:    1,
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+			filters: map[string]filter{
+				"pipeline1": {
+					filters: map[string]string{model.OriginalPayload + ":issue.assigned": "^(bob)$"},
+				},
+				"pipeline2": {
+					filters: map[string]string{model.OriginalPayload + ":issue.assigned": "SKIP:^(bob)$"},
+				},
+				"pipeline3": {
+					filters: map[string]string{model.OriginalPayload + ":issue.status": "open"},
+				},
+			},
+			want: []string{"pipeline1", "pipeline3"},
+		},
+		{
+			name: "get filtered pipelines AND on multiple filters",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+				vars:    map[string]string{model.OriginalPayload: `{"issue":{"status":"open", "assigned":"bob"}}`},
+			},
+			exists:    1,
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+			filters: map[string]filter{
+				"pipeline1": {
+					filters: map[string]string{
+						model.OriginalPayload + ":issue.assigned": "^(bob)$",
+						model.OriginalPayload + ":issue.status":   "^(open)$",
+					},
+				},
+				"pipeline2": {
+					filters: map[string]string{model.OriginalPayload + ":issue.assigned": "SKIP:^(bob)$"},
+				},
+				"pipeline3": {
+					filters: map[string]string{
+						model.OriginalPayload + ":issue.assigned": "^(bob)$",
+						model.OriginalPayload + ":issue.status":   "^(closed)$",
+					},
+				},
+			},
+			want: []string{"pipeline1"},
+		},
+		{
 			name: "get filtered pipelines for event bad regex",
 			args: args{
 				account: model.PublicAccount,

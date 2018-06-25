@@ -26,6 +26,18 @@ Any Trigger **Event Provider** should follow simple contract that consists from 
       "validator": "^[a-z0-9_-]+$",
       "required": true
     }
+  ],
+  "filters": [
+    {
+        "name": "tag",
+        "type": "string",
+        "validator": "^.+$"
+    },
+    {
+        "name": "EVENT_PAYLOAD://repository.status",
+        "type": "string",
+        "validator": "^(Active)$"
+    }
   ]
 }
 ```
@@ -61,6 +73,12 @@ config:
 - - `type` - parameter type: `string`, `date`, `bool`, `int`, etc.
 - - `validator` - parameter value validator: can be `regexp`, range (for `date` and `int`), enum list, etc.
 - - `required` - is it a required parameter; non-required parameter uses some `default` value
+- `filter` - filter to be applied on variables extracted from event payload or on original payload `EVENT_PAYLOAD`
+- - `name` - variable name to filter by
+- - `type` - variable field type
+- - `validator` - filter expression; currently only regex (re2) is supported
+
+If original event payload is a valid JSON document, it's possible to filter by any data within this payload using special syntax for filer name: `EVENT_PAYLOAD:<JSON path>`, like `EVENT_PAYLOAD:repository.status`. See supported JSON patch syntax [here](https://github.com/tidwall/gjson#path-syntax).
 
 ### Configuration Contract Discovery
 

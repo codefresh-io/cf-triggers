@@ -32,6 +32,11 @@
                     "name": "tag",
                     "type": "string",
                     "validator": "^.+$"
+                },
+                {
+                    "name": "EVENT_PAYLOAD://repository.status",
+                    "type": "string",
+                    "validator": "^(Active)$"
                 }
             ]
         },

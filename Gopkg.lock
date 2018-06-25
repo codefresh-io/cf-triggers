@@ -104,6 +104,18 @@
   version = "v1.2.1"
 
 [[projects]]
+  name = "github.com/tidwall/gjson"
+  packages = ["."]
+  revision = "f123b340873a0084cb27267eddd8ff615115fbff"
+  version = "v1.1.2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/tidwall/match"
+  packages = ["."]
+  revision = "1731857f09b1f38450e2c12409748407822dc6be"
+
+[[projects]]
   name = "github.com/ugorji/go"
   packages = ["codec"]
   revision = "9831f2c3ac1068a78f50999a30db84270f647af6"
@@ -142,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "824a13ba263500bdc46bc4944277162f26a30b7c7bd0fed7e727b9cb2106c054"
+  inputs-digest = "475b1e5d48e85400a69b267cdfcfbcb28b4517bbd9979a240fb9ef80362cf65d"
   solver-name = "gps-cdcl"
   solver-version = 1

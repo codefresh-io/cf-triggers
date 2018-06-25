@@ -94,6 +94,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/newrelic/go-agent"
 	log "github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 )
 
 func getAccount(ctx context.Context) string {
@@ -552,6 +553,70 @@ func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string, 
 	return err
 }
 
+// filter matching helper function
+// true: if there is a match between ALL filters (using AND) and variables
+func filterMatch(ctx context.Context, filters map[string]string, vars map[string]string) bool {
+	lg := log.WithFields(getContextLogFields(ctx))
+	matches := []bool{}
+	// filter out pipelines: for each filter condition find match
+	for name, exp := range filters {
+		// name can contain JSON path to be applied on field value and extract sub-value
+		var path string
+		if strings.HasPrefix(name, model.OriginalPayload+":") {
+			complexName := strings.SplitN(name, ":", 2)
+			name, path = complexName[0], complexName[1]
+			lg.WithFields(log.Fields{
+				"name": name,
+				"path": path,
+			}).Debug("found JSON path filter")
+		}
+		// get matched value from vars
+		val := vars[name]
+		// for JSON path - update value to sub-value extracted from JSON(val) with path
+		if path != "" && gjson.Valid(val) {
+			val = gjson.Get(val, path).String()
+			lg.WithFields(log.Fields{
+				"path": path,
+				"val":  val,
+			}).Debug("got value for JSON path")
+		}
+		// for non-empty value validate
+		if val != "" {
+			lg.WithFields(log.Fields{
+				"name":       name,
+				"value":      val,
+				"expression": exp,
+			}).Debug("filtering pipeline based on value")
+			// handle NOT on regex
+			skipMatch := false
+			if strings.HasPrefix(exp, "SKIP:") {
+				exp = strings.TrimPrefix(exp, "SKIP:")
+				skipMatch = true
+			}
+			r, err := regexp.Compile(exp)
+			if err != nil {
+				lg.WithFields(log.Fields{
+					"name":       name,
+					"expression": exp,
+				}).Error("bad regex expression for filter: filter ignored")
+				continue // skip
+			}
+			// skip matching values (or not)
+			matches = append(matches, r.MatchString(val) != skipMatch)
+		}
+	}
+	var result bool
+	if len(matches) > 0 {
+		result = matches[0]
+	} else {
+		result = true
+	}
+	for _, m := range matches {
+		result = result && m
+	}
+	return result
+}
+
 // GetTriggerPipelines get pipelines that have trigger defined with filter applied
 // can be filtered by event-uri(s)
 func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error) {
@@ -597,37 +662,9 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 				lg.WithError(err).Error("error getting trigger filter")
 				return nil, err
 			}
-			// filter out pipelines: for each filter condition find match
-			for name, exp := range filters {
-				// get matched value from vars
-				val := vars[name]
-				// for non-empty value validate
-				if val != "" {
-					lg.WithFields(log.Fields{
-						"name":       name,
-						"value":      val,
-						"expression": exp,
-					}).Debug("filtering pipeline based on value")
-					// handle NOT on regex
-					skipMatch := false
-					if strings.HasPrefix(exp, "SKIP:") {
-						exp = strings.TrimPrefix(exp, "SKIP:")
-						skipMatch = true
-					}
-					r, err := regexp.Compile(exp)
-					if err != nil {
-						lg.WithFields(log.Fields{
-							"name":       name,
-							"expression": exp,
-						}).Error("bad regex expression for filter")
-						continue // skip
-					}
-					// skip matching values (or not)
-					if r.MatchString(val) == skipMatch {
-						lg.WithField("pipeline", pipeline).Debug("skipping pipeline with filter")
-						skipPipelines = append(skipPipelines, pipeline)
-					}
-				}
+			if !filterMatch(ctx, filters, vars) {
+				lg.WithField("pipeline", pipeline).Debug("skipping pipeline with filter/s")
+				skipPipelines = append(skipPipelines, pipeline)
 			}
 		}
 		// remove pipelines that match filter
