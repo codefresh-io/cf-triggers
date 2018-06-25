@@ -19,17 +19,16 @@ type RunnerController struct {
 	publisherSvc model.EventPublisher
 	eventSvc     model.TriggerEventReaderWriter
 	triggerSvc   model.TriggerReaderWriter
-	checkerSvc   model.SecretChecker
 }
 
 // NewRunnerController new runner controller
-func NewRunnerController(runnerSvc model.Runner, publisherSvc model.EventPublisher, eventSvc model.TriggerEventReaderWriter, triggerSvc model.TriggerReaderWriter, checkerSvc model.SecretChecker) *RunnerController {
+func NewRunnerController(runnerSvc model.Runner, publisherSvc model.EventPublisher, eventSvc model.TriggerEventReaderWriter, triggerSvc model.TriggerReaderWriter) *RunnerController {
 	return &RunnerController{
 		runnerSvc:    runnerSvc,
 		publisherSvc: publisherSvc,
 		eventSvc:     eventSvc,
 		triggerSvc:   triggerSvc,
-		checkerSvc:   checkerSvc}
+	}
 }
 
 // RunTrigger pipelines for trigger
@@ -59,14 +58,6 @@ func (c *RunnerController) RunTrigger(ctx *gin.Context) {
 			status = http.StatusNotFound
 		}
 		ctx.JSON(status, ErrorResult{status, "failed to get event", err.Error()})
-		return
-	}
-	if err = c.checkerSvc.Validate(normEvent.Original, normEvent.Secret, triggerEvent.Secret); err != nil {
-		status := http.StatusInternalServerError
-		if err == model.ErrTriggerNotFound {
-			status = http.StatusNotFound
-		}
-		ctx.JSON(status, ErrorResult{status, "failed secret validation", err.Error()})
 		return
 	}
 	// report event to eventbus

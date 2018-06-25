@@ -16,7 +16,7 @@ import (
 )
 
 func TestPingRoute(t *testing.T) {
-	router := setupRouter(nil, nil, nil, nil, nil, nil, nil, nil)
+	router := setupRouter(nil, nil, nil, nil, nil, nil, nil)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/ping", nil)
@@ -31,7 +31,7 @@ func TestHealthRoute(t *testing.T) {
 	pinger := new(model.MockPinger)
 	codefresh := &codefresh.MockPipelineService{}
 	// setup router
-	router := setupRouter(nil, nil, nil, nil, nil, nil, pinger, codefresh)
+	router := setupRouter(nil, nil, nil, nil, nil, pinger, codefresh)
 	// setup mocks
 	pinger.Mock.On("Ping").Return("PONG", nil)
 	codefresh.On("Ping").Return(nil)
@@ -51,7 +51,7 @@ func TestHealthRouteRedisError(t *testing.T) {
 	pinger := new(model.MockPinger)
 	codefresh := &codefresh.MockPipelineService{}
 	// setup router
-	router := setupRouter(nil, nil, nil, nil, nil, nil, pinger, codefresh)
+	router := setupRouter(nil, nil, nil, nil, nil, pinger, codefresh)
 	// setup mocks
 	pinger.On("Ping").Return("", errors.New("REDIS Error"))
 
@@ -79,7 +79,7 @@ func TestHealthRouteCodefreshError(t *testing.T) {
 	pinger := new(model.MockPinger)
 	codefresh := &codefresh.MockPipelineService{}
 	// setup router
-	router := setupRouter(nil, nil, nil, nil, nil, nil, pinger, codefresh)
+	router := setupRouter(nil, nil, nil, nil, nil, pinger, codefresh)
 	// setup mocks
 	pinger.On("Ping").Return("PONG", nil)
 	codefresh.On("Ping").Return(errors.New("Codefresh Error"))
@@ -161,7 +161,7 @@ func Test_GetTriggers(t *testing.T) {
 		// mock
 		triggerReaderWriter := new(model.MockTriggerReaderWriter)
 		// setup router
-		router := setupRouter(nil, triggerReaderWriter, nil, nil, nil, nil, nil, nil)
+		router := setupRouter(nil, triggerReaderWriter, nil, nil, nil, nil, nil)
 		// prepare mock
 		call := triggerReaderWriter.On("GetEventTriggers", mock.Anything, "*")
 		if tt.err != nil {

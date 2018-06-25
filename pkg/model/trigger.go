@@ -73,11 +73,6 @@ type (
 		Ping() (string, error)
 	}
 
-	// SecretChecker validates message secret or HMAC signature
-	SecretChecker interface {
-		Validate(message string, secret string, key string) error
-	}
-
 	// contextKey type
 	contextKey string
 )

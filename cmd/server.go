@@ -37,7 +37,6 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 	eventProvider provider.EventProvider,
 	runner model.Runner,
 	publisher model.EventPublisher,
-	checker model.SecretChecker,
 	pinger model.Pinger,
 	pipelineService codefresh.PipelineService) *gin.Engine {
 	// Creates a router without any middleware by default
@@ -79,7 +78,7 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 
 	// invoke trigger with event payload
 	runAPI := router.Group("/run", gin.Logger())
-	runnerController := controller.NewRunnerController(runner, publisher, eventReaderWriter, triggerReaderWriter, checker)
+	runnerController := controller.NewRunnerController(runner, publisher, eventReaderWriter, triggerReaderWriter)
 	{
 		runAPI.Handle("POST", "/:event", runnerController.RunTrigger)
 	}
@@ -121,11 +120,8 @@ func runServer(c *cli.Context) error {
 	// get event publisher service
 	publisher := backend.NewPublisher(codefreshService)
 
-	// get secret checker
-	checker := backend.NewSecretChecker()
-
 	// setup router
-	router := setupRouter(triggerBackend, triggerBackend, eventProvider, runner, publisher, checker, triggerBackend, codefreshService)
+	router := setupRouter(triggerBackend, triggerBackend, eventProvider, runner, publisher, triggerBackend, codefreshService)
 
 	// use server router port
 	port := c.Int("port")
