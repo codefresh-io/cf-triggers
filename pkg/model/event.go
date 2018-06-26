@@ -12,6 +12,12 @@ import (
 )
 
 type (
+	// SecureContext - security context required to subscribe/unsubscribe to event and validate signature
+	SecureContext struct {
+		Context string `json:"context,omitempty" yaml:"context,omitempty"`
+		Header  string `json:"header,omitempty" yaml:"header,omitempty"`
+	}
+
 	// EventInfo event info as seen by trigger provider
 	EventInfo struct {
 		// Endpoint URL
@@ -28,6 +34,8 @@ type (
 	Event struct {
 		// event info
 		EventInfo
+		// secure context
+		SecureContext
 		// URI event unique identifier
 		URI string `json:"uri" yaml:"uri"`
 		// event type
@@ -83,6 +91,10 @@ func StringsMapToEvent(event string, fields map[string]string) *Event {
 			Description: fields["description"],
 			Help:        fields["help"],
 			Status:      fields["status"],
+		},
+		SecureContext: SecureContext{
+			Context: fields["context"],
+			Header:  fields["header"],
 		},
 	}
 }

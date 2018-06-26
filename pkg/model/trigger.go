@@ -44,7 +44,7 @@ type (
 		// trigger events
 		TriggerEventGetter
 		GetEvents(ctx context.Context, eventType, kind, filter string) ([]Event, error)
-		CreateEvent(ctx context.Context, eventType, kind, secret, context string, values map[string]string) (*Event, error)
+		CreateEvent(ctx context.Context, eventType, kind, secret, context, header string, values map[string]string) (*Event, error)
 		DeleteEvent(ctx context.Context, event, context string) error
 	}
 

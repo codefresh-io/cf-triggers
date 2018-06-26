@@ -63,6 +63,7 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 		Kind    string            `json:"kind"`
 		Secret  string            `json:"secret,omitempty"`
 		Context string            `json:"context,omitempty"`
+		Header  string            `json:"header,omitempty"`
 		Values  map[string]string `json:"values"`
 	}
 	var req createReq
@@ -78,7 +79,7 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 	}
 
 	// create trigger event
-	if event, err := c.svc.CreateEvent(actionContext, req.Type, req.Kind, req.Secret, req.Context, req.Values); err != nil {
+	if event, err := c.svc.CreateEvent(actionContext, req.Type, req.Kind, req.Secret, req.Context, req.Header, req.Values); err != nil {
 		status := http.StatusInternalServerError
 		if err == model.ErrTriggerAlreadyExists {
 			status = http.StatusBadRequest

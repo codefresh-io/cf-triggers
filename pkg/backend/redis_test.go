@@ -2120,6 +2120,8 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		hsetnxKind     bool
 		hsetnxAccount  bool
 		hsetnxSecret   bool
+		hsetnxContext  bool
+		hsetnxHeader   bool
 		hsetnxDesc     bool
 		hsetnxEndpoint bool
 		hsetnxHelp     bool
@@ -2144,6 +2146,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		account   string
 		public    bool
 		context   string
+		header    string
 		values    map[string]string
 	}
 	tests := []struct {
@@ -2203,19 +2206,20 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "create private event (per account) with credentials",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62", context: "apiKey"},
+			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62", context: "apiKey", header: "X-Signature-Test"},
 			expected: expected{
 				eventURI:    "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
 				info:        &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
 				credentials: map[string]interface{}{"apikey": "1234567890"},
 			},
 			want: &model.Event{
-				URI:       "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
-				Type:      "type",
-				Kind:      "kind",
-				Account:   "5672d8deb6724b6e359adf62",
-				Secret:    "XXX",
-				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
+				URI:           "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
+				Type:          "type",
+				Kind:          "kind",
+				Account:       "5672d8deb6724b6e359adf62",
+				Secret:        "XXX",
+				EventInfo:     model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
+				SecureContext: model.SecureContext{Context: "apiKey", Header: "X-Signature-Test"}},
 		},
 		{
 			name:         "fail to construct URI",
@@ -2450,6 +2454,18 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 				cmd.ExpectError(errors.New("HSETNX error"))
 				goto EndTransaction
 			}
+			// store Event context
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", eventKey, "context", tt.args.context)
+			if tt.errs.hsetnxContext {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
+			// store Event context
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", eventKey, "header", tt.args.header)
+			if tt.errs.hsetnxHeader {
+				cmd.ExpectError(errors.New("HSETNX error"))
+				goto EndTransaction
+			}
 			// store Event description
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", eventKey, "description", tt.expected.info.Description)
 			if tt.errs.hsetnxDesc {
@@ -2492,7 +2508,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 
 		Invoke:
 			// invoke method under test
-			got, err := r.CreateEvent(ctx, tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.values)
+			got, err := r.CreateEvent(ctx, tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.header, tt.args.values)
 			if (err != nil) != (tt.wantErr ||
 				tt.wantEventErr.info != nil ||
 				(tt.wantEventErr.subscribe != nil &&

@@ -679,7 +679,7 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 }
 
 // CreateEvent new trigger event
-func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, context string, values map[string]string) (*model.Event, error) {
+func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, context, header string, values map[string]string) (*model.Event, error) {
 	account := getAccount(ctx)
 	// replace account to public account for public event creation
 	public := getPublicFlag(ctx)
@@ -753,6 +753,10 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 		Account:   account,
 		Secret:    secret,
 		EventInfo: *eventInfo,
+		SecureContext: model.SecureContext{
+			Context: context,
+			Header:  header,
+		},
 	}
 
 	// start Redis transaction
@@ -775,6 +779,14 @@ func (r *RedisStore) CreateEvent(ctx context.Context, eventType, kind, secret, c
 	}
 	// store event secret
 	if _, err := con.Do("HSETNX", eventKey, "secret", secret); err != nil {
+		return nil, discardOnError(con, err, lg)
+	}
+	// store event secure context name
+	if _, err := con.Do("HSETNX", eventKey, "context", context); err != nil {
+		return nil, discardOnError(con, err, lg)
+	}
+	// store event secure context header
+	if _, err := con.Do("HSETNX", eventKey, "header", header); err != nil {
 		return nil, discardOnError(con, err, lg)
 	}
 	// store event description (from event provider)

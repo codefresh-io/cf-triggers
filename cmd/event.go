@@ -110,6 +110,10 @@ var triggerEventCommand = cli.Command{
 					Usage: "Codefresh context with required credentials",
 				},
 				cli.StringFlag{
+					Name:  "header",
+					Usage: "header name for signature validation",
+				},
+				cli.StringFlag{
 					Name:  "account",
 					Usage: "Codefresh account ID",
 					Value: model.PublicAccount,
@@ -177,7 +181,7 @@ func createEvent(c *cli.Context) error {
 		values[kv[0]] = kv[1]
 	}
 	// create new event
-	event, err := eventReaderWriter.CreateEvent(getContext(c), c.String("type"), c.String("kind"), c.String("secret"), c.String("context"), values)
+	event, err := eventReaderWriter.CreateEvent(getContext(c), c.String("type"), c.String("kind"), c.String("secret"), c.String("context"), c.String("header"), values)
 	if err != nil {
 		return err
 	}
