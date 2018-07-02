@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/adam-hanna/arrayOperations"
+  packages = ["."]
+  revision = "9b263904c31db75ed5ee915ecb256682433bf099"
+  version = "v0.2.5"
+
+[[projects]]
   branch = "master"
   name = "github.com/codefresh-io/go-infra"
   packages = ["pkg/logger"]
@@ -154,6 +160,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "475b1e5d48e85400a69b267cdfcfbcb28b4517bbd9979a240fb9ef80362cf65d"
+  inputs-digest = "1a40816b9e139fb671808447c0034b7972a21b7d3ffbec24f52f416d1460d202"
   solver-name = "gps-cdcl"
   solver-version = 1

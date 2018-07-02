@@ -9,13 +9,13 @@ type MockTriggerReaderWriter struct {
 	mock.Mock
 }
 
-// CreateTrigger provides a mock function with given fields: ctx, event, pipeline, filters
-func (_m *MockTriggerReaderWriter) CreateTrigger(ctx context.Context, event string, pipeline string, filters map[string]string) error {
-	ret := _m.Called(ctx, event, pipeline, filters)
+// CreateTrigger provides a mock function with given fields: ctx, event, pipeline, actions, filters
+func (_m *MockTriggerReaderWriter) CreateTrigger(ctx context.Context, event string, pipeline string, actions []string, filters map[string]string) error {
+	ret := _m.Called(ctx, event, pipeline, actions, filters)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, map[string]string) error); ok {
-		r0 = rf(ctx, event, pipeline, filters)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []string, map[string]string) error); ok {
+		r0 = rf(ctx, event, pipeline, actions, filters)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -83,13 +83,13 @@ func (_m *MockTriggerReaderWriter) GetPipelineTriggers(ctx context.Context, pipe
 	return r0, r1
 }
 
-// GetTriggerPipelines provides a mock function with given fields: ctx, event, vars
-func (_m *MockTriggerReaderWriter) GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error) {
-	ret := _m.Called(ctx, event, vars)
+// GetTriggerPipelines provides a mock function with given fields: ctx, event, action, vars
+func (_m *MockTriggerReaderWriter) GetTriggerPipelines(ctx context.Context, event string, action string, vars map[string]string) ([]string, error) {
+	ret := _m.Called(ctx, event, action, vars)
 
 	var r0 []string
-	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]string) []string); ok {
-		r0 = rf(ctx, event, vars)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, map[string]string) []string); ok {
+		r0 = rf(ctx, event, action, vars)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]string)
@@ -97,8 +97,8 @@ func (_m *MockTriggerReaderWriter) GetTriggerPipelines(ctx context.Context, even
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, map[string]string) error); ok {
-		r1 = rf(ctx, event, vars)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, map[string]string) error); ok {
+		r1 = rf(ctx, event, action, vars)
 	} else {
 		r1 = ret.Error(1)
 	}

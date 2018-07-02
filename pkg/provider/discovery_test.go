@@ -332,6 +332,7 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 		eventType   string
 		eventKind   string
 		secret      string
+		actions     []string
 		values      map[string]string
 		credentials map[string]interface{}
 		requestID   string
@@ -348,6 +349,7 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 			args: args{
 				eventURI:    "registry:dockerhub:test:image:push:" + model.CalculateAccountHash("A"),
 				secret:      "XXX",
+				actions:     []string{"action-1", "action-2"},
 				credentials: map[string]interface{}{"user": "admin", "password": "secret-password"},
 				requestID:   "1234",
 				authEntity:  `{"user": "test"}`,
@@ -391,7 +393,7 @@ func TestEventProviderManager_SubscribeToEvent(t *testing.T) {
 			ctx = context.WithValue(ctx, model.ContextAuthEntity, `{"user": "test"}`)
 
 			// subscribe to event in event provider
-			got, err := manager.SubscribeToEvent(ctx, tt.args.eventURI, tt.args.secret, tt.args.credentials)
+			got, err := manager.SubscribeToEvent(ctx, tt.args.eventURI, tt.args.secret, tt.args.actions, tt.args.credentials)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("EventProviderManager.SubscribeToEvent() error = %v, wantErr %v", err, tt.wantErr)
 				return

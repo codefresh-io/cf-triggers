@@ -32,6 +32,18 @@ type (
 		Help string `json:"help,omitempty" yaml:"help,omitempty"`
 		// Validator validator for value: regex, '|' separated list, int range, date range, http-get
 		Validator string `json:"validator,omitempty" yaml:"validator,omitempty"`
+		// Actions - list of actions that filter can be applied on; every action can be a different payload and thus different filter required, some actions may have similar payload though
+		Actions []string `json:"actions,omitempty" yaml:"actions,omitempty"`
+	}
+
+	// ActionField action - kind-of event subtype (registry: pull,push,delete, git:PR,push,clone,etc)
+	ActionField struct {
+		// Name action name
+		Name string `json:"name,omitempty" yaml:"name,omitempty"`
+		// Label action label to present
+		Label string `json:"label,omitempty" yaml:"label,omitempty"`
+		// Help optional help string
+		Help string `json:"help,omitempty" yaml:"help,omitempty"`
 	}
 
 	// EventType event type
@@ -51,7 +63,9 @@ type (
 		// Configuration Fields
 		Config []ConfigField `json:"config" yaml:"config"`
 		// Filters - fields that support filtering
-		Filters []FilterField `json:"filters" yaml:"filters"`
+		Filters []FilterField `json:"filters,omitempty" yaml:"filters,omitempty"`
+		// Actions - supported event actions
+		Actions []ActionField `json:"actions,omitempty" yaml:"actions,omitempty"`
 	}
 
 	// EventTypes array of event types

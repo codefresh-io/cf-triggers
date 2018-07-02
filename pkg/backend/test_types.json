@@ -27,6 +27,23 @@
                     "required": true
                 }
             ],
+            "actions": [
+                {
+                    "name": "push",
+                    "label": "Push Image",
+                    "help": "docker push command"
+                },
+                {
+                    "name": "pull",
+                    "label": "Pull Image",
+                    "help": "docker pull command"
+                },
+                {
+                    "name": "tag",
+                    "label": "Tag Image",
+                    "help": "docker tag command"
+                }
+            ],
             "filters": [
                 {
                     "name": "tag",
@@ -36,7 +53,8 @@
                 {
                     "name": "EVENT_PAYLOAD://repository.status",
                     "type": "string",
-                    "validator": "^(Active)$"
+                    "validator": "^(Active)$",
+                    "actions": ["push"]
                 }
             ]
         },

@@ -42,6 +42,8 @@ type (
 		Type string `json:"type" yaml:"type"`
 		// event kind
 		Kind string `json:"kind" yaml:"kind"`
+		// event actions (or sub-types)
+		Actions []string `json:"actions,omitempty" yaml:"actions,omitempty"`
 		// event account
 		Account string `json:"account" yaml:"account"`
 		// event secret, used for event validation
@@ -80,7 +82,7 @@ func (t Event) String() string {
 
 // StringsMapToEvent convert map[string]string to Event
 func StringsMapToEvent(event string, fields map[string]string) *Event {
-	return &Event{
+	triggerEvent := &Event{
 		URI:     strings.TrimPrefix(event, "event:"),
 		Type:    fields["type"],
 		Kind:    fields["kind"],
@@ -92,11 +94,17 @@ func StringsMapToEvent(event string, fields map[string]string) *Event {
 			Help:        fields["help"],
 			Status:      fields["status"],
 		},
-		SecureContext: SecureContext{
-			Context: fields["context"],
-			Header:  fields["header"],
-		},
 	}
+	if actions, ok := fields["actions"]; ok {
+		triggerEvent.Actions = strings.Split(actions, ",")
+	}
+	if context, ok := fields["context"]; ok {
+		triggerEvent.SecureContext.Context = context
+	}
+	if header, ok := fields["header"]; ok {
+		triggerEvent.SecureContext.Header = header
+	}
+	return triggerEvent
 }
 
 // CalculateAccountHash return first 12 of account SHA1 hash

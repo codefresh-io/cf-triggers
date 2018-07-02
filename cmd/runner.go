@@ -18,6 +18,10 @@ var runnerCommand = cli.Command{
 			Name:  "var",
 			Usage: "variable pairs (key=val); can pass multiple pairs",
 		},
+		cli.StringFlag{
+			Name:  "action",
+			Usage: "action name",
+		},
 	},
 	Usage:       "execute trigger",
 	ArgsUsage:   "<event-uri>",
@@ -42,7 +46,7 @@ func runTrigger(c *cli.Context) error {
 	// get trigger pipelines for specified event (skip account check)
 	ctx := context.WithValue(context.Background(), model.ContextKeyAccount, "-")
 	eventURI := c.Args().First()
-	pipelines, err := triggerReaderWriter.GetTriggerPipelines(ctx, eventURI, vars)
+	pipelines, err := triggerReaderWriter.GetTriggerPipelines(ctx, eventURI, c.String("action"), vars)
 	if err != nil {
 		return err
 	}

@@ -52,6 +52,10 @@ var triggerCommand = cli.Command{
 					Name:  "filter",
 					Usage: "filter pairs (name=condition); can pass multiple pairs",
 				},
+				cli.StringSliceFlag{
+					Name:  "action",
+					Usage: "trigger actions; same event source can trigger event on different actions",
+				},
 			},
 			Usage:       "create trigger",
 			ArgsUsage:   "<event-uri> <pipeline>",
@@ -135,7 +139,7 @@ func createTrigger(c *cli.Context) error {
 	// get trigger service
 	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
 	// create triggers for event linking it to passed pipeline(s)
-	return triggerReaderWriter.CreateTrigger(getContext(c), args.First(), args.Get(1), filters)
+	return triggerReaderWriter.CreateTrigger(getContext(c), args.First(), args.Get(1), c.StringSlice("action"), filters)
 }
 
 func deleteTrigger(c *cli.Context) error {

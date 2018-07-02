@@ -21,6 +21,7 @@ type (
 		Type        string                 `json:"type"`
 		Kind        string                 `json:"kind"`
 		Secret      string                 `json:"secret,omitempty"`
+		Actions     []string               `json:"actions,omitempty"`
 		Values      map[string]string      `json:"values,omitempty"`
 		Credentials map[string]interface{} `json:"credentials,omitempty"`
 	}
@@ -28,7 +29,7 @@ type (
 	// EventProviderService Codefresh Service
 	EventProviderService interface {
 		GetEventInfo(ctx context.Context, event, secret string) (*model.EventInfo, error)
-		SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values map[string]string, credentials map[string]interface{}) (*model.EventInfo, error)
+		SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, actions []string, values map[string]string, credentials map[string]interface{}) (*model.EventInfo, error)
 		UnsubscribeFromEvent(ctx context.Context, eventURI, eventType, eventKind string, values map[string]string, credentials map[string]interface{}) error
 	}
 
@@ -95,13 +96,14 @@ func (api *APIEndpoint) GetEventInfo(ctx context.Context, event string, secret s
 }
 
 // SubscribeToEvent configure remote system through event provider to subscribe for desired event
-func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, values map[string]string, credentials map[string]interface{}) (*model.EventInfo, error) {
+func (api *APIEndpoint) SubscribeToEvent(ctx context.Context, eventURI, eventType, eventKind, secret string, actions []string, values map[string]string, credentials map[string]interface{}) (*model.EventInfo, error) {
 	var info model.EventInfo
 	var apiError APIError
 	body := &SubscribeRequest{
 		Type:        eventType,
 		Kind:        eventKind,
 		Secret:      secret,
+		Actions:     actions,
 		Values:      values,
 		Credentials: credentials,
 	}

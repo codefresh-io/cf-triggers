@@ -116,13 +116,13 @@ func (_m *MockEventProvider) MatchType(eventURI string) (*model.EventType, error
 	return r0, r1
 }
 
-// SubscribeToEvent provides a mock function with given fields: ctx, eventURI, secret, credentials
-func (_m *MockEventProvider) SubscribeToEvent(ctx context.Context, eventURI string, secret string, credentials map[string]interface{}) (*model.EventInfo, error) {
-	ret := _m.Called(ctx, eventURI, secret, credentials)
+// SubscribeToEvent provides a mock function with given fields: ctx, eventURI, secret, actions, credentials
+func (_m *MockEventProvider) SubscribeToEvent(ctx context.Context, eventURI string, secret string, actions []string, credentials map[string]interface{}) (*model.EventInfo, error) {
+	ret := _m.Called(ctx, eventURI, secret, actions, credentials)
 
 	var r0 *model.EventInfo
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, map[string]interface{}) *model.EventInfo); ok {
-		r0 = rf(ctx, eventURI, secret, credentials)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, []string, map[string]interface{}) *model.EventInfo); ok {
+		r0 = rf(ctx, eventURI, secret, actions, credentials)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*model.EventInfo)
@@ -130,8 +130,8 @@ func (_m *MockEventProvider) SubscribeToEvent(ctx context.Context, eventURI stri
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, map[string]interface{}) error); ok {
-		r1 = rf(ctx, eventURI, secret, credentials)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, []string, map[string]interface{}) error); ok {
+		r1 = rf(ctx, eventURI, secret, actions, credentials)
 	} else {
 		r1 = ret.Error(1)
 	}

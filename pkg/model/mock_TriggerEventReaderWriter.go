@@ -9,13 +9,13 @@ type MockTriggerEventReaderWriter struct {
 	mock.Mock
 }
 
-// CreateEvent provides a mock function with given fields: ctx, eventType, kind, secret, _a4, header, values
-func (_m *MockTriggerEventReaderWriter) CreateEvent(ctx context.Context, eventType string, kind string, secret string, _a4 string, header string, values map[string]string) (*Event, error) {
-	ret := _m.Called(ctx, eventType, kind, secret, _a4, header, values)
+// CreateEvent provides a mock function with given fields: ctx, eventType, kind, secret, _a4, header, actions, values
+func (_m *MockTriggerEventReaderWriter) CreateEvent(ctx context.Context, eventType string, kind string, secret string, _a4 string, header string, actions []string, values map[string]string) (*Event, error) {
+	ret := _m.Called(ctx, eventType, kind, secret, _a4, header, actions, values)
 
 	var r0 *Event
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, map[string]string) *Event); ok {
-		r0 = rf(ctx, eventType, kind, secret, _a4, header, values)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, []string, map[string]string) *Event); ok {
+		r0 = rf(ctx, eventType, kind, secret, _a4, header, actions, values)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*Event)
@@ -23,8 +23,8 @@ func (_m *MockTriggerEventReaderWriter) CreateEvent(ctx context.Context, eventTy
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, string, map[string]string) error); ok {
-		r1 = rf(ctx, eventType, kind, secret, _a4, header, values)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, string, []string, map[string]string) error); ok {
+		r1 = rf(ctx, eventType, kind, secret, _a4, header, actions, values)
 	} else {
 		r1 = ret.Error(1)
 	}

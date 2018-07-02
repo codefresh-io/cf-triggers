@@ -15,6 +15,7 @@ It's responsibility of *Event Provider* to get interesting events (or generate; 
 ```json
 {
     "secret": "secret (or payload signature)",
+    "action": "event action/subtype; e.g. push/pull/delete",
     "variables": {
         "key1": "value",
         "key2": "value2",
@@ -26,6 +27,7 @@ It's responsibility of *Event Provider* to get interesting events (or generate; 
 ```
 
 - `secret` - validation secret or `hmac` signature (`sha1`, `sha256`, `sha512`); webhook payload `hmac` signature for example
+- `action` - (optional) some event providers know how-to handle and subscribe to more than a single event type, thus there is a need for action (or sub-type). For example, GihHub Event provider can set the same webhook endpoint to get different GitHub events from the same repository (pull_request, push, issue_changed, etc.)
 - `variables` - list of *selected* event properties, extracted from event payload
 - `original` - original event payload (JSON or FORM), `base64` encoded
 

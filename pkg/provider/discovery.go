@@ -39,7 +39,7 @@ type (
 		MatchType(eventURI string) (*model.EventType, error)
 		GetType(t string, k string) (*model.EventType, error)
 		GetEventInfo(ctx context.Context, eventURI string, secret string) (*model.EventInfo, error)
-		SubscribeToEvent(ctx context.Context, eventURI, secret string, credentials map[string]interface{}) (*model.EventInfo, error)
+		SubscribeToEvent(ctx context.Context, eventURI, secret string, actions []string, credentials map[string]interface{}) (*model.EventInfo, error)
 		UnsubscribeFromEvent(ctx context.Context, eventURI string, credentials map[string]interface{}) error
 		ConstructEventURI(t string, k string, a string, values map[string]string) (string, error)
 	}
@@ -263,7 +263,7 @@ func (m *EventProviderManager) GetEventInfo(ctx context.Context, event string, s
 }
 
 // SubscribeToEvent subscribe to remote event through event provider
-func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, eventURI, secret string, credentials map[string]interface{}) (*model.EventInfo, error) {
+func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, eventURI, secret string, actions []string, credentials map[string]interface{}) (*model.EventInfo, error) {
 	log.WithField("event", eventURI).Debug("subscribe to remote event trough event provider")
 	et, err := m.MatchType(eventURI)
 	if err != nil {
@@ -284,7 +284,7 @@ func (m *EventProviderManager) SubscribeToEvent(ctx context.Context, eventURI, s
 	} else {
 		provider = NewEventProviderEndpoint(et.ServiceURL)
 	}
-	info, err := provider.SubscribeToEvent(ctx, eventURI, et.Type, et.Kind, secret, values, credentials)
+	info, err := provider.SubscribeToEvent(ctx, eventURI, et.Type, et.Kind, secret, actions, values, credentials)
 	if err != nil {
 		log.WithError(err).Error("failed to subscribe to event")
 		return nil, err

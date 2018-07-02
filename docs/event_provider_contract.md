@@ -27,7 +27,29 @@ Any Trigger **Event Provider** should follow simple contract that consists from 
       "required": true
     }
   ],
+  "actions": [
+    {
+      "name": "push",
+      "label": "Push Image",
+      "help": "docker push command"
+    },
+    {
+      "name": "pull",
+      "label": "Pull Image",
+      "help": "docker pull command"
+    },
+    {
+      "name": "tag",
+      "label": "Tag Image",
+      "help": "docker tag command"
+    }
+  ],
   "filters": [
+    {
+      "name": "action",
+      "type": "action",
+      "validator": "^(push|pull|tag)$",
+    },
     {
         "name": "tag",
         "type": "string",
@@ -36,7 +58,8 @@ Any Trigger **Event Provider** should follow simple contract that consists from 
     {
         "name": "EVENT_PAYLOAD://repository.status",
         "type": "string",
-        "validator": "^(Active)$"
+        "validator": "^(Active)$",
+        "action": "push"
     }
   ]
 }
@@ -73,7 +96,11 @@ config:
 - - `type` - parameter type: `string`, `date`, `bool`, `int`, etc.
 - - `validator` - parameter value validator: can be `regexp`, range (for `date` and `int`), enum list, etc.
 - - `required` - is it a required parameter; non-required parameter uses some `default` value
-- `filter` - filter to be applied on variables extracted from event payload or on original payload `EVENT_PAYLOAD`
+- `actions` - actions (event sub-types) that event provider is subscribed to
+- - `name` - action name
+- - `label` - action label; to be presented in UI/CLI
+- - `help` - more detailed help description on action
+- `filters` - filter to be applied on variables extracted from event payload or on original payload `EVENT_PAYLOAD`
 - - `name` - variable name to filter by
 - - `type` - variable field type
 - - `validator` - filter expression; currently only regex (re2) is supported

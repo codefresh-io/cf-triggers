@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
+	"github.com/adam-hanna/arrayOperations"
 	"github.com/codefresh-io/hermes/pkg/codefresh"
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -158,6 +159,7 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 	type args struct {
 		account string
 		event   string
+		action  string
 		vars    map[string]string
 	}
 	type filter struct {
@@ -203,6 +205,29 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				},
 				"pipeline3": {
 					filters: map[string]string{"tag": "^.+$"},
+				},
+			},
+			want: []string{"pipeline1", "pipeline3"},
+		},
+		{
+			name: "get action filtered pipelines for event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+				action:  "test-action",
+				vars:    map[string]string{"tag": "master"},
+			},
+			exists:    1,
+			pipelines: []string{"pipeline1", "pipeline2", "pipeline3"},
+			filters: map[string]filter{
+				"pipeline1": {
+					filters: map[string]string{"action": "^(test-action)$"},
+				},
+				"pipeline2": {
+					filters: map[string]string{"action": "SKIP:^(test-action)$"},
+				},
+				"pipeline3": {
+					filters: map[string]string{"action": "^.+$"},
 				},
 			},
 			want: []string{"pipeline1", "pipeline3"},
@@ -394,7 +419,7 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 				}
 			}
 		Invoke:
-			got, err := r.GetTriggerPipelines(setContext(tt.args.account), tt.args.event, tt.args.vars)
+			got, err := r.GetTriggerPipelines(setContext(tt.args.account), tt.args.event, tt.args.action, tt.args.vars)
 			if err != nil && err.Error() != tt.wantErr.Error() {
 				t.Errorf("RedisStore.GetPipelinesForTriggers() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -406,47 +431,96 @@ func TestRedisStore_GetTriggerPipelines(t *testing.T) {
 
 func TestRedisStore_DeleteTrigger(t *testing.T) {
 	type Errors struct {
-		mismatch         bool
-		nonexisting      bool
-		pipelinemismatch bool
-		multi            bool
-		zrem1            bool
-		zrem2            bool
-		del              bool
-		exec             bool
+		noevent            bool
+		mismatch           bool
+		nonexisting        bool
+		pipelinemismatch   bool
+		hgetAction         bool
+		multi              bool
+		zrem1              bool
+		zrem2              bool
+		del                bool
+		exec               bool
+		updateSubscription bool
+	}
+	type expected struct {
+		actions []string
+		event   *model.Event
 	}
 	type args struct {
 		account  string
-		event    string
+		eventURI string
 		pipeline string
 	}
+	getTestEvent := func(account string, public bool) *model.Event {
+		uri := "uri:test:"
+		if public {
+			uri = uri + model.PublicAccountHash
+		} else {
+			uri = uri + model.CalculateAccountHash(account)
+		}
+		return &model.Event{
+			URI:     uri,
+			Type:    "test-type",
+			Kind:    "test-kind",
+			Actions: []string{"a1", "a2", "a3"},
+			Account: account,
+			Secret:  "test-secret",
+			SecureContext: model.SecureContext{
+				Context: "api-key",
+			},
+			EventInfo: model.EventInfo{
+				Endpoint:    "https://endpoint",
+				Description: "test description",
+			},
+		}
+	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-		errs    Errors
+		name     string
+		args     args
+		expected expected
+		wantErr  bool
+		errs     Errors
 	}{
 		{
 			name: "delete trigger: private event <-> pipeline",
 			args: args{
 				account:  model.PublicAccount,
-				event:    "uri:test:" + model.PublicAccountHash,
+				eventURI: "uri:test:" + model.PublicAccountHash,
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent(model.PublicAccount, true),
+			},
+		},
+		{
+			name: "delete trigger with unsubscribe: private event <-> pipeline",
+			args: args{
+				account:  model.PublicAccount,
+				eventURI: "uri:test:" + model.PublicAccountHash,
+				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				actions: []string{"a1", "a2"},
+				event:   getTestEvent(model.PublicAccount, true),
 			},
 		},
 		{
 			name: "delete trigger: public event <-> pipeline",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.PublicAccountHash,
+				eventURI: "uri:test:" + model.PublicAccountHash,
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A", true),
 			},
 		},
 		{
 			name: "account mismatch",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.CalculateAccountHash("B"),
+				eventURI: "uri:test:" + model.CalculateAccountHash("B"),
 				pipeline: "owner:repo:test",
 			},
 			errs:    Errors{mismatch: true},
@@ -456,7 +530,7 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			name: "pipeline account mismatch",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
 			},
 			errs:    Errors{pipelinemismatch: true},
@@ -466,18 +540,58 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			name: "non-existing pipeline",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
 			},
 			errs:    Errors{nonexisting: true},
 			wantErr: true,
 		},
 		{
+			name: "fail to get event",
+			args: args{
+				account:  "A",
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			errs:    Errors{noevent: true},
+			wantErr: true,
+		},
+		{
+			name: "fail getting action filter",
+			args: args{
+				account:  "A",
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A", false),
+			},
+			wantErr: true,
+			errs:    Errors{hgetAction: true},
+		},
+		{
+			name: "fail to update subscription",
+			args: args{
+				account:  "A",
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				actions: []string{"a1", "a2"},
+				event:   getTestEvent("A", false),
+			},
+			wantErr: true,
+			errs:    Errors{updateSubscription: true},
+		},
+		{
 			name: "fail start transaction",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A", false),
 			},
 			wantErr: true,
 			errs:    Errors{multi: true},
@@ -486,8 +600,11 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			name: "fail deleting pipeline from Triggers",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A", false),
 			},
 			wantErr: true,
 			errs:    Errors{zrem1: true},
@@ -496,8 +613,11 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			name: "fail deleting event from Pipelines",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A", false),
 			},
 			wantErr: true,
 			errs:    Errors{zrem2: true},
@@ -506,8 +626,11 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			name: "fail deleting filters from Filters",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A", false),
 			},
 			wantErr: true,
 			errs:    Errors{del: true},
@@ -516,8 +639,11 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 			name: "fail exec transaction",
 			args: args{
 				account:  "A",
-				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				eventURI: "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A", false),
 			},
 			wantErr: true,
 			errs:    Errors{exec: true},
@@ -525,31 +651,64 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := &codefresh.MockPipelineService{}
+			mockPipeline := &codefresh.MockPipelineService{}
+			mockEventGetter := &model.MockTriggerEventGetter{}
+			mockEventSubscriber := &model.MockTriggerEventSubscriber{}
 			r := &RedisStore{
-				redisPool:   &RedisPoolMock{},
-				pipelineSvc: mock,
+				redisPool:       &RedisPoolMock{},
+				pipelineSvc:     mockPipeline,
+				eventGetter:     mockEventGetter,
+				eventSubscriber: mockEventSubscriber,
 			}
 			// prepare context
 			ctx := setContext(tt.args.account)
 			// redis command
 			var cmd *redigomock.Cmd
+			// mock call
+			var call *mock.Call
 			// check mismatch account
 			if tt.errs.mismatch {
 				goto Invoke
 			}
-			// mock Codefresh API call
-			if tt.errs.nonexisting {
-				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNotFound)
-				goto Invoke
-			} else if tt.errs.pipelinemismatch {
-				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNoMatch)
+			// mock getEvent
+			call = mockEventGetter.On("GetEvent", ctx, tt.args.eventURI)
+			if tt.errs.noevent {
+				call.Return(nil, errors.New("GetEvent error"))
 				goto Invoke
 			} else {
-				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(&codefresh.Pipeline{
+				call.Return(tt.expected.event, nil)
+			}
+			// mock Codefresh API call
+			call = mockPipeline.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline)
+			if tt.errs.nonexisting {
+				call.Return(nil, codefresh.ErrPipelineNotFound)
+				goto Invoke
+			} else if tt.errs.pipelinemismatch {
+				call.Return(nil, codefresh.ErrPipelineNoMatch)
+				goto Invoke
+			} else {
+				call.Return(&codefresh.Pipeline{
 					ID:      tt.args.pipeline,
 					Account: tt.args.account,
 				}, nil)
+			}
+			// get action filter
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HGET", getFilterKey(tt.args.eventURI, tt.args.pipeline), "action")
+			if tt.errs.hgetAction {
+				cmd.ExpectError(errors.New("HGET action error"))
+				goto Invoke
+			} else {
+				cmd.Expect(strings.Join(tt.expected.actions, ","))
+			}
+			// unsubscribe from event actions
+			if len(tt.expected.actions) > 0 {
+				call = mockEventSubscriber.On("UpdateEventSubscription", ctx, tt.expected.event, []string(nil), tt.expected.actions)
+				if tt.errs.updateSubscription {
+					call.Return(nil, errors.New("UPDATE subscription"))
+					goto Invoke
+				} else {
+					call.Return(&model.EventInfo{}, nil)
+				}
 			}
 			// expect Redis transaction open
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
@@ -560,20 +719,20 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 				cmd.Expect("OK!")
 			}
 			// remove pipeline from Triggers
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(tt.args.account, tt.args.event), tt.args.pipeline)
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getTriggerKey(tt.args.account, tt.args.eventURI), tt.args.pipeline)
 			if tt.errs.zrem1 {
 				cmd.ExpectError(errors.New("ZREM error"))
 				goto EndTransaction
 			}
 
 			// remove event from Pipelines
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pipeline), tt.args.event)
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("ZREM", getPipelineKey(tt.args.pipeline), tt.args.eventURI)
 			if tt.errs.zrem2 {
 				cmd.ExpectError(errors.New("ZREM error"))
 			}
 
 			// remove event from Pipelines
-			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getFilterKey(tt.args.event, tt.args.pipeline))
+			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("DEL", getFilterKey(tt.args.eventURI, tt.args.pipeline))
 			if tt.errs.del {
 				cmd.ExpectError(errors.New("DEL error"))
 			}
@@ -595,17 +754,20 @@ func TestRedisStore_DeleteTrigger(t *testing.T) {
 
 			// invoke method
 		Invoke:
-			if err := r.DeleteTrigger(ctx, tt.args.event, tt.args.pipeline); (err != nil) != tt.wantErr {
+			if err := r.DeleteTrigger(ctx, tt.args.eventURI, tt.args.pipeline); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.DeleteTriggersForPipeline() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			// assert mock
-			mock.AssertExpectations(t)
+			// assert mocks
+			mockPipeline.AssertExpectations(t)
+			mockEventGetter.AssertExpectations(t)
+			mockEventSubscriber.AssertExpectations(t)
 		})
 	}
 }
 
 func TestRedisStore_CreateTrigger(t *testing.T) {
 	type Errors struct {
+		noevent          bool
 		mismatch         bool
 		nonexisting      bool
 		pipelinemismatch bool
@@ -613,19 +775,42 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 		zadd1            bool
 		zadd2            bool
 		hsetnx           bool
+		hsetnxActions    bool
 		exec             bool
 	}
 	type args struct {
 		account  string
 		event    string
 		pipeline string
+		actions  []string
 		filters  map[string]string
 	}
+	type expected struct {
+		event *model.Event
+	}
+	getTestEvent := func(account string) *model.Event {
+		return &model.Event{
+			URI:     "uri:test:" + model.CalculateAccountHash(account),
+			Type:    "test-type",
+			Kind:    "test-kind",
+			Actions: []string{"a1", "a2", "a3"},
+			Account: account,
+			Secret:  "test-secret",
+			SecureContext: model.SecureContext{
+				Context: "api-key",
+			},
+			EventInfo: model.EventInfo{
+				Endpoint:    "https://endpoint",
+				Description: "test description",
+			},
+		}
+	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-		errs    Errors
+		name     string
+		args     args
+		expected expected
+		wantErr  bool
+		errs     Errors
 	}{
 		{
 			name: "create trigger: private event <-> pipeline",
@@ -633,6 +818,9 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				account:  "A",
 				event:    "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A"),
 			},
 		},
 		{
@@ -643,6 +831,21 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				pipeline: "owner:repo:test",
 				filters:  map[string]string{"tag": "^.+$", "user": "^[a-z]+{12}$"},
 			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
+		},
+		{
+			name: "create trigger: private event <-> pipeline with action",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+				actions:  []string{"tag", "push"},
+			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
 		},
 		{
 			name: "create trigger: public event <-> pipeline",
@@ -651,6 +854,18 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				event:    "uri:test:" + model.PublicAccountHash,
 				pipeline: "owner:repo:test",
 			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
+		},
+		{
+			name: "failed to get event",
+			args: args{
+				account: "A",
+				event:   "uri:test:" + model.CalculateAccountHash("A"),
+			},
+			errs:    Errors{noevent: true},
+			wantErr: true,
 		},
 		{
 			name: "account mismatch",
@@ -658,6 +873,9 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				account:  "A",
 				event:    "uri:test:" + model.CalculateAccountHash("B"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("B"),
 			},
 			errs:    Errors{mismatch: true},
 			wantErr: true,
@@ -669,6 +887,9 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				event:    "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
 			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
 			errs:    Errors{pipelinemismatch: true},
 			wantErr: true,
 		},
@@ -678,6 +899,9 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				account:  "A",
 				event:    "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A"),
 			},
 			errs:    Errors{nonexisting: true},
 			wantErr: true,
@@ -689,6 +913,9 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				event:    "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
 			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
 			wantErr: true,
 			errs:    Errors{multi: true},
 		},
@@ -698,6 +925,9 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				account:  "A",
 				event:    "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A"),
 			},
 			wantErr: true,
 			errs:    Errors{zadd1: true},
@@ -709,6 +939,9 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				event:    "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
 			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
 			wantErr: true,
 			errs:    Errors{zadd1: true},
 		},
@@ -719,8 +952,38 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				event:    "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
 			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
 			wantErr: true,
 			errs:    Errors{zadd2: true},
+		},
+		{
+			name: "fail setting filter",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
+			wantErr: true,
+			errs:    Errors{hsetnx: true},
+		},
+		{
+			name: "fail setting filter from actions",
+			args: args{
+				account:  "A",
+				event:    "uri:test:" + model.CalculateAccountHash("A"),
+				pipeline: "owner:repo:test",
+				actions:  []string{"tag", "push"},
+			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
+			wantErr: true,
+			errs:    Errors{hsetnxActions: true},
 		},
 		{
 			name: "fail exec transaction",
@@ -729,34 +992,52 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 				event:    "uri:test:" + model.CalculateAccountHash("A"),
 				pipeline: "owner:repo:test",
 			},
+			expected: expected{
+				event: getTestEvent("A"),
+			},
 			wantErr: true,
 			errs:    Errors{exec: true},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mock := &codefresh.MockPipelineService{}
+			mockPipeline := &codefresh.MockPipelineService{}
+			mockEventGetter := &model.MockTriggerEventGetter{}
+			mockEventSubscriber := &model.MockTriggerEventSubscriber{}
 			r := &RedisStore{
-				redisPool:   &RedisPoolMock{},
-				pipelineSvc: mock,
+				redisPool:       &RedisPoolMock{},
+				pipelineSvc:     mockPipeline,
+				eventGetter:     mockEventGetter,
+				eventSubscriber: mockEventSubscriber,
 			}
 			// prepare context
 			ctx := setContext(tt.args.account)
 			// command
 			var cmd *redigomock.Cmd
+			// mock call
+			var call *mock.Call
 			// check mismatch account
 			if tt.errs.mismatch {
 				goto Invoke
 			}
-			// mock Codefresh API call
-			if tt.errs.nonexisting {
-				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNotFound)
-				goto Invoke
-			} else if tt.errs.pipelinemismatch {
-				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(nil, codefresh.ErrPipelineNoMatch)
+			// mock getEvent
+			call = mockEventGetter.On("GetEvent", ctx, tt.args.event)
+			if tt.errs.noevent {
+				call.Return(nil, errors.New("GetEvent error"))
 				goto Invoke
 			} else {
-				mock.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline).Return(&codefresh.Pipeline{
+				call.Return(tt.expected.event, nil)
+			}
+			// mock Codefresh API call
+			call = mockPipeline.On("GetPipeline", ctx, tt.args.account, tt.args.pipeline)
+			if tt.errs.nonexisting {
+				call.Return(nil, codefresh.ErrPipelineNotFound)
+				goto Invoke
+			} else if tt.errs.pipelinemismatch {
+				call.Return(nil, codefresh.ErrPipelineNoMatch)
+				goto Invoke
+			} else {
+				call.Return(&codefresh.Pipeline{
 					ID:      tt.args.pipeline,
 					Account: tt.args.account,
 				}, nil)
@@ -780,13 +1061,22 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 			if tt.errs.zadd2 {
 				cmd.ExpectError(errors.New("ZADD error"))
 			}
-			// add event to the Pipelines set
+			// add event to the Filters set
 			for k, v := range tt.args.filters {
 				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSET", getFilterKey(tt.args.event, tt.args.pipeline), k, v)
 				if tt.errs.hsetnx {
 					cmd.ExpectError(errors.New("HSETNX error"))
 					goto EndTransaction
 				}
+			}
+			// add actions to the Filters set
+			if len(tt.args.actions) > 0 {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSET", getFilterKey(tt.args.event, tt.args.pipeline), "action", strings.Join(tt.args.actions, ","))
+				if tt.errs.hsetnxActions {
+					cmd.ExpectError(errors.New("HSETNX error"))
+					goto EndTransaction
+				}
+				mockEventSubscriber.On("UpdateEventSubscription", ctx, tt.expected.event, tt.args.actions, []string(nil)).Return(&model.EventInfo{}, nil)
 			}
 
 		EndTransaction:
@@ -805,11 +1095,13 @@ func TestRedisStore_CreateTrigger(t *testing.T) {
 			}
 
 		Invoke:
-			if err := r.CreateTrigger(ctx, tt.args.event, tt.args.pipeline, tt.args.filters); (err != nil) != tt.wantErr {
+			if err := r.CreateTrigger(ctx, tt.args.event, tt.args.pipeline, tt.args.actions, tt.args.filters); (err != nil) != tt.wantErr {
 				t.Errorf("RedisStore.CreateTriggersForEvent() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			// assert mock
-			mock.AssertExpectations(t)
+			// assert mocks
+			mockPipeline.AssertExpectations(t)
+			mockEventGetter.AssertExpectations(t)
+			mockEventSubscriber.AssertExpectations(t)
 		})
 	}
 }
@@ -841,38 +1133,38 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 		errs     redisErrors
 		wantErr  bool
 	}{
-		// {
-		// 	name: "list triggers for public event",
-		// 	args: args{
-		// 		account: model.PublicAccount,
-		// 		event:   "uri:test:" + model.PublicAccountHash,
-		// 	},
-		// 	expected: expected{
-		// 		public: []triggers{
-		// 			{
-		// 				event:     "uri:test:" + model.PublicAccountHash,
-		// 				pipelines: []string{"pipeline-1", "pipeline-2"},
-		// 			},
-		// 		},
-		// 		filters: map[string](map[string]string){
-		// 			"pipeline-2": {
-		// 				"tag": "^+.$",
-		// 			},
-		// 		},
-		// 	},
-		// 	want: []model.Trigger{
-		// 		{
-		// 			Event:    "uri:test:" + model.PublicAccountHash,
-		// 			Pipeline: "pipeline-1",
-		// 			Filters:  make(map[string]string),
-		// 		},
-		// 		{
-		// 			Event:    "uri:test:" + model.PublicAccountHash,
-		// 			Pipeline: "pipeline-2",
-		// 			Filters:  map[string]string{"tag": "^+.$"},
-		// 		},
-		// 	},
-		// },
+		{
+			name: "list triggers for public event",
+			args: args{
+				account: model.PublicAccount,
+				event:   "uri:test:" + model.PublicAccountHash,
+			},
+			expected: expected{
+				public: []triggers{
+					{
+						event:     "uri:test:" + model.PublicAccountHash,
+						pipelines: []string{"pipeline-1", "pipeline-2"},
+					},
+				},
+				filters: map[string](map[string]string){
+					"pipeline-2": {
+						"tag": "^+.$",
+					},
+				},
+			},
+			want: []model.Trigger{
+				{
+					Event:    "uri:test:" + model.PublicAccountHash,
+					Pipeline: "pipeline-1",
+					Filters:  make(map[string]string),
+				},
+				{
+					Event:    "uri:test:" + model.PublicAccountHash,
+					Pipeline: "pipeline-2",
+					Filters:  map[string]string{"tag": "^+.$"},
+				},
+			},
+		},
 		{
 			name: "list triggers for account event",
 			args: args{
@@ -1081,7 +1373,8 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 				goto Invoke
 			} else {
 				for _, tr := range tt.expected.private {
-					keys = util.MergeStrings(keys, []string{getTriggerKey(tt.args.account, tr.event)})
+					z, _ := arrayOperations.Union(keys, []string{getTriggerKey(tt.args.account, tr.event)})
+					keys = z.Interface().([]string)
 				}
 				cmd.Expect(util.InterfaceSlice(keys))
 			}
@@ -1092,7 +1385,8 @@ func TestRedisStore_GetEventTriggers(t *testing.T) {
 				goto Invoke
 			} else {
 				for _, tr := range tt.expected.public {
-					keys = util.MergeStrings(keys, []string{getTriggerKey(model.PublicAccount, tr.event)})
+					z, _ := arrayOperations.Union(keys, []string{getTriggerKey(model.PublicAccount, tr.event)})
+					keys = z.Interface().([]string)
 				}
 				cmd.Expect(util.InterfaceSlice(keys))
 			}
@@ -1538,8 +1832,7 @@ func TestRedisStore_GetEvent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			redisMock := &RedisPoolMock{}
 			r := &RedisStore{
-				redisPool:   redisMock,
-				eventGetter: &RedisEventGetter{redisMock},
+				redisPool: redisMock,
 			}
 			eventKey := getEventKey(tt.args.account, tt.args.event)
 			cmd := r.redisPool.GetConn().(*redigomock.Conn).Command("EXISTS", eventKey)
@@ -2115,23 +2408,23 @@ func TestRedisStore_DeleteEvent(t *testing.T) {
 
 func TestRedisStore_CreateEvent(t *testing.T) {
 	type redisErrors struct {
-		multi          bool
-		hsetnxType     bool
-		hsetnxKind     bool
-		hsetnxAccount  bool
-		hsetnxSecret   bool
-		hsetnxContext  bool
-		hsetnxHeader   bool
-		hsetnxDesc     bool
-		hsetnxEndpoint bool
-		hsetnxHelp     bool
-		hsetnxStatus   bool
-		exec           bool
+		multi              bool
+		hsetnxType         bool
+		hsetnxKind         bool
+		hsetnxAccount      bool
+		hsetnxSecret       bool
+		hsetnxContext      bool
+		hsetnxHeader       bool
+		hsetnxDesc         bool
+		hsetnxEndpoint     bool
+		hsetnxHelp         bool
+		hsetnxStatus       bool
+		exec               bool
+		updateSubscription bool
 	}
 	type eventErrors struct {
-		uri       error
-		subscribe error
-		info      error
+		uri  error
+		info error
 	}
 	type expected struct {
 		eventURI    string
@@ -2147,6 +2440,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		public    bool
 		context   string
 		header    string
+		actions   []string
 		values    map[string]string
 	}
 	tests := []struct {
@@ -2175,7 +2469,13 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 		},
 		{
 			name: "create private event (per account)",
-			args: args{eventType: "type", kind: "kind", secret: "XXX", account: "5672d8deb6724b6e359adf62"},
+			args: args{
+				eventType: "type",
+				kind:      "kind",
+				secret:    "XXX",
+				account:   "5672d8deb6724b6e359adf62",
+				actions:   []string{"action-1", "action-2"},
+			},
 			expected: expected{
 				eventURI: "type:kind:test:" + model.CalculateAccountHash("5672d8deb6724b6e359adf62"),
 				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
@@ -2186,6 +2486,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 				Kind:      "kind",
 				Account:   "5672d8deb6724b6e359adf62",
 				Secret:    "XXX",
+				Actions:   []string{"action-1", "action-2"},
 				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
 		},
 		{
@@ -2229,35 +2530,13 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			errs:         redisErrors{},
 		},
 		{
-			name:         "fail to subscribe to event",
-			args:         args{eventType: "type", kind: "kind", secret: "XXX"},
-			expected:     expected{eventURI: "type:kind:test"},
-			wantEventErr: eventErrors{subscribe: errors.New("Subscribe error")},
-			errs:         redisErrors{},
-		},
-		{
-			name: "fail to subscribe to event (not implemented)",
+			name: "fail to update subscription",
 			args: args{account: "A", eventType: "type", kind: "kind", secret: "XXX"},
 			expected: expected{
 				eventURI: "type:kind:test:" + model.CalculateAccountHash("A"),
-				info:     &model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"},
 			},
-			want: &model.Event{
-				URI:       "type:kind:test:" + model.CalculateAccountHash("A"),
-				Type:      "type",
-				Kind:      "kind",
-				Account:   "A",
-				Secret:    "XXX",
-				EventInfo: model.EventInfo{Endpoint: "test-endpoint", Description: "test-desc", Help: "test-help", Status: "test-status"}},
-			wantEventErr: eventErrors{subscribe: provider.ErrNotImplemented},
-			errs:         redisErrors{},
-		},
-		{
-			name:         "fail to subscribe to event and get info fallback fails too",
-			args:         args{eventType: "type", kind: "kind", secret: "XXX"},
-			expected:     expected{eventURI: "type:kind:test"},
-			wantEventErr: eventErrors{subscribe: provider.ErrNotImplemented, info: errors.New("Info error")},
-			errs:         redisErrors{},
+			wantErr: true,
+			errs:    redisErrors{updateSubscription: true},
 		},
 		{
 			name: "fail start transaction",
@@ -2363,14 +2642,14 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var cmd *redigomock.Cmd
-			mock := &provider.MockEventProvider{}
-			pipelineMock := &codefresh.MockPipelineService{}
+			mockProvider := &provider.MockEventProvider{}
 			mockEventGetter := &model.MockTriggerEventGetter{}
+			mockEventSubscriber := &model.MockTriggerEventSubscriber{}
 			r := &RedisStore{
-				redisPool:     &RedisPoolMock{},
-				eventProvider: mock,
-				pipelineSvc:   pipelineMock,
-				eventGetter:   mockEventGetter,
+				redisPool:       &RedisPoolMock{},
+				eventProvider:   mockProvider,
+				eventGetter:     mockEventGetter,
+				eventSubscriber: mockEventSubscriber,
 			}
 			account := tt.args.account
 			if tt.args.public {
@@ -2383,7 +2662,7 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			// prepare key
 			eventKey := getEventKey(tt.args.account, tt.expected.eventURI)
 			// mock EventProvider calls
-			call := mock.On("ConstructEventURI", tt.args.eventType, tt.args.kind, account, tt.args.values)
+			call := mockProvider.On("ConstructEventURI", tt.args.eventType, tt.args.kind, account, tt.args.values)
 			if tt.wantEventErr.uri != nil {
 				call.Return("", tt.wantEventErr.uri)
 				goto Invoke
@@ -2395,32 +2674,20 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			call = mockEventGetter.On("GetEvent", ctx, tt.expected.eventURI)
 			if tt.expected.existing == 1 {
 				call.Return(tt.want, nil)
-				goto Invoke
+				mockEventSubscriber.On("UpdateEventSubscription", ctx, tt.want, tt.args.actions, []string(nil)).Return(tt.expected.info, nil)
 			} else {
 				call.Return(nil, errors.New("ERROR in GetEvent"))
 			}
-			// mock Codefresh GetContext call
-			if tt.expected.credentials != nil {
-				pipelineMock.On("GetContext", ctx, tt.args.account, tt.args.context).Return(tt.expected.credentials, nil)
-			}
-			// subscribe to event
-			call = mock.On("SubscribeToEvent", ctx, tt.expected.eventURI, tt.args.secret, tt.expected.credentials)
-			if tt.wantEventErr.subscribe != nil {
-				call.Return(nil, tt.wantEventErr.subscribe)
-				if tt.wantEventErr.subscribe == provider.ErrNotImplemented {
-					call = mock.On("GetEventInfo", ctx, tt.expected.eventURI, tt.args.secret)
-					if tt.wantEventErr.info != nil {
-						call.Return(nil, tt.wantEventErr.info)
-						goto Invoke
-					} else {
-						call.Return(tt.expected.info, nil)
-					}
-				} else {
-					goto Invoke
-				}
+
+			// update subscription to event
+			call = mockEventSubscriber.On("UpdateEventSubscription", ctx, mock.AnythingOfType("*model.Event"), tt.args.actions, []string(nil))
+			if tt.errs.updateSubscription {
+				call.Return(nil, errors.New("ERROR in UpdateEventSubscription"))
+				goto Invoke
 			} else {
 				call.Return(tt.expected.info, nil)
 			}
+
 			// mock Redis
 			// expect Redis transaction open
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("MULTI")
@@ -2441,6 +2708,10 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 			if tt.errs.hsetnxKind {
 				cmd.ExpectError(errors.New("HSETNX error"))
 				goto EndTransaction
+			}
+			// store Event actions
+			if len(tt.args.actions) > 0 {
+				cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", eventKey, "actions", strings.Join(tt.args.actions, ","))
 			}
 			// store Event account
 			cmd = r.redisPool.GetConn().(*redigomock.Conn).Command("HSETNX", eventKey, "account", account)
@@ -2508,11 +2779,9 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 
 		Invoke:
 			// invoke method under test
-			got, err := r.CreateEvent(ctx, tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.header, tt.args.values)
+			got, err := r.CreateEvent(ctx, tt.args.eventType, tt.args.kind, tt.args.secret, tt.args.context, tt.args.header, tt.args.actions, tt.args.values)
 			if (err != nil) != (tt.wantErr ||
 				tt.wantEventErr.info != nil ||
-				(tt.wantEventErr.subscribe != nil &&
-					tt.wantEventErr.subscribe != provider.ErrNotImplemented) ||
 				tt.wantEventErr.uri != nil) {
 				t.Errorf("RedisStore.CreateEvent() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -2521,9 +2790,192 @@ func TestRedisStore_CreateEvent(t *testing.T) {
 				t.Errorf("RedisStore.CreateEvent() = %v, want %v", got, tt.want)
 			}
 			// assert mocks
-			mock.AssertExpectations(t)
 			mockEventGetter.AssertExpectations(t)
-			pipelineMock.AssertExpectations(t)
+			mockEventSubscriber.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRedisStore_UpdateEventSubscription(t *testing.T) {
+	type testErrors struct {
+		getContext     bool
+		subscribe      bool
+		notImplemented bool
+		getInfo        bool
+	}
+	type args struct {
+		account       string
+		eventURI      string
+		event         *model.Event
+		addActions    []string
+		removeActions []string
+	}
+	type expected struct {
+		credentials map[string]interface{}
+		actions     []string
+		noChange    bool
+	}
+	testEvent := &model.Event{
+		URI:     "test:event:" + model.CalculateAccountHash("A"),
+		Type:    "test-type",
+		Kind:    "test-kind",
+		Actions: []string{"a1", "a2", "a3"},
+		Account: "A",
+		Secret:  "test-secret",
+		SecureContext: model.SecureContext{
+			Context: "api-key",
+		},
+		EventInfo: model.EventInfo{
+			Endpoint:    "https://endpoint",
+			Description: "test description",
+		},
+	}
+	tests := []struct {
+		name       string
+		args       args
+		expected   expected
+		testErrors testErrors
+		want       *model.EventInfo
+		wantErr    bool
+	}{
+		{
+			name: "update subscription for existing event, adding new",
+			args: args{
+				account:    "A",
+				eventURI:   "test:event:" + model.CalculateAccountHash("A"),
+				event:      testEvent,
+				addActions: []string{"a1", "a4", "a5"},
+			},
+			expected: expected{
+				credentials: map[string]interface{}{"apikey": "123456789"},
+				actions:     []string{"a1", "a2", "a3", "a4", "a5"},
+			},
+			want: &model.EventInfo{Endpoint: "https://endpoint", Description: "test description"},
+		},
+		{
+			name: "update subscription for existing event, removing some",
+			args: args{
+				account:       "A",
+				eventURI:      "test:event:" + model.CalculateAccountHash("A"),
+				event:         testEvent,
+				removeActions: []string{"a1", "a2"},
+			},
+			expected: expected{
+				credentials: map[string]interface{}{"apikey": "123456789"},
+				actions:     []string{"a3"},
+			},
+			want: &model.EventInfo{Endpoint: "https://endpoint", Description: "test description"},
+		},
+		{
+			name: "skip update subscription for existing event, no new actions",
+			args: args{
+				account:    "A",
+				eventURI:   "test:event:" + model.CalculateAccountHash("A"),
+				event:      testEvent,
+				addActions: []string{"a1", "a2"},
+			},
+			expected: expected{
+				noChange: true,
+			},
+			want: &model.EventInfo{Endpoint: "https://endpoint", Description: "test description"},
+		},
+		{
+			name: "fail to get context",
+			args: args{
+				account:    "A",
+				eventURI:   "test:event:" + model.CalculateAccountHash("A"),
+				event:      testEvent,
+				addActions: []string{"a1", "a5"},
+			},
+			testErrors: testErrors{getContext: true},
+			wantErr:    true,
+		},
+		{
+			name: "fail to get subscribe",
+			args: args{
+				account:    "A",
+				eventURI:   "test:event:" + model.CalculateAccountHash("A"),
+				event:      testEvent,
+				addActions: []string{"a1", "a5"},
+			},
+			testErrors: testErrors{subscribe: true},
+			wantErr:    true,
+		},
+		{
+			name: "subscribe not implemented - fallback to GetEventInfo",
+			args: args{
+				account:    "A",
+				eventURI:   "test:event:" + model.CalculateAccountHash("A"),
+				event:      testEvent,
+				addActions: []string{"a1", "a5"},
+			},
+			testErrors: testErrors{notImplemented: true},
+			want:       &model.EventInfo{Endpoint: "https://endpoint", Description: "test description"},
+		},
+		{
+			name: "fail to get event info",
+			args: args{
+				account:    "A",
+				eventURI:   "test:event:" + model.CalculateAccountHash("A"),
+				event:      testEvent,
+				addActions: []string{"a1", "a5"},
+			},
+			testErrors: testErrors{notImplemented: true, getInfo: true},
+			wantErr:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockProvider := &provider.MockEventProvider{}
+			mockPipeline := &codefresh.MockPipelineService{}
+			r := &RedisStore{
+				pipelineSvc:   mockPipeline,
+				eventProvider: mockProvider,
+			}
+			// prepare context
+			ctx := setContext(tt.args.account)
+			// mock call
+			var call *mock.Call
+			// skip when no change
+			if tt.expected.noChange {
+				goto Invoke
+			}
+			// mock getContext from codefresh
+			call = mockPipeline.On("GetContext", ctx, tt.args.event.Account, tt.args.event.Context)
+			if tt.testErrors.getContext {
+				call.Return(nil, errors.New("GetContext Error"))
+				goto Invoke
+			}
+			call.Return(tt.expected.credentials, nil)
+			// mock subscribeToEvent
+			call = mockProvider.On("SubscribeToEvent", ctx, tt.args.eventURI, tt.args.event.Secret, mock.AnythingOfType("[]string"), tt.expected.credentials)
+			if tt.testErrors.subscribe {
+				call.Return(nil, errors.New("Subscribe error"))
+				goto Invoke
+			} else if tt.testErrors.notImplemented {
+				call.Return(nil, provider.ErrNotImplemented)
+				call = mockProvider.On("GetEventInfo", ctx, tt.args.eventURI, tt.args.event.Secret)
+				if tt.testErrors.getInfo {
+					call.Return(nil, errors.New("GetEventInfo error"))
+					goto Invoke
+				}
+				call.Return(tt.want, nil)
+				goto Invoke
+			}
+			call.Return(&tt.args.event.EventInfo, nil)
+			// invoke
+		Invoke:
+			got, err := r.UpdateEventSubscription(ctx, tt.args.event, tt.args.addActions, tt.args.removeActions)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RedisStore.UpdateEventSubscription() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RedisStore.UpdateEventSubscription() = %v, want %v", got, tt.want)
+			}
+			// asset mocks
+			mockPipeline.AssertExpectations(t)
+			mockProvider.AssertExpectations(t)
 		})
 	}
 }

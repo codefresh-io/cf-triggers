@@ -86,6 +86,10 @@ var triggerEventCommand = cli.Command{
 					Usage: "trigger event values (key=value pairs); as defined by trigger type config",
 				},
 				cli.StringSliceFlag{
+					Name:  "action",
+					Usage: "trigger event actions; same event source can trigger event on different actions",
+				},
+				cli.StringSliceFlag{
 					Name:  "context",
 					Usage: "Codefresh context with required credentials",
 				},
@@ -181,7 +185,7 @@ func createEvent(c *cli.Context) error {
 		values[kv[0]] = kv[1]
 	}
 	// create new event
-	event, err := eventReaderWriter.CreateEvent(getContext(c), c.String("type"), c.String("kind"), c.String("secret"), c.String("context"), c.String("header"), values)
+	event, err := eventReaderWriter.CreateEvent(getContext(c), c.String("type"), c.String("kind"), c.String("secret"), c.String("context"), c.String("header"), c.StringSlice("action"), values)
 	if err != nil {
 		return err
 	}

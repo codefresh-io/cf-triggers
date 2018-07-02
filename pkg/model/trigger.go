@@ -17,6 +17,7 @@ type (
 
 	// NormalizedEvent trigger-event event data enriched with type,kind,action and ULID
 	NormalizedEvent struct {
+		Action    string            `form:"action,omitempty" json:"action,omitempty"`
 		Secret    string            `form:"secret" json:"secret" binding:"required"`
 		Original  string            `form:"original" json:"original"`
 		Variables map[string]string `form:"variables" json:"variables"`
@@ -39,12 +40,17 @@ type (
 		GetEvent(ctx context.Context, event string) (*Event, error)
 	}
 
+	// TriggerEventSubscriber interface
+	TriggerEventSubscriber interface {
+		UpdateEventSubscription(ctx context.Context, event *Event, addActions, removeActions []string) (*EventInfo, error)
+	}
+
 	// TriggerEventReaderWriter interface
 	TriggerEventReaderWriter interface {
 		// trigger events
 		TriggerEventGetter
 		GetEvents(ctx context.Context, eventType, kind, filter string) ([]Event, error)
-		CreateEvent(ctx context.Context, eventType, kind, secret, context, header string, values map[string]string) (*Event, error)
+		CreateEvent(ctx context.Context, eventType, kind, secret, context, header string, actions []string, values map[string]string) (*Event, error)
 		DeleteEvent(ctx context.Context, event, context string) error
 	}
 
@@ -54,8 +60,8 @@ type (
 		GetEventTriggers(ctx context.Context, event string) ([]Trigger, error)
 		GetPipelineTriggers(ctx context.Context, pipeline string, withEvent bool) ([]Trigger, error)
 		DeleteTrigger(ctx context.Context, event, pipeline string) error
-		CreateTrigger(ctx context.Context, event, pipeline string, filters map[string]string) error
-		GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error)
+		CreateTrigger(ctx context.Context, event, pipeline string, actions []string, filters map[string]string) error
+		GetTriggerPipelines(ctx context.Context, event string, action string, vars map[string]string) ([]string, error)
 	}
 
 	// Runner pipeline runner
