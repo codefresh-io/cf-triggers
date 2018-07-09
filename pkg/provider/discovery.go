@@ -108,11 +108,17 @@ func loadEventHandlerTypes(configFile string) (model.EventTypes, error) {
 
 	err = json.Unmarshal(eventTypesData, &eventTypes)
 	if err != nil {
-		log.WithError(err).Error("Failed to load types configuration from JSON file")
+		log.WithError(err).Error("failed to load types configuration from JSON file")
 		return eventTypes, err
 	}
 	// scan through all types and add optional account short hash
 	for i, et := range eventTypes.Types {
+		// log found event type
+		log.WithFields(log.Fields{
+			"type":        et.Type,
+			"kind":        et.Kind,
+			"service URL": et.ServiceURL,
+		}).Debug("found event type in config file")
 		// trim last '$' character if exists
 		et.URIPattern = strings.TrimSuffix(et.URIPattern, "$")
 		// add optional 12 hexadecimal string (short account SHA1 hash code)
@@ -134,7 +140,7 @@ func (m *EventProviderManager) Close() {
 func (m *EventProviderManager) monitorConfigFile() *util.FileWatcher {
 	// Watch the file for modification and update the config manager with the new config when it's available
 	watcher, err := util.WatchFile(m.configFile, time.Second, func() {
-		log.Debug("Config types file updated")
+		log.Debug("config types file updated")
 		m.Lock()
 		defer m.Unlock()
 		var err error
