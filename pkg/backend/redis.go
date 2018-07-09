@@ -83,7 +83,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -767,7 +766,8 @@ func (r *RedisStore) UpdateEventSubscription(ctx context.Context, event *model.E
 	}
 
 	// if no need to update actions exit
-	if reflect.DeepEqual(actions, event.Actions) {
+	diff := arrayOperations.DifferenceString(actions, event.Actions)
+	if len(diff) == 0 {
 		return &event.EventInfo, nil
 	}
 	// get credentials from codefresh by context name
