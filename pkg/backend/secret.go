@@ -10,7 +10,6 @@ import (
 	"hash"
 
 	"github.com/codefresh-io/hermes/pkg/model"
-	"fmt"
 )
 
 // SecretChecker checks secret or HMAC signature
@@ -39,7 +38,6 @@ func checkHmacSignature(message, signature, secret string) bool {
 
 // Validate secret or HMAC signature
 func (s *SecretChecker) Validate(message string, secret string, key string) error {
-	fmt.Println(message + " " + secret + " " + key)
 	if secret != key {
 		// try to check signature
 		if checkHmacSignature(message, secret, key) {
