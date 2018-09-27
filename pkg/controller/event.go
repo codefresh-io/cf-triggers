@@ -6,6 +6,7 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
+	"fmt"
 )
 
 // TriggerEventController trigger controller
@@ -70,6 +71,8 @@ func (c *TriggerEventController) CreateEvent(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, ErrorResult{http.StatusBadRequest, "error in request JSON body", err.Error()})
 		return
 	}
+
+	fmt.Println("CREATE TRIGGER SECRET " + req.Secret)
 
 	// for public event create new context
 	actionContext := getContext(ctx)
