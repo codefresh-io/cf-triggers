@@ -6,8 +6,6 @@ import (
 
 	"github.com/codefresh-io/hermes/pkg/model"
 	"github.com/gin-gonic/gin"
-	"encoding/json"
-	"fmt"
 )
 
 // TriggerController trigger controller
@@ -32,8 +30,6 @@ func (c *TriggerController) GetEventTriggers(ctx *gin.Context) {
 		}
 		ctx.JSON(status, ErrorResult{status, "failed to list triggers for event", err.Error()})
 	} else {
-		b, _ := json.Marshal(triggers)
-		fmt.Println(string(b))
 		ctx.JSON(http.StatusOK, triggers)
 	}
 }
@@ -48,8 +44,6 @@ func (c *TriggerController) GetTriggers(ctx *gin.Context) {
 		}
 		ctx.JSON(status, ErrorResult{status, "failed to list triggers for event", err.Error()})
 	} else {
-		b, _ := json.Marshal(triggers)
-		fmt.Println(string(b))
 		ctx.JSON(http.StatusOK, triggers)
 	}
 }
@@ -68,8 +62,6 @@ func (c *TriggerController) GetPipelineTriggers(ctx *gin.Context) {
 		}
 		ctx.JSON(status, ErrorResult{status, "failed to list triggers for pipeline", err.Error()})
 	} else {
-		b, _ := json.Marshal(triggers)
-		fmt.Println(string(b))
 		ctx.JSON(http.StatusOK, triggers)
 	}
 }
