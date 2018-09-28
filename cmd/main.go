@@ -140,6 +140,9 @@ func before(c *cli.Context) error {
 	traceHook.AppField = logger.FieldService
 	log.AddHook(traceHook)
 
+
+	log.Info("Init config file path: " + c.GlobalString("config"))
+
 	// set new relic monitoring
 	newRelicLicense := c.GlobalString("new-relic")
 	if newRelicLicense != "" {
