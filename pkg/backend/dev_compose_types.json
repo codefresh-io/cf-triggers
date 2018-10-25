@@ -77,6 +77,44 @@
         },
 
         {
+            "type": "registry",
+            "kind": "jfrog",
+            "service-url": "http://nomios:10001",
+            "uri-template": "registry:jfrog:{{namespace}}:{{name}}:{{action}}",
+            "uri-regex": "^registry:jfrog:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "config": [
+                {
+                    "name": "namespace",
+                    "type": "string",
+                    "validator": "^[a-z0-9_-]+$",
+                    "required": true
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "validator": "^[a-z0-9_-]+$",
+                    "required": true
+                },
+                {
+                    "name": "action",
+                    "type": "list",
+                    "options": {
+                        "Push Image": "push"
+                    },
+                    "validator": "^(push)$",
+                    "required": true
+                }
+            ],
+            "filters": [
+                {
+                    "name": "tag",
+                    "type": "string",
+                    "validator": "^.+$"
+                }
+            ]
+        },
+
+        {
             "type": "cron",
             "kind": "codefresh",
             "service-url": "http://cronus:10002",
