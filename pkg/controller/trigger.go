@@ -69,9 +69,9 @@ func (c *TriggerController) GetPipelineTriggers(ctx *gin.Context) {
 
 // CreateTrigger create triggers, adding multiple pipelines to the trigger event
 func (c *TriggerController) CreateTrigger(ctx *gin.Context) {
-	log.Debug("Create trigger")
 	// trigger event (event-uri)
 	event := getParam(ctx, "event")
+	log.WithField("event", event).Info("Create trigger")
 	// get pipeline
 	pipeline := ctx.Param("pipeline")
 	// get request data
