@@ -115,6 +115,38 @@
         },
 
         {
+            "type": "helm",
+            "kind": "jfrog",
+            "service-url": "http://localhost:10001",
+            "uri-template": "helm:jfrog:{{namespace}}:{{name}}:{{action}}",
+            "uri-regex": "^helm:jfrog:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "config": [
+                {
+                    "name": "namespace",
+                    "type": "string",
+                    "validator": "^[a-z0-9_-]+$",
+                    "required": true
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "validator": "^[a-z0-9_-]+$",
+                    "required": true
+                },
+                {
+                    "name": "action",
+                    "type": "list",
+                    "options": {
+                        "Push Chart": "push"
+                    },
+                    "validator": "^(push)$",
+                    "required": true
+                }
+            ]
+        },
+
+
+        {
             "type": "registry",
             "kind": "azure",
             "service-url": "http://nomios:10001",
