@@ -569,8 +569,11 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 	}
 	// get redis connection
 	con := r.redisPool.GetConn()
+
+	triggerKey := getTriggerKey(account, event)
+
 	// check trigger existence
-	exists, err := redis.Int(con.Do("EXISTS", getTriggerKey(account, event)))
+	exists, err := redis.Int(con.Do("EXISTS", triggerKey))
 	if err != nil {
 		lg.WithError(err).Error("failed to check trigger existence")
 		return nil, err
