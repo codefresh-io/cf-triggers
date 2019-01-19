@@ -263,6 +263,11 @@ func getTriggerKey(account, id string) string {
 	return getAccountSuffixKey(account, key)
 }
 
+func getSwitchTriggerKey(account, id string) string {
+	key := getPrefixKey("trigger", id)
+	return getAccountSuffixKey(account, key) + ":status"
+}
+
 // pipeline key is not account aware
 func getPipelineKey(id string) string {
 	return getPrefixKey("pipeline", id)
@@ -484,6 +489,58 @@ func (r *RedisStore) DeleteTrigger(ctx context.Context, event, pipeline string) 
 	return err
 }
 
+func (r *RedisStore) SwitchTriggerState(ctx context.Context, event, pipeline string, state string) error {
+	account := getAccount(ctx)
+	lg := log.WithFields(getContextLogFields(ctx))
+	lg.WithFields(log.Fields{
+		"pipeline": pipeline,
+		"event":    event,
+		"account":  account,
+	}).Debug("switch trigger status")
+	// record NewRelic segment
+	if txn := getNewRelicTransaction(ctx); txn != nil {
+		s := newrelic.StartSegment(txn, util.GetCurrentFuncName())
+		defer s.End()
+	}
+	// get redis connection
+	con := r.redisPool.GetConn()
+
+	// check event account match: public or private
+	if !model.MatchPublicAccount(event) && !model.MatchAccount(account, event) {
+		lg.WithField("event", event).Error("failed to match trigger for trigger-event")
+		return model.ErrTriggerNotFound
+	}
+
+	// check Codefresh pipeline match; ignore all errors beside "no match"
+	_, err := r.pipelineSvc.GetPipeline(ctx, account, pipeline)
+	if err == codefresh.ErrPipelineNoMatch {
+		lg.WithError(err).Error("attempt to swithc trigger status, pipeline from another account")
+		return err
+	}
+
+	// start Redis transaction
+	_, err = con.Do("MULTI")
+	if err != nil {
+		lg.WithError(err).Error("failed to start Redis transaction")
+		return err
+	}
+
+	triggerKey := getSwitchTriggerKey(account, event)
+
+	// remove pipeline from Triggers
+	_, err = con.Do("SET", triggerKey, state)
+	if err != nil {
+		return discardOnError(con, err, lg)
+	}
+
+	// submit transaction
+	_, err = con.Do("EXEC")
+	if err != nil {
+		lg.WithError(err).Error("Failed to execute transaction")
+	}
+	return err
+}
+
 // CreateTrigger create trigger: link event <-> multiple pipelines
 func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string, filters map[string]string) error {
 	account := getAccount(ctx)
@@ -588,6 +645,20 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 	if err != nil {
 		lg.WithError(err).Error("error getting pipelines")
 		return nil, err
+	}
+
+	// check is trigger enable or no
+	stateKey := getSwitchTriggerKey(account, event)
+	state, err := redis.String(con.Do("HGET", stateKey))
+	if err != nil && err != redis.ErrNil {
+		lg.WithError(err).Error("failed to get trigger state")
+		return nil, err
+	}
+
+	// return empty pipelines if trigger disable
+	if state == "disable" {
+		lg.Warn("trigger  in disable state")
+		return nil, nil
 	}
 
 	// scan through pipelines and filter out pipelines that match filter
