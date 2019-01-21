@@ -67,7 +67,7 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 		triggersAPI.Handle("GET", "/pipeline/:pipeline", triggerController.GetPipelineTriggers)
 		triggersAPI.Handle("POST", "/:event/:pipeline", triggerController.CreateTrigger)
 		triggersAPI.Handle("DELETE", "/:event/:pipeline", triggerController.DeleteTrigger)
-		triggersAPI.Handle("PATCH", "/:event/:pipeline/switchState/:state", triggerController.SwitchState)
+		triggersAPI.Handle("PATCH", "/:event/:pipeline/state/:state", triggerController.SwitchState)
 
 	}
 

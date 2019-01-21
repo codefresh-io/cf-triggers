@@ -401,6 +401,7 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, w
 				lg.WithError(err).Error("error getting trigger filter")
 				return nil, err
 			}
+
 			// populate trigger object
 			trigger := model.Trigger{
 				Event:    event,
@@ -414,6 +415,16 @@ func (r *RedisStore) GetPipelineTriggers(ctx context.Context, pipeline string, w
 					lg.WithField("event-uri", event).WithError(err).Error("error getting event details")
 					return nil, err
 				}
+
+				triggerKey := getSwitchTriggerKey(account, event)
+
+				state, err := redis.String(con.Do("GET", triggerKey))
+
+				if err != nil && err != redis.ErrNil {
+					lg.WithError(err).Error("error getting trigger state")
+					return nil, err
+				}
+				eventData.State = state == "disable"
 				trigger.EventData = *eventData
 			}
 			// add trigger to result list
@@ -649,7 +660,7 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 
 	// check is trigger enable or no
 	stateKey := getSwitchTriggerKey(account, event)
-	state, err := redis.String(con.Do("HGET", stateKey))
+	state, err := redis.String(con.Do("GET", stateKey))
 	if err != nil && err != redis.ErrNil {
 		lg.WithError(err).Error("failed to get trigger state")
 		return nil, err

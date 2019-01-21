@@ -36,6 +36,8 @@ type (
 		Account string `json:"account" yaml:"account"`
 		// event secret, used for event validation
 		Secret string `json:"secret" yaml:"secret"`
+
+		State bool `json:"disabled" yaml:"disabled"`
 	}
 )
 

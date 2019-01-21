@@ -28,6 +28,9 @@ type (
 		Event string `json:"event" yaml:"event"`
 		// pipeline
 		Pipeline string `json:"pipeline" yaml:"pipeline"`
+
+		State string `json:"state" yaml:"state"`
+
 		// filter
 		Filters map[string]string `json:"filters,omitempty" yaml:"filters,omitempty"`
 		// event details (optional)
