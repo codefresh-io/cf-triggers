@@ -663,7 +663,7 @@ func (r *RedisStore) GetTriggerPipelines(ctx context.Context, event string, vars
 	state, err := redis.String(con.Do("GET", stateKey))
 	if err != nil && err != redis.ErrNil {
 		lg.WithError(err).Error("failed to get trigger state")
-		return nil, err
+		state = "disable"
 	}
 
 	// return empty pipelines if trigger disable
