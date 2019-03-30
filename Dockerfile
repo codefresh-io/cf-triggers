@@ -54,7 +54,7 @@ RUN hack/build.sh
 #
 # ------ Hermes Trigger manager image ------
 #
-FROM alpine:3.7
+FROM alpine:3.9
 
 RUN apk add --no-cache ca-certificates
 
