@@ -56,7 +56,7 @@ RUN hack/build.sh
 #
 FROM alpine:3.9
 
-RUN apk add --no-cache ca-certificates
+RUN apk update && apk add --no-cache ca-certificates && apk upgrade
 
 ENV GIN_MODE=release
 
