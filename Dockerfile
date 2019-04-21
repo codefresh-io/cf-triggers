@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# ----- Go Dev Image ------
+# ----- Go Dev  Image ------
 #
 FROM golang:1.10 AS godev
 
