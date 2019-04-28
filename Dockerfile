@@ -50,7 +50,7 @@ FROM godev AS builder
 
 # build binary
 ARG VERSION
-RUN VERSION=$VERSION make build
+RUN make build
 
 #
 # ------ Hermes Trigger manager image ------
