@@ -1,0 +1,23 @@
+{{- if not (include "redisStore.existingPvc" . ) -}}
+
+{{- $storageClass :=  ( include "redisStore.storageClass" . ) -}}
+{{- $storageSize :=  ( include "redisStore.storageSize" . ) -}}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "redis.fullname" . }}
+  labels:
+    app: {{ template "redis.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ $storageSize | quote }}
+  {{- if $storageClass }}
+  storageClassName: {{ $storageClass | quote }}
+  {{- end }}
+{{- end }}
