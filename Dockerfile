@@ -29,7 +29,7 @@ COPY . .
 FROM godev AS tester
 
 # run tests
-RUN make test
+RUN hack/test.sh
 
 # upload coverage reports to Codecov.io: pass CODECOV_TOKEN as build-arg
 ARG CODECOV_TOKEN
