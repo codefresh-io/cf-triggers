@@ -29,7 +29,7 @@ COPY . .
 FROM godev AS tester
 
 # run tests
-RUN hack/test.sh
+RUN make test
 
 # upload coverage reports to Codecov.io: pass CODECOV_TOKEN as build-arg
 ARG CODECOV_TOKEN
@@ -49,7 +49,8 @@ RUN if [ "$CODECOV_TOKEN" != "" ]; then curl -s $CODECOV_BASH_URL | bash -s; fi
 FROM godev AS builder
 
 # build binary
-RUN hack/build.sh
+ARG VERSION
+RUN VERSION=$VERSION make build
 
 #
 # ------ Hermes Trigger manager image ------
