@@ -1,0 +1,239 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "hermes.fullname" . }}
+  labels:
+    app: {{ template "hermes.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  # always regenerate random token - leads to shanged SHA256 sum and thus Deployment recreate
+  random_token: {{ randAlphaNum 10 | b64enc | quote }}
+  # TODO: replace hardcoded value with discovery
+  type_config.json: |
+    {
+        "types": [
+          {
+            "type": "registry",
+            "kind": "dockerhub",
+            "service-url": "http://{{ printf "%s-nomios" .Release.Name }}",
+            "uri-template": "registry:dockerhub:{{"{{"}}namespace{{"}}"}}:{{"{{"}}name{{"}}"}}:{{"{{"}}action{{"}}"}}",
+            "uri-regex": "^registry:dockerhub:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "help-url": "https://codefresh.io/docs/docs/pipeline-triggers/configure-dockerhub-trigger/",
+            "config": [
+              {
+                "name": "namespace",
+                "type": "string",
+                "help": "Docker Hub user or organization name",
+                "validator": "^[a-z0-9_-]+$",
+                "required": true
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "help": "docker image name",
+                "validator": "^[a-z0-9_-]+$",
+                "required": true
+              },
+              {
+                "name": "action",
+                "type": "list",
+                "help": "docker push command",
+                "options": {
+                  "Push Image": "push"
+                },
+                "validator": "^(push)$",
+                "required": true
+              }
+            ],
+            "filters": [
+              {
+                "name": "tag",
+                "type": "string",
+                "help": "RE2 regular expression",
+                "validator": "^.+$"
+              }
+            ]
+          },
+          {
+            "type": "registry",
+            "kind": "quay",
+            "service-url": "http://{{ printf "%s-nomios" .Release.Name }}",
+            "uri-template": "registry:quay:{{"{{"}}namespace{{"}}"}}:{{"{{"}}name{{"}}"}}:{{"{{"}}action{{"}}"}}",
+            "uri-regex": "^registry:quay:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "help-url": "https://codefresh.io/docs/docs/pipeline-triggers/configure-quay-trigger/",
+            "config": [
+              {
+                "name": "namespace",
+                "type": "string",
+                "help": "Quay Hub user or organization name",
+                "validator": "^[a-z0-9_-]+$",
+                "required": true
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "help": "docker image name",
+                "validator": "^[a-z0-9_-]+$",
+                "required": true
+              },
+              {
+                "name": "action",
+                "type": "list",
+                "help": "docker push command",
+                "options": {
+                  "Push Image": "push"
+                },
+                "validator": "^(push)$",
+                "required": true
+              }
+            ],
+            "filters": [
+              {
+                "name": "tag",
+                "type": "string",
+                "help": "RE2 regular expression",
+                "validator": "^.+$"
+              }
+            ]
+          },
+          {
+            "type": "registry",
+            "kind": "jfrog",
+            "service-url": "http://{{ printf "%s-nomios" .Release.Name }}",
+            "uri-template": "registry:jfrog:{{"{{"}}namespace{{"}}"}}:{{"{{"}}name{{"}}"}}:{{"{{"}}action{{"}}"}}",
+            "uri-regex": "^registry:jfrog:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "help-url": "https://codefresh.io/docs/docs/pipeline-triggers/configure-jfrog-trigger/",
+            "config": [
+                {
+                    "name": "namespace",
+                    "type": "string",
+                    "validator": "^[a-z0-9_-]+$",
+                    "help": "name of repository",
+                    "required": true
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "validator": "^[a-z0-9_-]+$",
+                    "help": "docker image name",
+                    "required": true
+                },
+                {
+                    "name": "action",
+                    "type": "list",
+                    "options": {
+                        "Push Image": "push"
+                    },
+                    "help": "docker push command",
+                    "validator": "^(push)$",
+                    "required": true
+                }
+            ],
+            "filters": [
+                {
+                    "name": "tag",
+                    "type": "string",
+                    "validator": "^.+$"
+                }
+            ]
+          },
+          {
+            "type": "registry",
+            "kind": "azure",
+            "service-url": "http://{{ printf "%s-nomios" .Release.Name }}",
+            "uri-template": "registry:azure:{{"{{"}}namespace{{"}}"}}:{{"{{"}}name{{"}}"}}:{{"{{"}}action{{"}}"}}",
+            "uri-regex": "^registry:azure:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "help-url": "https://codefresh.io/docs/docs/pipeline-triggers/configure-azure-trigger/",
+            "config": [
+                {
+                    "name": "namespace",
+                    "type": "string",
+                    "validator": "^[a-z0-9_-]+$",
+                    "required": true
+                },
+                {
+                    "name": "name",
+                    "type": "string",
+                    "validator": "^[a-z0-9_-]+$",
+                    "required": true
+                },
+                {
+                    "name": "action",
+                    "type": "list",
+                    "options": {
+                        "Push Image": "push"
+                    },
+                    "validator": "^(push)$",
+                    "required": true
+                }
+            ],
+            "filters": [
+                {
+                    "name": "tag",
+                    "type": "string",
+                    "validator": "^.+$"
+                }
+            ]
+          },
+
+          {
+              "type": "helm",
+              "kind": "jfrog",
+              "service-url": "http://{{ printf "%s-nomios" .Release.Name }}",
+              "uri-template": "helm:jfrog:{{"{{"}}repository{{"}}"}}:{{"{{"}}chart name{{"}}"}}:{{"{{"}}action{{"}}"}}",
+              "uri-regex": "^helm:jfrog:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+              "config": [
+                  {
+                      "name": "repository",
+                      "type": "string",
+                      "validator": "^[a-z0-9_-]+$",
+                      "required": true
+                  },
+                  {
+                      "name": "chart name",
+                      "type": "string",
+                      "validator": "^[a-z0-9_-]+$",
+                      "required": true
+                  },
+                  {
+                      "name": "action",
+                      "type": "list",
+                      "options": {
+                          "Push Chart": "push"
+                      },
+                      "validator": "^(push)$",
+                      "required": true
+                  }
+              ]
+          },
+
+
+
+          {
+            "type": "cron",
+            "kind": "codefresh",
+            "service-url": "http://{{ printf "%s-cronus" .Release.Name }}",
+            "uri-template": "cron:codefresh:{{"{{"}}expression{{"}}"}}:{{"{{"}}message{{"}}"}}",
+            "uri-regex": "^cron:codefresh:@yearly|@annually|@montly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6,7}:[a-zA-Z0-9_+\\s-#?.:]{2,128}$",
+            "help-url": "https://codefresh.io/docs/docs/configure-ci-cd-pipeline/triggers/cron-triggers/",
+            "config": [{
+                    "name": "expression",
+                    "type": "cron",
+                    "help": "6 terms cron expression",
+                    "validator": "^@yearly|@annually|@montly|@weekly|@daily|@midnight|@hourly|([a-zA-Z0-9*/,-?]+\\s?){6,7}$",
+                    "required": true
+                },
+                {
+                    "name": "message",
+                    "type": "string",
+                    "help": "text to send with each trigger",
+                    "validator": "^[a-zA-Z0-9_+\\s-#?.:]{2,128}$",
+                    "required": true
+                }
+            ],
+            "filters": []
+          }
+        ]
+    }

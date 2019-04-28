@@ -1,0 +1,17 @@
+backup:
+    awsaccesskey: ENC[AES256_GCM,data:IUyQQD62PSWBf353CtLtjJNiCplLSKJcRueUww==,iv:4N40skFDBnm82fkv96huDdPi2EvwsggxM48RPTuFY7s=,tag:7LJJNzjX+r5FB67DVCrdXA==,type:str]
+    awssecretaccesskey: ENC[AES256_GCM,data:znvsPqVeyQ6FnjZMp0WosuAaohkfj44A8+QcQJiywOV1KRPkuX410zZLzVYwxb49mi8pKJjx7ww=,iv:ivMaK31mx1vfbmhGaGhcduR9ZTzFR4tKHk9emqYqats=,tag:Bw93kTataF3lliwICc6W/w==,type:str]
+    s3url: ENC[AES256_GCM,data:tCUBuUSIOk3JkhsqpXNVs+haWuAEq/Bn68YmrYhp3kNaecWb54ybbvfAxDzR78ioayOyBZpTcMhWhICkfFlIgynKj0s=,iv:WSVMPlDV+ExUJRLk0ibzV2vr+LN1bXhMDgYje/X5DX8=,tag:Wjc6ETr30KZtFK9rl/mTzg==,type:str]
+    slackchannel: ENC[AES256_GCM,data:r5JoVfBLi7PE59ziO+wLLA==,iv:BLxQJelNY7BClnkHESGsj/uvzXDuq7CquVRl7aSxqfA=,tag:+aeNBe6tvv8H9PFflvIdtA==,type:str]
+    slackurl: ENC[AES256_GCM,data:FcpuOdnSd68cKXXAMKhddInwn0DMOOBDSoNnDisoHLwLL2FSyv0PwK9FPgeQLiGMdOKDyg9vzJYVBN7Kx98yvxbwLz7x6pTZJHjFHla+oyH67J3T+xWKDAczjm2NjT8VAnGdvvvNymU=,iv:Wer2h9rbZWP0Q8B6qff7LINDHVMHHG+5WaWW6P5D4BA=,tag:Fze+5tRQFMB9ZtdY6UOvJw==,type:str]
+sops:
+    kms:
+    -   arn: arn:aws:kms:us-east-1:839151377425:key/8f4d2cf9-30fb-4f16-a9a8-6cfb6815626e
+        created_at: '2018-03-18T10:32:17Z'
+        enc: AQICAHh7tK2dh55HkjrL+q3qHw1Fs/LKV7qodM1JtjJ3RA8cDwHgFwyE0SVHvwJ8xHUcpXDnAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMC1huG0rrKwU92YBzAgEQgDtRVhGLBOCqzU5oqtk3ZQseIJCTxy4RhFjYaE1Zbg3hTbN4zELCQNbLELcWDktgKAC39LVKsc3GRpBNTA==
+    gcp_kms: []
+    lastmodified: '2018-03-18T10:32:18Z'
+    mac: ENC[AES256_GCM,data:tIkX3FOlgGuJA9iZpkU/0tv8O0rlFlQQCSCVN8QfVN/8y8Y2FE+695IwHAaf7GRa3BJsuw+M2MOgTVV2a0k571SzJH9C7V+Vy78u7tabosiwViM01PPM+Zijm9+B4QVtaVWvrRLe1GQGnfE4MS+nt8w0gtnTkgwr487G5RdRsUs=,iv:9SFv5/4Y1ZS8Kv0FdhIgo72DRcI0OVuTpfAXMxQG5Ew=,tag:aG9O6av1A270IuG1wvcuoA==,type:str]
+    pgp: []
+    unencrypted_suffix: _unencrypted
+    version: 3.0.0

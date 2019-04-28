@@ -49,7 +49,8 @@ RUN if [ "$CODECOV_TOKEN" != "" ]; then curl -s $CODECOV_BASH_URL | bash -s; fi
 FROM godev AS builder
 
 # build binary
-RUN hack/build.sh
+ARG VERSION
+RUN make build
 
 #
 # ------ Hermes Trigger manager image ------
