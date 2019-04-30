@@ -36,9 +36,9 @@ spec:
       containers:
         - name: {{ .Chart.Name }}
           {{- if .Values.global.privateRegistry }} 
-          image: "{{ .Values.global.dockerRegistry }}{{ .Values.image.repository }}:{{ .Values.imageTag }}"
+          image: "{{ .Values.global.dockerRegistry }}{{ .Values.image.name }}:{{ .Values.imageTag }}"
           {{- else }}
-          image: "{{ .Values.image.repository }}:{{ .Values.imageTag }}"
+          image: "{{ .Values.dockerRegistry }}{{ .Values.image.name }}:{{ .Values.imageTag }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
