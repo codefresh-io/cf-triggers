@@ -26,19 +26,14 @@ spec:
         - name: config-volume
           configMap:
             name: {{ template "hermes.fullname" . }}
-      {{- if .Values.global.privateRegistry }}
       imagePullSecrets:
         - name: "{{ .Release.Name }}-{{ .Values.global.codefresh }}-registry"
-      {{- else }}
-      imagePullSecrets:
-        - name: "{{ .Release.Name }}-{{ .Values.global.codefresh }}-registry"
-      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           {{- if .Values.global.privateRegistry }} 
-          image: "{{ .Values.global.dockerRegistry }}{{ .Values.image.repository }}:{{ .Values.imageTag }}"
+          image: "{{ .Values.global.dockerRegistry }}{{ .Values.image.name }}:{{ .Values.imageTag }}"
           {{- else }}
-          image: "{{ .Values.image.repository }}:{{ .Values.imageTag }}"
+          image: "{{ .Values.image.dockerRegistry }}{{ .Values.image.name }}:{{ .Values.imageTag }}"
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
