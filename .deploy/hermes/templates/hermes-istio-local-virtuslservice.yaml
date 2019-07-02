@@ -19,7 +19,7 @@ spec:
       - destination:                                                                                                                                                                            
           host: {{ template "hermes.fqdn" $ }}
           port:
-            number: {{ .Values.service.externalPort }}
+            number: {{ $.Values.service.externalPort }}
           subset: {{ $host | replace "." "-" -}}
       {{ end -}}
     {{ end -}}
@@ -29,6 +29,6 @@ spec:
     - destination:
         host: {{ template "hermes.fqdn" $ }}
         port:
-          number: {{ .Values.service.externalPort }}
+          number: {{ $.Values.service.externalPort }}
         subset: base
 {{ end }}
