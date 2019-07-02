@@ -63,6 +63,9 @@ backup:
   tag: 0.1.2
   env: staging
 global:
+  istio:
+    enabled: false
+
   # Global codefresh chart name; all subcharts use this name to access secrets and configmaps
   codefresh: codefresh
   # affinity definitions
