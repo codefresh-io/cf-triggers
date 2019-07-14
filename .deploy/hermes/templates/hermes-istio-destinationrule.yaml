@@ -1,0 +1,28 @@
+{{- if $.Values.global.istio.enabled }}
+  {{ $subsets := list }}
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: {{ template "hermes.fullname" . }}
+spec:
+  host: {{ template "hermes.fqdn" . }}
+  subsets:
+  - name: base
+    labels:
+      version: base
+  {{- range $key,$value := .Values.global.istio.extraDeployments -}}
+    {{- range $host, $apps := $value -}}
+      {{- range $name, $a := $apps -}}
+        {{- if (eq $name "hermes") -}}
+          {{ $subsets = append $subsets (printf "%s" $host) }}
+        {{- end -}}
+      {{ end -}}
+    {{ end -}}
+  {{ end -}}
+  {{- range $s := $subsets | uniq }}
+  - name: {{ $s | replace "." "-" }}
+    labels:
+      version: {{ $s | replace "." "-" }}
+  {{- end -}}
+{{ end }}
+

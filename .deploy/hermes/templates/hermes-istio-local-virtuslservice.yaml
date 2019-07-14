@@ -1,0 +1,34 @@
+{{- if $.Values.global.istio.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{ template "hermes.fullname" $ }}
+spec:
+  hosts: 
+  - {{ template "hermes.fqdn" $ }}
+  http:
+{{- range $key,$value := .Values.global.istio.extraDeployments -}}
+  {{- range $host, $apps := $value -}}
+    {{- range $name, $a := $apps -}}
+      {{- if (eq $name "hermes") }}
+  - match:
+    - headers:
+        x-codefresh-version:
+          exact: {{ $host }}
+    route:                                                                                                                                                                                    
+      - destination:                                                                                                                                                                            
+          host: {{ template "hermes.fqdn" $ }}
+          port:
+            number: {{ $.Values.service.externalPort }}
+          subset: {{ $host | replace "." "-" -}}
+      {{ end -}}
+    {{ end -}}
+  {{ end -}}
+{{ end }}
+  - route:
+    - destination:
+        host: {{ template "hermes.fqdn" $ }}
+        port:
+          number: {{ $.Values.service.externalPort }}
+        subset: base
+{{ end }}
