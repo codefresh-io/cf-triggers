@@ -82,7 +82,7 @@ spec:
             value: {{ .Values.service.internalPort | quote }}
           - name: CFAPI_URL
             {{- if .Values.global.cfapiService }}
-            value: "{{.Values.global.appProtocol}}://{{.Release.Name}}-{{.Values.global.cfapiService}}:{{.Values.global.cfapiInternalPort}}"
+            value: "{{.Values.cfapi.protocol}}://{{.Release.Name}}-{{.Values.global.cfapiService}}:{{.Values.global.cfapiInternalPort}}"
             {{- else }}
             value: "{{.Values.cfapi.protocol}}://{{.Release.Name}}-cfapi:{{.Values.cfapi.port}}"
             {{- end }}
