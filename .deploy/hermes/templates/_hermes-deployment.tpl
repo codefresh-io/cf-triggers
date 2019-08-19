@@ -1,5 +1,5 @@
 {{/*
-We create Deployment resource as template to be able to use many deployments but with 
+We create Deployment resource as template to be able to use many deployments but with
 different name and version. This is for Istio POC.
 */}}
 {{- define "hermes.renderDeployment" -}}
@@ -81,8 +81,8 @@ spec:
           - name: PORT
             value: {{ .Values.service.internalPort | quote }}
           - name: CFAPI_URL
-            {{- if .Values.cfapi.service }}
-            value: "{{.Values.cfapi.protocol}}://{{.Values.cfapi.service}}:{{.Values.cfapi.port}}"
+            {{- if .Values.global.cfapiService }}
+            value: "{{.Values.global.appProtocol}}://{{.Values.global.cfapiService}}:{{.Values.global.cfapiInternalPort}}"
             {{- else }}
             value: "{{.Values.cfapi.protocol}}://{{.Release.Name}}-cfapi:{{.Values.cfapi.port}}"
             {{- end }}
