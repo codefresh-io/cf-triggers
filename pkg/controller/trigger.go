@@ -112,3 +112,21 @@ func (c *TriggerController) DeleteTrigger(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	}
 }
+
+func (c *TriggerController) SwitchState(ctx *gin.Context) {
+	// get trigger event (event-uri)
+	event := getParam(ctx, "event")
+	// get pipeline
+	pipeline := ctx.Param("pipeline")
+	state := ctx.Param("state")
+
+	if err := c.trigger.SwitchTriggerState(getContext(ctx), event, pipeline, state); err != nil {
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, ErrorResult{status, "failed to delete trigger: event <-X-> pipeline", err.Error()})
+	} else {
+		ctx.Status(http.StatusOK)
+	}
+}

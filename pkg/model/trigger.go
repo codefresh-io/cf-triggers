@@ -28,6 +28,9 @@ type (
 		Event string `json:"event" yaml:"event"`
 		// pipeline
 		Pipeline string `json:"pipeline" yaml:"pipeline"`
+
+		State string `json:"state" yaml:"state"`
+
 		// filter
 		Filters map[string]string `json:"filters,omitempty" yaml:"filters,omitempty"`
 		// event details (optional)
@@ -54,6 +57,7 @@ type (
 		GetEventTriggers(ctx context.Context, event string) ([]Trigger, error)
 		GetPipelineTriggers(ctx context.Context, pipeline string, withEvent bool) ([]Trigger, error)
 		DeleteTrigger(ctx context.Context, event, pipeline string) error
+		SwitchTriggerState(ctx context.Context, event, pipeline string, state string) error
 		CreateTrigger(ctx context.Context, event, pipeline string, filters map[string]string) error
 		GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error)
 	}
