@@ -484,6 +484,23 @@ func (r *RedisStore) DeleteTrigger(ctx context.Context, event, pipeline string) 
 	return err
 }
 
+func (r *RedisStore) DeleteAllTriggersByPipeline(ctx context.Context, pipeline string) error {
+	triggers, err := r.GetPipelineTriggers(ctx, pipeline, true)
+
+	if err != nil {
+		return err
+	}
+
+	for _, trigger := range triggers {
+		err = r.DeleteTrigger(ctx, trigger.Event, pipeline)
+		if err != nil {
+			log.Debug("Can`t delete trigger", err)
+		}
+	}
+
+	return nil
+}
+
 // CreateTrigger create trigger: link event <-> multiple pipelines
 func (r *RedisStore) CreateTrigger(ctx context.Context, event, pipeline string, filters map[string]string) error {
 	account := getAccount(ctx)

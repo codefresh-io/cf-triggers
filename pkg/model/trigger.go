@@ -3,7 +3,6 @@ package model
 import (
 	"context"
 	"errors"
-
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -56,6 +55,7 @@ type (
 		DeleteTrigger(ctx context.Context, event, pipeline string) error
 		CreateTrigger(ctx context.Context, event, pipeline string, filters map[string]string) error
 		GetTriggerPipelines(ctx context.Context, event string, vars map[string]string) ([]string, error)
+		DeleteAllTriggersByPipeline(ctx context.Context, pipeline string) error
 	}
 
 	// Runner pipeline runner

@@ -69,6 +69,11 @@ func setupRouter(eventReaderWriter model.TriggerEventReaderWriter,
 		triggersAPI.Handle("DELETE", "/:event/:pipeline", triggerController.DeleteTrigger)
 	}
 
+	triggersInternalAPI := router.Group("/accounts/:account/triggers-internal", gin.Logger())
+	{
+		triggersInternalAPI.Handle("DELETE", "/pipeline/:pipeline", triggerController.DeleteTriggersForPipeline)
+	}
+
 	// list trigger types
 	typesController := controller.NewTriggerTypeController(eventProvider)
 	typesAPI := router.Group("/types", gin.Logger())

@@ -112,3 +112,17 @@ func (c *TriggerController) DeleteTrigger(ctx *gin.Context) {
 		ctx.Status(http.StatusOK)
 	}
 }
+
+func (c *TriggerController) DeleteTriggersForPipeline(ctx *gin.Context) {
+	// get pipeline
+	pipeline := ctx.Param("pipeline")
+	if err := c.trigger.DeleteAllTriggersByPipeline(getContext(ctx), pipeline); err != nil {
+		status := http.StatusInternalServerError
+		if err == model.ErrTriggerNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, ErrorResult{status, "failed to delete trigger: event <-X-> pipeline", err.Error()})
+	} else {
+		ctx.Status(http.StatusOK)
+	}
+}
