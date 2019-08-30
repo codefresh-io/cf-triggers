@@ -105,3 +105,20 @@ func (_m *MockTriggerReaderWriter) GetTriggerPipelines(ctx context.Context, even
 
 	return r0, r1
 }
+
+func (_m *MockTriggerReaderWriter) DeleteAllTriggersByPipeline(ctx context.Context, pipeline string) error {
+	triggers, err := _m.GetPipelineTriggers(ctx, pipeline, true)
+
+	if err != nil {
+		return err
+	}
+
+	for _, trigger := range triggers {
+		err = _m.DeleteTrigger(ctx, trigger.Event, pipeline)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
