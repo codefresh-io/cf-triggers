@@ -24,26 +24,24 @@ data:
             "config": [
               {
                 "name": "namespace",
-                "name-label": "User/organization name",
                 "type": "string",
-                "help": "DockerHub username or organization name",
+                "help": "Docker Hub user or organization name",
                 "validator": "^[a-z0-9_-]+$",
                 "required": true
               },
               {
                 "name": "name",
-                "name-label": "Image repository name",
                 "type": "string",
+                "help": "docker image name",
                 "validator": "^[a-z0-9_-]+$",
                 "required": true
               },
               {
                 "name": "action",
-                "name-label": "Action",
                 "type": "list",
-                "help": "Docker command to monitor",
+                "help": "docker push command",
                 "options": {
-                    "Push Image": "push"
+                  "Push Image": "push"
                 },
                 "validator": "^(push)$",
                 "required": true
@@ -68,26 +66,24 @@ data:
             "config": [
               {
                 "name": "namespace",
-                "name-label": "User/organization name",
                 "type": "string",
-                "help": "Quay username or organization name",
+                "help": "Quay Hub user or organization name",
                 "validator": "^[a-z0-9_-]+$",
                 "required": true
               },
               {
                 "name": "name",
-                "name-label": "Image repository name",
                 "type": "string",
+                "help": "docker image name",
                 "validator": "^[a-z0-9_-]+$",
                 "required": true
               },
               {
                 "name": "action",
-                "name-label": "Action",
                 "type": "list",
-                "help": "Docker command to monitor",
+                "help": "docker push command",
                 "options": {
-                    "Push Image": "push"
+                  "Push Image": "push"
                 },
                 "validator": "^(push)$",
                 "required": true
@@ -112,27 +108,25 @@ data:
             "config": [
                 {
                     "name": "namespace",
-                    "name-label": "Repository name",
                     "type": "string",
-                    "help": "JFrog name of repository",
                     "validator": "^[a-z0-9_-]+$",
+                    "help": "name of repository",
                     "required": true
                 },
                 {
                     "name": "name",
-                    "name-label": "Docker image name",
                     "type": "string",
                     "validator": "^[a-z0-9_-]+$",
+                    "help": "docker image name",
                     "required": true
                 },
                 {
                     "name": "action",
-                    "name-label": "Action",
                     "type": "list",
                     "options": {
                         "Push Image": "push"
                     },
-                    "help": "Docker command to monitor",
+                    "help": "docker push command",
                     "validator": "^(push)$",
                     "required": true
                 }
@@ -155,27 +149,22 @@ data:
             "config": [
                 {
                     "name": "namespace",
-                    "name-label": "Name of registry",
                     "type": "string",
-                    "help": "Azure name of registry without .azurecr.io"
                     "validator": "^[a-z0-9_-]+$",
                     "required": true
                 },
                 {
                     "name": "name",
-                    "name-label": "Image repository name",
                     "type": "string",
                     "validator": "^[a-z0-9_-]+$",
                     "required": true
                 },
                 {
                     "name": "action",
-                    "name-label": "Action",
                     "type": "list",
                     "options": {
                         "Push Image": "push"
                     },
-                    "help": "Docker command to monitor",
                     "validator": "^(push)$",
                     "required": true
                 }
