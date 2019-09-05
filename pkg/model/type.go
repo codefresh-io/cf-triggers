@@ -20,7 +20,7 @@ type (
 		Validator string `json:"validator,omitempty" yaml:"validator,omitempty"`
 		// Required required flag (default: false)
 		Required bool `json:"required,omitempty" yaml:"required,omitempty"`
-		// Name field name
+		// NameLabel name-label filed
 		NameLabel string `json:"name-label" yaml:"name-label"`
 	}
 
