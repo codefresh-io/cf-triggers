@@ -150,7 +150,7 @@ data:
             "kind": "azure",
             "service-url": "http://{{ printf "%s-nomios" .Release.Name }}",
             "uri-template": "registry:azure:{{"{{"}}namespace{{"}}"}}:{{"{{"}}name{{"}}"}}:{{"{{"}}action{{"}}"}}",
-            "uri-regex": "^registry:azure:[a-z0-9_-]+:[a-z0-9_-]+:push$",
+            "uri-regex": "^registry:azure:[a-z0-9_-]+:[\/a-z0-9_-]+:push$",
             "help-url": "https://codefresh.io/docs/docs/pipeline-triggers/configure-azure-trigger/",
             "config": [
                 {
