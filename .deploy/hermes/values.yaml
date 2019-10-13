@@ -6,7 +6,7 @@ replicaCount: 1
 # use SemVer image tag without PATCH numver
 image:
   name: codefresh/hermes
-  dockerRegistry: r.cfcr.io/codefresh-inc/
+  dockerRegistry: gcr.io/codefresh-inc/
   pullPolicy: Always
 imageTag: 0.10
 
