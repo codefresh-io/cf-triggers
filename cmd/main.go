@@ -143,21 +143,21 @@ func before(c *cli.Context) error {
 
 	log.Info("Init config file path: " + c.GlobalString("config"))
 
-// 	// set new relic monitoring
-// 	newRelicLicense := c.GlobalString("new-relic")
-// 	if newRelicLicense != "" {
-// 		log.Debug("setting New Relic agent")
-// 		cfg := newrelic.NewConfig("trigger-manager-hermes[kubernetes]", newRelicLicense)
-// 		var err error
-// 		nrApp, err = newrelic.NewApplication(cfg)
-// 		if nil != err {
-// 			log.WithError(err).Error("failed to setup New Relic agent with provided license")
-// 			return err
-// 		}
-// 		log.Debug("setting New Relic agent hook for Logrus logging")
+	// set new relic monitoring
+	newRelicLicense := c.GlobalString("new-relic")
+	if newRelicLicense != "" {
+		log.Debug("setting New Relic agent")
+		cfg := newrelic.NewConfig("trigger-manager-hermes[kubernetes]", newRelicLicense)
+		var err error
+		nrApp, err = newrelic.NewApplication(cfg)
+		if nil != err {
+			log.WithError(err).Error("failed to setup New Relic agent with provided license")
+			return err
+		}
+		log.Debug("setting New Relic agent hook for Logrus logging")
 // 		nrHook := logger.NewNewRelicLogrusHook(nrApp, []log.Level{log.ErrorLevel, log.FatalLevel, log.PanicLevel})
 // 		log.AddHook(nrHook)
-// 	}
+	}
 
 	return nil
 }
