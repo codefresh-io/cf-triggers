@@ -91,6 +91,12 @@ spec:
               secretKeyRef:
                 name: {{ template "hermes.fullname" . }}
                 key: cfapi-token
+          securityContext:
+            runAsNonRoot: true
+            runAsGroup: 0
+            fsGroup: 0
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
           volumeMounts:
             - name: config-volume
               mountPath: /etc/hermes
