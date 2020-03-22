@@ -31,6 +31,11 @@ spec:
         heritage: {{ .Release.Service  | quote }}
         version: {{ .version | default "base" | quote  }}
     spec:
+      {{- $podSecurityContext := (kindIs "invalid" .Values.global.podSecurityContextOverride) | ternary .Values.podSecurityContext .Values.global.podSecurityContextOverride }}
+      {{- with $podSecurityContext }}
+      securityContext:
+{{ toYaml . | indent 8}}
+      {{- end }}
       volumes:
         - name: config-volume
           configMap:
@@ -91,12 +96,6 @@ spec:
               secretKeyRef:
                 name: {{ template "hermes.fullname" . }}
                 key: cfapi-token
-          securityContext:
-            runAsNonRoot: true
-            runAsGroup: 0
-            fsGroup: 0
-            runAsUser: 1000
-            allowPrivilegeEscalation: false
           volumeMounts:
             - name: config-volume
               mountPath: /etc/hermes

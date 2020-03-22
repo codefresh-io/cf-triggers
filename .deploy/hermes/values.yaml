@@ -3,6 +3,12 @@
 # Declare variables to be passed into your templates.
 replicaCount: 1
 
+podSecurityContext:
+  runAsNonRoot: true
+  runAsGroup: 0
+  fsGroup: 0
+  runAsUser: 1000
+
 # use SemVer image tag without PATCH numver
 image:
   name: codefresh/hermes
