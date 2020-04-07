@@ -31,10 +31,12 @@ spec:
         heritage: {{ .Release.Service  | quote }}
         version: {{ .version | default "base" | quote  }}
     spec:
+      {{- if not .Values.global.devEnvironment }}
       {{- $podSecurityContext := (kindIs "invalid" .Values.global.podSecurityContextOverride) | ternary .Values.podSecurityContext .Values.global.podSecurityContextOverride }}
       {{- with $podSecurityContext }}
       securityContext:
 {{ toYaml . | indent 8}}
+      {{- end }}
       {{- end }}
       volumes:
         - name: config-volume
