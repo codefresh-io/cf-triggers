@@ -9,7 +9,6 @@ metadata:
     heritage: {{ .Release.Service }}
 data:
   # always regenerate random token - leads to shanged SHA256 sum and thus Deployment recreate
-  # random_token: {{ randAlphaNum 10 | b64enc | quote }}
   # TODO: replace hardcoded value with discovery
   type_config.json: |
     {
