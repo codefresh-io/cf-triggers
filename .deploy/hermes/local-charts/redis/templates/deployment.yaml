@@ -33,7 +33,7 @@ spec:
       nodeSelector:
 {{ toYaml $nodeSelector | indent 8 }}
       {{- end }}
-{{- with (default $.Values.global.affinity $.Values.tolerations ) }}
+{{- with (default $.Values.global.tolerations $.Values.tolerations ) }}
       tolerations:
 {{ toYaml . | indent 8}}
       {{- end }}
