@@ -33,9 +33,9 @@ spec:
       nodeSelector:
 {{ toYaml $nodeSelector | indent 8 }}
       {{- end }}
-      {{- if .Values.tolerations }}
+{{- with (default $.Values.global.appServiceTolerations $.Values.tolerations ) }}
       tolerations:
-{{ toYaml .Values.tolerations | indent 8 }}
+{{ toYaml . | indent 8}}
       {{- end }}
       {{- if .Values.global.privateRegistry }}
       affinity:
