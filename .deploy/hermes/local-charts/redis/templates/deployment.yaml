@@ -33,13 +33,13 @@ spec:
       nodeSelector:
 {{ toYaml $nodeSelector | indent 8 }}
       {{- end }}
-{{- with (default $.Values.global.appServiceTolerations $.Values.tolerations ) }}
+{{- with (default $.Values.global.affinity $.Values.tolerations ) }}
       tolerations:
 {{ toYaml . | indent 8}}
       {{- end }}
       {{- if .Values.global.privateRegistry }}
       affinity:
-{{ toYaml (default .Values.global.appServiceAffinity .Values.affinity) | indent 8 }}
+{{ toYaml (default .Values.global.affinity .Values.affinity) | indent 8 }}
       imagePullSecrets:
         - name: "{{ .Release.Name }}-{{ .Values.global.codefresh }}-registry"
       {{- end }}
