@@ -37,9 +37,9 @@ spec:
       tolerations:
 {{ toYaml . | indent 8}}
       {{- end }}
-      {{- if .Values.global.privateRegistry }}
       affinity:
 {{ toYaml (default .Values.global.affinity .Values.affinity) | indent 8 }}
+      {{- if .Values.global.privateRegistry }}
       imagePullSecrets:
         - name: "{{ .Release.Name }}-{{ .Values.global.codefresh }}-registry"
       {{- end }}
