@@ -123,4 +123,10 @@ spec:
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
     {{- end }}
+{{- with (default $.Values.global.appServiceTolerations $.Values.tolerations ) }}
+      tolerations:
+{{ toYaml . | indent 8}}
+      {{- end }}
+      affinity:
+{{ toYaml (default .Values.global.appServiceAffinity .Values.affinity) | indent 8 }}
 {{- end }}
