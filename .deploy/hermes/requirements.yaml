@@ -1,5 +1,5 @@
 dependencies:
 - name: redis
-  version: ~1.1.26
+  version: ~1.1.27
   repository: file://local-charts/redis
 #  repository: https://kubernetes-charts.storage.googleapis.com/
