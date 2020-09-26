@@ -81,6 +81,8 @@ spec:
         - name: REDIS_EXTRA_FLAGS
           value: {{ .Values.redisExtraFlags | join " " }}
         {{- end }}
+        - name: REDIS_AOF_ENABLED
+          value: "no"
         ports:
         - name: redis
           containerPort: 6379
