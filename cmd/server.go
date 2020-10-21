@@ -114,7 +114,7 @@ func runServer(c *cli.Context) error {
 	log.WithField("config", c.GlobalString("config")).Debug("monitoring types config file")
 
 	// get trigger backend service
-	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, eventProvider)
+	triggerBackend := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), codefreshService, eventProvider)
 	log.WithFields(log.Fields{
 		"redis server": c.GlobalString("redis"),
 		"redis port":   c.GlobalInt("redis-port"),

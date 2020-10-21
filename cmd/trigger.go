@@ -77,7 +77,7 @@ var triggerCommand = cli.Command{
 
 // get triggers by name(s), filter or ALL
 func listTriggers(c *cli.Context) error {
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), nil, nil)
 	// get event or pipeline
 	event := c.String("event")
 	pipeline := c.String("pipeline")
@@ -133,7 +133,7 @@ func createTrigger(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), codefreshService, nil)
 	// create triggers for event linking it to passed pipeline(s)
 	return triggerReaderWriter.CreateTrigger(getContext(c), args.First(), args.Get(1), filters)
 }
@@ -147,7 +147,7 @@ func deleteTrigger(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), codefreshService, nil)
 	// delete pipelines
 	return triggerReaderWriter.DeleteTrigger(getContext(c), args.First(), args.Get(1))
 }

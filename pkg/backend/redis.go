@@ -92,7 +92,7 @@ import (
 	"github.com/codefresh-io/hermes/pkg/provider"
 	"github.com/codefresh-io/hermes/pkg/util"
 	"github.com/garyburd/redigo/redis"
-	"github.com/newrelic/go-agent"
+	newrelic "github.com/newrelic/go-agent"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -176,22 +176,15 @@ func getPublicFlag(ctx context.Context) bool {
 }
 
 // Redis connection pool
-func newPool(server string, port int, password string) *redis.Pool {
+func newPool(server string, port int, db int, password string) *redis.Pool {
 	return &redis.Pool{
 		MaxIdle:     3,
 		IdleTimeout: 240 * time.Second,
 		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", fmt.Sprintf("%s:%d", server, port))
+			c, err := redis.Dial("tcp", fmt.Sprintf("%s:%d", server, port), redis.DialDatabase(db), redis.DialPassword(password))
 			if err != nil {
 				log.WithError(err).Fatal("failed to connect to the Redis store")
 				return nil, err
-			}
-			if password != "" {
-				if _, err := c.Do("AUTH", password); err != nil {
-					c.Close()
-					log.WithError(err).Fatal("failed to connect to the Redis store")
-					return nil, err
-				}
 			}
 			return c, nil
 		},
@@ -279,9 +272,9 @@ func getEventKey(account, id string) string {
 }
 
 // NewRedisStore create new Redis DB for storing trigger map
-func NewRedisStore(server string, port int, password string, pipelineSvc codefresh.PipelineService, eventProvider provider.EventProvider) *RedisStore {
+func NewRedisStore(server string, port int, db int, password string, pipelineSvc codefresh.PipelineService, eventProvider provider.EventProvider) *RedisStore {
 	r := new(RedisStore)
-	r.redisPool = &RedisPool{newPool(server, port, password)}
+	r.redisPool = &RedisPool{newPool(server, port, db, password)}
 	r.pipelineSvc = pipelineSvc
 	r.eventProvider = eventProvider
 	// create
