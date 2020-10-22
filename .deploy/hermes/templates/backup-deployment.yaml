@@ -27,6 +27,7 @@ spec:
       - env:
         - name: APP_ENVIRONMENT
           value: {{ .Values.backup.env }}
+        {{- if .Values.redis.enabled }}  
         - name: STORE_SERVICE
           value: {{ .Release.Name }}-{{ .Values.redis.nameOverride }}:{{ .Values.redis.port }}
         - name: REDIS_PASSWORD
@@ -34,6 +35,15 @@ spec:
             secretKeyRef:
               name: {{ .Release.Name }}-{{ .Values.redis.nameOverride }}
               key: redis-password
+        {{- else}}
+        - name: STORE_SERVICE
+          value: {{ default (printf "%s-%s" $.Release.Name $.Values.global.redisService) $.Values.global.redisUrl }}:6379
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: "{{ $.Release.Name }}-{{ $.Values.global.codefresh }}"
+              key: redis-password
+        {{- end }}
         - name: S3_URL
           valueFrom:
             secretKeyRef:

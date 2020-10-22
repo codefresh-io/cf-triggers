@@ -30,7 +30,7 @@ func runTrigger(c *cli.Context) error {
 	// get codefresh endpoint
 	codefreshService := codefresh.NewCodefreshEndpoint(c.GlobalString("c"), c.GlobalString("t"))
 	// get trigger service
-	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), codefreshService, nil)
+	triggerReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), codefreshService, nil)
 	// get pipeline runner
 	runner := backend.NewRunner(codefreshService)
 	// convert command line 'var' variables (key=value) to map

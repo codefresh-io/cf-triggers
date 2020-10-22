@@ -65,6 +65,12 @@ Copyright © Codefresh.io`, version.ASCIILogo)
 			Value:  6379,
 			EnvVar: "STORE_PORT",
 		},
+		cli.IntFlag{
+			Name:   "redis-db, d",
+			Usage:  "redis db number",
+			Value:  0,
+			EnvVar: "STORE_DB",
+		},
 		cli.StringFlag{
 			Name:   "redis-password, s",
 			Usage:  "redis store password",

@@ -130,7 +130,7 @@ func getContext(c *cli.Context) context.Context {
 
 func listEvents(c *cli.Context) error {
 	// get trigger backend
-	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), nil, nil)
 	// get trigger events
 	events, err := eventReaderWriter.GetEvents(getContext(c), c.String("type"), c.String("kind"), c.String("filter"))
 	if err != nil {
@@ -151,7 +151,7 @@ func listEvents(c *cli.Context) error {
 
 func getEvent(c *cli.Context) error {
 	// get trigger backend
-	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), nil, nil)
 	// get trigger events
 	event, err := eventReaderWriter.GetEvent(getContext(c), c.Args().First())
 	if err != nil {
@@ -165,7 +165,7 @@ func createEvent(c *cli.Context) error {
 	// get event provider informer
 	eventProvider := provider.NewEventProviderManager(c.GlobalString("config"), c.GlobalBool("skip-monitor"))
 	// get trigger backend
-	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, eventProvider)
+	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), nil, eventProvider)
 	// construct values map
 	values := make(map[string]string)
 	valueFlag := c.StringSlice("value")
@@ -190,7 +190,7 @@ func createEvent(c *cli.Context) error {
 
 func deleteEvent(c *cli.Context) error {
 	// get trigger backend
-	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalString("redis-password"), nil, nil)
+	eventReaderWriter := backend.NewRedisStore(c.GlobalString("redis"), c.GlobalInt("redis-port"), c.GlobalInt("redis-db"), c.GlobalString("redis-password"), nil, nil)
 	// get trigger events
 	err := eventReaderWriter.DeleteEvent(getContext(c), c.Args().First(), c.String("context"))
 	if err != nil {

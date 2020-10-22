@@ -74,15 +74,31 @@ spec:
               secretKeyRef:
                 name: "{{ .Release.Name }}-{{ .Values.global.codefresh }}"
                 key: newrelic-license-key
+          {{- if .Values.redis.enabled }}  
           - name: STORE_HOST
             value: "{{ .Release.Name }}-{{ .Values.redis.nameOverride }}"
           - name: STORE_PORT
             value: {{ .Values.redis.port | quote }}
+          - name: STORE_DB
+            value: "{{ .Values.redis.db }}"
           - name: STORE_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: "{{ .Release.Name }}-{{ .Values.redis.nameOverride }}"
                 key: redis-password
+          {{- else }}
+          - name: STORE_HOST
+            value: {{ default (printf "%s-%s" $.Release.Name $.Values.global.redisService) $.Values.global.redisUrl }}
+          - name: STORE_PORT
+            value: {{ .Values.redis.port | quote }}
+          - name: STORE_DB
+            value: "{{ .Values.redis.db }}"
+          - name: STORE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{ $.Release.Name }}-{{ $.Values.global.codefresh }}"
+                key: redis-password
+          {{- end }}
           - name: TYPES_CONFIG
             value: {{ default "/etc/hermes/type_config.json" .Values.types_config }}
           - name: PORT
