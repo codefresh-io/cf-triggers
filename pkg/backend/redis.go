@@ -183,8 +183,13 @@ func newPool(server string, port int, db int, password string) *redis.Pool {
 		Dial: func() (redis.Conn, error) {
 			c, err := redis.Dial("tcp", fmt.Sprintf("%s:%d", server, port), redis.DialDatabase(db), redis.DialPassword(password))
 			if err != nil {
-				log.WithError(err).Fatal("failed to connect to the Redis store")
-				return nil, err
+				if err.Error() == "ERR Client sent AUTH, but no password is set" {
+					c, err = redis.Dial("tcp", fmt.Sprintf("%s:%d", server, port), redis.DialDatabase(db))
+				}
+				if err != nil {
+					log.WithError(err).Fatal("failed to connect to the Redis store")
+					return nil, err
+				}
 			}
 			return c, nil
 		},
