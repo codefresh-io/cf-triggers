@@ -68,7 +68,7 @@ backup:
 # enabled: true
   replicaCount: 1
   image: codefresh/hermes-store-backup
-  tag: 0.1.2
+  tag: 0.2.0
   env: staging
 global:
   istio:
