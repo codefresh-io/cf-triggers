@@ -55,7 +55,7 @@ RUN make build
 #
 # ------ Hermes Trigger manager image ------
 #
-FROM alpine:3.9
+FROM alpine:3.11
 
 RUN apk update && apk add --no-cache ca-certificates && apk upgrade
 
